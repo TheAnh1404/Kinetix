@@ -3,7 +3,8 @@
  * Tương thích 100% với Next.js 14 App Router & Edge Middleware
  */
 
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT } from "jose/jwt/sign";
+import { jwtVerify } from "jose/jwt/verify";
 
 export interface AuthTokenPayload {
   userId: string;
