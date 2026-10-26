@@ -55,9 +55,22 @@ export const BACKEND_API_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   (typeof window !== 'undefined' ? '/api' : 'http://localhost:3000/api');
 
-// Enum Vault Type khớp với Smart Contract & Backend Schema
-export enum VaultType {
-  RetirementShield = 0,
-  KidsSavings = 1,
-  FamilyROSCA = 2,
+// Enum 4 Bộ Quy Tắc Hũ Tiền Động (RuleTemplate) khớp với Smart Contract FamilyHub.sol
+export enum RuleTemplate {
+  SHIELD = 0,       // Bảo vệ & Trợ cấp (Rút nhỏ <= limit giải ngân tức thì, rút lớn cần M/N approvals)
+  MILESTONE = 1,    // Nhiệm vụ & Cột mốc (Chore-to-Earn, gốc gửi C-Chain sinh lời, mở thưởng khi duyệt)
+  ROSCA = 2,        // Góp vốn xoay vòng (Định kỳ góp vốn, sinh lời C-Chain, xoay vòng giải ngân)
+  SHARED_GOAL = 3,  // Mục tiêu chung (Góp tiền du lịch/mua sắm chung, sinh lãi đến khi đạt target)
 }
+
+// Backward-compatibility alias
+export const VaultType = {
+  RetirementShield: 0,
+  KidsSavings: 1,
+  FamilyROSCA: 2,
+  SHIELD: 0,
+  MILESTONE: 1,
+  ROSCA: 2,
+  SHARED_GOAL: 3,
+};
+export type VaultType = RuleTemplate;

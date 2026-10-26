@@ -8,12 +8,13 @@ import "./interfaces/ITeleporterMessenger.sol";
 /**
  * @title FamilyYieldVault
  * @author Kinetix Team (UniHack - Avalanche Team1 Vietnam)
- * @notice Hợp đồng tích lũy và sinh lời tài sản gia đình trên Avalanche Fuji C-Chain (Chain ID: 43113)
+ * @notice Hợp đồng tích lũy và sinh lời tài sản theo Hũ động (Dynamic Vaults) trên Avalanche Fuji C-Chain (Chain ID: 43113)
  * Đặc tính:
- * 1. Tiếp nhận vốn nhàn rỗi (90%) được chuyển tiếp từ Family L1 thông qua Avalanche Teleporter (ICM).
- * 2. Tự động sinh lời mô phỏng giao thức Lending (Aave/Benqi) với mức lãi suất cố định 8% APY.
- * 3. Tính toán lãi suất nghiêm ngặt theo thời gian thực (block.timestamp) - TUYỆT ĐỐI KHÔNG dùng hàm tua nhanh thời gian giả tạo.
- * 4. Hỗ trợ giải ngân ngược về ví người nhận khi có yêu cầu rút tiền lớn được Guardians phê duyệt.
+ * 1. Quản lý vốn gốc và sinh lời DeFi độc lập theo định danh `vaultId` của từng Hũ tiền.
+ * 2. Tiếp nhận vốn nhàn rỗi được chuyển tiếp từ Family L1 thông qua Avalanche Teleporter (ICM).
+ * 3. Tự động sinh lời mô phỏng giao thức Lending (Aave/Benqi) với mức lãi suất cố định 8% APY.
+ * 4. Tính toán lãi suất nghiêm ngặt theo thời gian thực (block.timestamp) - TUYỆT ĐỐI KHÔNG dùng hàm tua nhanh thời gian giả tạo.
+ * 5. Hỗ trợ giải ngân ngược về ví người nhận khi có yêu cầu rút tiền lớn được Guardians phê duyệt theo từng Hũ.
  */
 contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
     // -------------------------------------------------------------
@@ -55,14 +56,14 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
     bytes32 public familyL1BlockchainId;
     address public familyHubAddress;
 
-    /// @notice Vốn gốc nạp vào theo từng gia đình (hoặc theo địa chỉ Hub): family => principal
-    mapping(address => uint256) public principalBalances;
+    /// @notice Vốn gốc nạp vào theo từng Hũ: vaultId => principal
+    mapping(uint256 => uint256) public vaultPrincipals;
 
-    /// @notice Mốc thời gian nạp tiền gần nhất để tính lãi: family => timestamp
-    mapping(address => uint256) public lastDepositTimestamp;
+    /// @notice Mốc thời gian nạp tiền gần nhất để tính lãi: vaultId => timestamp
+    mapping(uint256 => uint256) public lastDepositTimestamp;
 
-    /// @notice Lợi suất đã tích lũy từ các giai đoạn trước: family => accruedYield
-    mapping(address => uint256) public accruedYieldBalances;
+    /// @notice Lợi suất đã tích lũy từ các giai đoạn trước: vaultId => accruedYield
+    mapping(uint256 => uint256) public accruedYields;
 
     // -------------------------------------------------------------
     // EVENTS
@@ -73,11 +74,11 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
         address indexed hub
     );
 
-    event PrincipalDeposited(address indexed family, uint256 amount, uint256 timestamp);
+    event PrincipalDeposited(uint256 indexed vaultId, uint256 amount, uint256 timestamp);
 
-    event YieldAccrued(address indexed family, uint256 newYield, uint256 totalAccrued);
+    event YieldAccrued(uint256 indexed vaultId, uint256 newYield, uint256 totalAccrued);
 
-    event FundsWithdrawn(address indexed family, address indexed recipient, uint256 amount);
+    event FundsWithdrawn(uint256 indexed vaultId, address indexed recipient, uint256 amount);
 
     // -------------------------------------------------------------
     // CONSTRUCTOR
@@ -118,20 +119,20 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
     }
 
     // -------------------------------------------------------------
-    // 2. TÍNH TOÁN LỢI SUẤT THỰC TẾ (REAL-YIELD CALCULATION)
+    // 2. TÍNH TOÁN LỢI SUẤT THỰC TẾ (REAL-YIELD CALCULATION THEO VAULT ID)
     // -------------------------------------------------------------
 
     /**
      * @notice Tính toán phần lãi phát sinh từ mốc nạp cuối đến thời điểm block.timestamp hiện tại
      * Công thức: (principal * APY_RATE * timeElapsed) / (100 * 365 days)
      * TUYỆT ĐỐI dựa trên thời gian thực của mạng Avalanche, không dùng hàm hack/time-travel.
-     * @param family Địa chỉ gia đình (hoặc FamilyHub)
+     * @param vaultId Mã định danh Hũ tiền
      */
-    function calculateAccruedYield(address family) public view returns (uint256) {
-        uint256 principal = principalBalances[family];
+    function calculateAccruedYield(uint256 vaultId) public view returns (uint256) {
+        uint256 principal = vaultPrincipals[vaultId];
         if (principal == 0) return 0;
 
-        uint256 lastDeposit = lastDepositTimestamp[family];
+        uint256 lastDeposit = lastDepositTimestamp[vaultId];
         if (block.timestamp <= lastDeposit) return 0;
 
         uint256 timeElapsed = block.timestamp - lastDeposit;
@@ -139,20 +140,25 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
     }
 
     /**
-     * @notice Xem tổng lợi suất có thể nhận (lãi quá khứ + lãi tích lũy hiện tại)
+     * @notice Tính tổng lãi thực tế tích lũy của Hũ (lãi quá khứ + lãi phát sinh hiện tại)
+     * @param vaultId Mã định danh Hũ tiền
      */
-    function getTotalPendingYield(address family) external view returns (uint256) {
-        return accruedYieldBalances[family] + calculateAccruedYield(family);
+    function calculateTotalYield(uint256 vaultId) public view returns (uint256) {
+        return accruedYields[vaultId] + calculateAccruedYield(vaultId);
     }
 
     /**
-     * @notice Xem tổng tài sản của gia đình trên C-Chain (Vốn gốc + Lợi suất tích lũy)
+     * @notice Xem tổng lợi suất có thể nhận
      */
-    function getTotalValueLocked(address family) external view returns (uint256) {
-        return
-            principalBalances[family] +
-            accruedYieldBalances[family] +
-            calculateAccruedYield(family);
+    function getTotalPendingYield(uint256 vaultId) external view returns (uint256) {
+        return calculateTotalYield(vaultId);
+    }
+
+    /**
+     * @notice Xem tổng tài sản của Hũ trên C-Chain (Vốn gốc + Lợi suất tích lũy)
+     */
+    function getTotalValueLocked(uint256 vaultId) external view returns (uint256) {
+        return vaultPrincipals[vaultId] + calculateTotalYield(vaultId);
     }
 
     // -------------------------------------------------------------
@@ -177,64 +183,71 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
             if (originSenderAddress != familyHubAddress) revert UnauthorizedSender();
         }
 
-        // Giải mã thông điệp nhận từ Family L1
-        (BridgeAction action, uint8 vaultType, uint256 amount, address targetAddress) = abi.decode(
+        // Giải mã thông điệp nhận từ Family L1: (BridgeAction, vaultId, amount, targetAddress)
+        (BridgeAction action, uint256 vaultId, uint256 amount, address targetAddress) = abi.decode(
             message,
-            (BridgeAction, uint8, uint256, address)
+            (BridgeAction, uint256, uint256, address)
         );
-        vaultType; // Tránh warning unused variable
 
         if (action == BridgeAction.DEPOSIT) {
-            _handleDeposit(targetAddress, amount);
+            _handleDeposit(vaultId, amount);
         } else if (action == BridgeAction.WITHDRAW) {
-            _handleWithdrawal(originSenderAddress, targetAddress, amount);
+            _handleWithdrawal(vaultId, targetAddress, amount);
         }
     }
 
     /**
-     * @notice Xử lý nạp vốn và kết chuyển lãi cũ trước khi cộng dồn vốn mới
+     * @notice Xử lý nạp vốn vào hũ và kết chuyển lãi cũ trước khi cộng dồn vốn mới
      */
-    function _handleDeposit(address family, uint256 amount) internal {
+    function _handleDeposit(uint256 vaultId, uint256 amount) internal {
         if (amount == 0) revert ZeroAmount();
 
         // 1. Chốt lãi suất đã tích lũy từ mốc nạp trước
-        uint256 newAccrued = calculateAccruedYield(family);
+        uint256 newAccrued = calculateAccruedYield(vaultId);
         if (newAccrued > 0) {
-            accruedYieldBalances[family] += newAccrued;
-            emit YieldAccrued(family, newAccrued, accruedYieldBalances[family]);
+            accruedYields[vaultId] += newAccrued;
+            emit YieldAccrued(vaultId, newAccrued, accruedYields[vaultId]);
         }
 
         // 2. Cập nhật vốn gốc và cập nhật lại mốc thời gian hiện tại
-        principalBalances[family] += amount;
-        lastDepositTimestamp[family] = block.timestamp;
+        vaultPrincipals[vaultId] += amount;
+        lastDepositTimestamp[vaultId] = block.timestamp;
 
-        emit PrincipalDeposited(family, amount, block.timestamp);
+        emit PrincipalDeposited(vaultId, amount, block.timestamp);
+    }
+
+    /**
+     * @notice Tiếp nhận tiền gửi xuyên chuỗi trực tiếp kèm msg.value
+     */
+    function receiveCrossChainDeposit(uint256 vaultId) external payable nonReentrant {
+        if (msg.value == 0) revert ZeroAmount();
+        _handleDeposit(vaultId, msg.value);
     }
 
     /**
      * @notice Xử lý giải ngân khi có lệnh rút vốn lớn hợp lệ từ FamilyHub
      */
-    function _handleWithdrawal(address family, address recipient, uint256 amount) internal {
+    function _handleWithdrawal(uint256 vaultId, address recipient, uint256 amount) internal {
         if (amount == 0) revert ZeroAmount();
         if (recipient == address(0)) revert ZeroAddress();
 
         // Chốt lãi suất hiện tại trước khi giảm vốn
-        uint256 newAccrued = calculateAccruedYield(family);
+        uint256 newAccrued = calculateAccruedYield(vaultId);
         if (newAccrued > 0) {
-            accruedYieldBalances[family] += newAccrued;
+            accruedYields[vaultId] += newAccrued;
         }
-        lastDepositTimestamp[family] = block.timestamp;
+        lastDepositTimestamp[vaultId] = block.timestamp;
 
-        // Trừ từ vốn gốc hoặc từ lãi tích lũy
-        if (principalBalances[family] >= amount) {
-            principalBalances[family] -= amount;
+        // Trừ từ vốn gốc hoặc từ lãi tích lũy của Hũ
+        if (vaultPrincipals[vaultId] >= amount) {
+            vaultPrincipals[vaultId] -= amount;
         } else {
-            uint256 remainder = amount - principalBalances[family];
-            principalBalances[family] = 0;
-            if (accruedYieldBalances[family] < remainder) {
-                revert InsufficientBalance(accruedYieldBalances[family], remainder);
+            uint256 remainder = amount - vaultPrincipals[vaultId];
+            vaultPrincipals[vaultId] = 0;
+            if (accruedYields[vaultId] < remainder) {
+                revert InsufficientBalance(accruedYields[vaultId], remainder);
             }
-            accruedYieldBalances[family] -= remainder;
+            accruedYields[vaultId] -= remainder;
         }
 
         // Thực hiện chuyển tiền nếu hợp đồng có đủ số dư thanh khoản trên C-Chain
@@ -243,7 +256,22 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
             if (!success) revert TransferFailed();
         }
 
-        emit FundsWithdrawn(family, recipient, amount);
+        emit FundsWithdrawn(vaultId, recipient, amount);
+    }
+
+    /**
+     * @notice Rút vốn/lãi của đúng vaultId từ C-Chain
+     */
+    function processVaultWithdrawal(
+        uint256 vaultId,
+        address recipient,
+        uint256 amount
+    ) external nonReentrant {
+        // Cho phép Owner hoặc FamilyHub gọi
+        if (msg.sender != owner() && msg.sender != familyHubAddress) {
+            revert UnauthorizedSender();
+        }
+        _handleWithdrawal(vaultId, recipient, amount);
     }
 
     // -------------------------------------------------------------
@@ -251,27 +279,26 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
     // -------------------------------------------------------------
 
     /**
-     * @notice Cho phép nạp trực tiếp vào Vault trên C-Chain (cho testnet hoặc người thân ở ngoài mạng L1)
+     * @notice Cho phép nạp trực tiếp vào Vault trên C-Chain theo vaultId
      */
-    function depositPrincipal(address family) external payable nonReentrant {
+    function depositPrincipal(uint256 vaultId) external payable nonReentrant {
         if (msg.value == 0) revert ZeroAmount();
-        address beneficiary = family == address(0) ? msg.sender : family;
-        _handleDeposit(beneficiary, msg.value);
+        _handleDeposit(vaultId, msg.value);
     }
 
     /**
-     * @notice Cho phép gia đình tái đầu tư lãi phát sinh vào vốn gốc (Compound Interest)
+     * @notice Cho phép tái đầu tư lãi phát sinh vào vốn gốc (Compound Interest) cho vaultId
      */
-    function compoundYield(address family) external nonReentrant {
-        uint256 newYield = calculateAccruedYield(family);
-        uint256 totalYield = accruedYieldBalances[family] + newYield;
+    function compoundYield(uint256 vaultId) external nonReentrant {
+        uint256 newYield = calculateAccruedYield(vaultId);
+        uint256 totalYield = accruedYields[vaultId] + newYield;
         if (totalYield == 0) revert ZeroAmount();
 
-        accruedYieldBalances[family] = 0;
-        principalBalances[family] += totalYield;
-        lastDepositTimestamp[family] = block.timestamp;
+        accruedYields[vaultId] = 0;
+        vaultPrincipals[vaultId] += totalYield;
+        lastDepositTimestamp[vaultId] = block.timestamp;
 
-        emit PrincipalDeposited(family, totalYield, block.timestamp);
+        emit PrincipalDeposited(vaultId, totalYield, block.timestamp);
     }
 
     /// @notice Nhận AVAX trực tiếp bổ sung thanh khoản dự phòng

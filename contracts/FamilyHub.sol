@@ -7,26 +7,25 @@ import "./interfaces/ITeleporterMessenger.sol";
 /**
  * @title FamilyHub
  * @author Kinetix Team (UniHack - Avalanche Team1 Vietnam)
- * @notice Hợp đồng quản trị tài chính gia đình đa thế hệ trên Avalanche Family L1 (Gas = 0).
+ * @notice Hợp đồng quản trị tài chính đa không gian và Hũ động (Dynamic & Composable Multi-Space Vaults) trên Avalanche Family L1 (Gas = 0).
  * Cung cấp:
- * 1. Quản lý phân quyền gia đình và Social Recovery (khôi phục ví khi mất máy bằng >= 2 chữ ký con cái).
- * 2. Quản lý 3 hũ tài chính: Hưu trí (RetirementShield), Tiết kiệm con trẻ (KidsSavings), Tương trợ họ hàng (FamilyROSCA).
- * 3. Cơ chế đệm thanh khoản 10/90: 10% giữ tại L1 rút tức thì, 90% gửi sang Fuji C-Chain sinh lời ~8% APY.
- * 4. Đa chữ ký phân tầng chống lừa đảo người cao tuổi (Tiered Anti-Scam Multisig):
- *    - Rút <= 50 USDC: Giải ngân tức thì từ bộ đệm L1.
- *    - Rút > 50 USDC: Đưa vào hàng đợi, cần >= 2/3 chữ ký Guardians (các con) mới giải ngân.
- * 5. Cơ chế giáo dục tài chính trẻ em (Chore-to-Earn): Làm việc nhà nhận thưởng từ quỹ KidsSavings.
+ * 1. Khởi tạo không giới hạn số lượng Hũ tiền động (DynamicVault) với ID tự tăng.
+ * 2. Hỗ trợ 4 Bộ Quy Tắc (RuleTemplate): SHIELD (Bảo vệ), MILESTONE (Nhiệm vụ), ROSCA (Hụi họ), SHARED_GOAL (Mục tiêu chung).
+ * 3. Tùy chỉnh linh hoạt tỷ lệ đệm thanh khoản L1 / C-Chain (bufferRatioBps).
+ * 4. Đa chữ ký phân tầng (Tiered Multisig M/N) riêng biệt cho từng Hũ tiền.
+ * 5. Hệ thống nhiệm vụ Chore-to-Earn và Social Recovery theo từng Hũ.
  */
 contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
     // -------------------------------------------------------------
     // ENUMS & STRUCTS
     // -------------------------------------------------------------
 
-    /// @notice 3 Hũ tài chính của gia đình
-    enum VaultType {
-        RetirementShield, // Hũ 1: Báo hiếu & Hưu trí (ông bà)
-        KidsSavings, // Hũ 2: Lì xì & Tiết kiệm con trẻ
-        FamilyROSCA // Hũ 3: Quỹ tương trợ họ hàng
+    /// @notice 4 Bộ Quy Tắc linh hoạt cho từng Hũ tiền
+    enum RuleTemplate {
+        SHIELD,      // 0: Bảo vệ & Trợ cấp (Rút nhỏ <= limit giải ngân tức thì; rút lớn cần M/N Guardians)
+        MILESTONE,   // 1: Nhiệm vụ & Cột mốc (Chore-to-Earn - mở khóa thưởng khi hoàn thành task)
+        ROSCA,       // 2: Góp vốn xoay vòng (Họ Hụi - đẩy C-Chain sinh lời, định kỳ nhận gốc + lãi)
+        SHARED_GOAL  // 3: Mục tiêu chung (Góp tiền du lịch/mua sắm nhóm, cần M/N mở khóa)
     }
 
     /// @notice Loại hành động truyền qua cầu nối Teleporter
@@ -35,102 +34,126 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
         WITHDRAW
     }
 
-    /// @notice Phiếu yêu cầu rút tiền lớn cần đa chữ ký
-    struct WithdrawalRequest {
-        uint256 requestId; // Mã định danh yêu cầu
-        address requester; // Người yêu cầu rút tiền
-        VaultType vaultType; // Hũ tài chính rút tiền
-        uint256 amount; // Số tiền yêu cầu
-        address recipient; // Địa chỉ ví nhận tiền
-        string reason; // Mục đích rút tiền (hiển thị cho con cái kiểm tra)
-        uint256 approvalsCount; // Số lượng Guardians đã ký duyệt
-        uint256 deadline; // Thời hạn hiệu lực của yêu cầu (ví dụ: 48 giờ)
-        bool executed; // Trạng thái đã giải ngân hay chưa
+    /// @notice Cấu trúc lưu trữ Hũ tiền động
+    struct DynamicVault {
+        uint256 vaultId;
+        string name;
+        address creator;
+        RuleTemplate ruleType;
+        uint256 totalBalance;       // Tổng tài sản trong Hũ
+        uint256 l1BufferBalance;    // Số dư đệm giữ tại L1 để rút tức thì (<1s, 0 gas)
+        uint256 cChainPrincipal;    // Số vốn đang gửi sinh lời bên Avalanche Fuji C-Chain
+        uint256 bufferRatioBps;     // Tỷ lệ giữ lại L1 (VD: 1000 = 10% L1 / 90% C-Chain; 2000 = 20%)
+        uint256 fastWithdrawLimit;  // Hạn mức rút nhanh không cần duyệt (áp dụng cho SHIELD)
+        uint256 requiredApprovals;  // Số chữ ký Guardians cần thiết để duyệt lệnh rút lớn (M/N)
+        address[] guardians;        // Danh sách ví có quyền ký duyệt trong Hũ này
+        address[] beneficiaries;    // Danh sách người thụ hưởng / thành viên Hũ
+        bool isActive;              // Trạng thái hoạt động
     }
 
-    /// @notice Nhiệm vụ việc nhà trong chương trình Chore-to-Earn
+    /// @notice Phiếu yêu cầu rút tiền lớn cần đa chữ ký
+    struct WithdrawalRequest {
+        uint256 requestId;
+        uint256 vaultId;            // Gắn với Hũ tiền cụ thể
+        address requester;          // Người yêu cầu rút tiền
+        uint256 amount;             // Số tiền yêu cầu
+        address recipient;          // Địa chỉ ví nhận tiền
+        string reason;              // Mục đích rút tiền (hiển thị cho Guardians kiểm tra)
+        uint256 approvalsCount;     // Số lượng Guardians đã ký duyệt
+        uint256 deadline;           // Thời hạn hiệu lực của yêu cầu (48 giờ)
+        bool executed;              // Trạng thái đã giải ngân hay chưa
+    }
+
+    /// @notice Nhiệm vụ việc nhà / cột mốc trong chương trình Chore-to-Earn
     struct Task {
-        uint256 taskId; // Mã định danh nhiệm vụ
-        string title; // Tên việc nhà (dọn phòng, rửa bát, đạt điểm 10)
-        uint256 rewardAmount; // Số tiền thưởng khi hoàn thành
-        address kidAddress; // Địa chỉ ví của con
-        bool isCompleted; // Con đã báo cáo hoàn thành hay chưa
-        bool isRewarded; // Bố mẹ đã duyệt và chuyển thưởng hay chưa
+        uint256 taskId;
+        uint256 vaultId;            // Gắn với Hũ tiền cụ thể (RuleTemplate.MILESTONE)
+        string title;               // Tên việc nhà hoặc cột mốc
+        uint256 rewardAmount;       // Số tiền thưởng khi hoàn thành
+        address assignee;           // Địa chỉ ví người thực hiện (con trẻ / thành viên)
+        bool isCompleted;           // Đã báo cáo hoàn thành hay chưa
+        bool isRewarded;            // Đã duyệt và chuyển thưởng hay chưa
     }
 
     /// @notice Phiếu yêu cầu khôi phục ví xã hội khi mất máy
     struct RecoveryRequest {
-        address oldWallet; // Ví cũ của người thân (bị mất máy)
-        address newWallet; // Ví mới cần cấp quyền thay thế
-        uint256 approvalsCount; // Số lượng Guardians đã xác nhận
-        bool executed; // Đã thực thi đổi ví chưa
+        uint256 vaultId;
+        address oldWallet;
+        address newWallet;
+        uint256 approvalsCount;
+        bool executed;
     }
 
     // -------------------------------------------------------------
-    // CUSTOM ERRORS (Tối ưu bytecode & tiết kiệm gas)
+    // CUSTOM ERRORS
     // -------------------------------------------------------------
     error NotFamilyAdmin();
-    error NotGuardian();
-    error NotAuthorizedMember();
+    error NotVaultGuardian();
+    error NotVaultBeneficiary();
     error ZeroAddress();
     error ZeroAmount();
+    error VaultNotFound();
+    error VaultInactive();
+    error InvalidBufferRatio();
+    error InvalidApprovalThreshold();
     error ExceedsFastLimit(uint256 amount, uint256 limit);
     error InsufficientLocalBuffer(uint256 available, uint256 requested);
+    error InsufficientVaultBalance(uint256 available, uint256 requested);
     error RequestNotFound();
     error RequestAlreadyExecuted();
     error RequestExpired();
     error AlreadyApproved();
-    error MinimumGuardiansRequired();
-    error InvalidGuardianCount();
     error TaskNotFound();
     error TaskNotCompleted();
     error TaskAlreadyRewarded();
-    error KidAddressMismatch();
+    error AssigneeMismatch();
     error OnlyTeleporterMessenger();
     error RecoveryAlreadyExecuted();
+    error TransferFailed();
 
     // -------------------------------------------------------------
     // STATE VARIABLES
     // -------------------------------------------------------------
 
-    /// @notice Địa chỉ người quản trị gia đình (Bố/Mẹ)
+    /// @notice Người quản trị tối cao của Hub
     address public familyAdmin;
 
-    /// @notice Hạn mức rút tiền nhanh an toàn (Mặc định: 50 ether tương đương 50 USDC testnet)
-    uint256 public fastWithdrawLimit = 50 ether;
+    /// @notice Bộ đếm tự tăng cho Hũ tiền động
+    uint256 public vaultCounter;
 
-    /// @notice Số lượng chữ ký Guardian tối thiểu để giải ngân yêu cầu lớn (Mặc định: 2 trên tổng 3)
-    uint256 public constant REQUIRED_APPROVALS = 2;
+    /// @notice Bộ đếm tự tăng cho yêu cầu rút tiền
+    uint256 public requestCounter;
 
-    /// @notice Danh sách địa chỉ Guardians (các con trưởng thành)
-    address[] public guardiansList;
+    /// @notice Bộ đếm tự tăng cho nhiệm vụ Chore-to-Earn
+    uint256 public taskCounter;
 
-    /// @notice Mapping kiểm tra trạng thái Guardian
-    mapping(address => bool) public isGuardian;
+    /// @notice Lưu trữ thông tin Hũ tiền động: vaultId => DynamicVault
+    mapping(uint256 => DynamicVault) public vaults;
 
-    /// @notice Mapping kiểm tra thành viên hợp lệ trong gia đình
-    mapping(address => bool) public isFamilyMember;
+    /// @notice Danh sách Hũ mà một địa chỉ ví tham gia: userAddress => vaultId[]
+    mapping(address => uint256[]) private _userVaults;
 
-    /// @notice Số dư đệm thanh khoản 10% tại chỗ trên Family L1 theo từng hũ
-    mapping(VaultType => uint256) public localBufferBalances;
+    /// @notice Kiểm tra quyền Guardian theo Hũ: vaultId => guardianAddress => bool
+    mapping(uint256 => mapping(address => bool)) public isVaultGuardian;
 
-    /// @notice Số dư vốn 90% đã chuyển tiếp sang Avalanche C-Chain Vault
-    mapping(VaultType => uint256) public remoteYieldBalances;
+    /// @notice Kiểm tra quyền Beneficiary theo Hũ: vaultId => beneficiaryAddress => bool
+    mapping(uint256 => mapping(address => bool)) public isVaultBeneficiary;
 
-    /// @notice Quản lý các yêu cầu rút tiền lớn: requestId => WithdrawalRequest
+    /// @notice Quản lý danh sách yêu cầu rút tiền: requestId => WithdrawalRequest
     mapping(uint256 => WithdrawalRequest) public withdrawalRequests;
-    uint256 public withdrawalRequestCount;
 
-    /// @notice Kiểm tra một Guardian đã ký duyệt request chưa: requestId => guardian => bool
+    /// @notice Bản đồ chữ ký duyệt rút tiền: requestId => guardianAddress => bool
     mapping(uint256 => mapping(address => bool)) public hasApprovedRequest;
 
-    /// @notice Quản lý nhiệm vụ Chore-to-Earn: taskId => Task
-    mapping(uint256 => Task) public chores;
-    uint256 public choreCount;
+    /// @notice Quản lý danh sách nhiệm vụ Chore-to-Earn: taskId => Task
+    mapping(uint256 => Task) public tasks;
 
-    /// @notice Quản lý yêu cầu khôi phục ví xã hội: recoveryId => RecoveryRequest
+    /// @notice Yêu cầu khôi phục ví xã hội: hash(vaultId, oldWallet, newWallet) => RecoveryRequest
     mapping(bytes32 => RecoveryRequest) public recoveryRequests;
     mapping(bytes32 => mapping(address => bool)) public hasApprovedRecovery;
+
+    /// @notice Danh sách ví được cấp quyền tương tác mạng L1 khép kín
+    mapping(address => bool) public isAllowlisted;
 
     /// @notice Cấu hình tích hợp Avalanche Teleporter
     ITeleporterMessenger public teleporterMessenger;
@@ -138,15 +161,19 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
     address public yieldVaultAddress;
 
     // -------------------------------------------------------------
-    // EVENTS (Thông báo cho Web3 Client & Frontend)
+    // EVENTS
     // -------------------------------------------------------------
-    event FamilyAdminChanged(address indexed oldAdmin, address indexed newAdmin);
-    event GuardianAdded(address indexed guardian);
-    event GuardianRemoved(address indexed guardian);
-    event MemberUpdated(address indexed member, bool status);
+    event VaultCreated(
+        uint256 indexed vaultId,
+        string name,
+        address indexed creator,
+        RuleTemplate ruleType,
+        uint256 bufferRatioBps,
+        uint256 requiredApprovals
+    );
 
     event FundsDeposited(
-        VaultType indexed vaultType,
+        uint256 indexed vaultId,
         address indexed depositor,
         uint256 totalAmount,
         uint256 toBuffer,
@@ -154,29 +181,30 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
     );
 
     event FastWithdrawalExecuted(
-        VaultType indexed vaultType,
+        uint256 indexed vaultId,
         address indexed recipient,
         uint256 amount
     );
 
     event WithdrawalRequested(
         uint256 indexed requestId,
+        uint256 indexed vaultId,
         address indexed requester,
-        VaultType indexed vaultType,
         uint256 amount,
-        address recipient,
         string reason,
         uint256 deadline
     );
 
     event WithdrawalApproved(
         uint256 indexed requestId,
+        uint256 indexed vaultId,
         address indexed guardian,
         uint256 currentApprovals
     );
 
     event WithdrawalExecuted(
         uint256 indexed requestId,
+        uint256 indexed vaultId,
         address indexed recipient,
         uint256 amount,
         bool fullyFundedFromLocalBuffer
@@ -184,24 +212,28 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
 
     event ChoreCreated(
         uint256 indexed taskId,
+        uint256 indexed vaultId,
         string title,
         uint256 rewardAmount,
-        address indexed kidAddress
+        address indexed assignee
     );
-    event ChoreClaimed(uint256 indexed taskId, address indexed kidAddress);
-    event ChoreRewarded(uint256 indexed taskId, address indexed kidAddress, uint256 rewardAmount);
 
-    event WalletRecoveryProposed(
-        bytes32 indexed recoveryId,
+    event ChoreClaimed(uint256 indexed taskId, address indexed assignee);
+
+    event ChoreRewarded(
+        uint256 indexed taskId,
+        uint256 indexed vaultId,
+        address indexed assignee,
+        uint256 rewardAmount
+    );
+
+    event MemberWalletRecovered(
+        uint256 indexed vaultId,
         address indexed oldWallet,
         address indexed newWallet
     );
-    event WalletRecoveryApproved(
-        bytes32 indexed recoveryId,
-        address indexed guardian,
-        uint256 approvalsCount
-    );
-    event WalletRecovered(address indexed oldWallet, address indexed newWallet);
+
+    event AllowlistStatusChanged(address indexed account, bool isAllowed);
 
     // -------------------------------------------------------------
     // MODIFIERS
@@ -211,14 +243,20 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
         _;
     }
 
-    modifier onlyGuardian() {
-        if (!isGuardian[msg.sender]) revert NotGuardian();
+    modifier onlyVaultGuardian(uint256 vaultId) {
+        if (!isVaultGuardian[vaultId][msg.sender] && msg.sender != familyAdmin) {
+            revert NotVaultGuardian();
+        }
         _;
     }
 
-    modifier onlyAuthorizedMember() {
-        if (!isFamilyMember[msg.sender] && msg.sender != familyAdmin && !isGuardian[msg.sender]) {
-            revert NotAuthorizedMember();
+    modifier onlyVaultBeneficiary(uint256 vaultId) {
+        if (
+            !isVaultBeneficiary[vaultId][msg.sender] &&
+            msg.sender != vaults[vaultId].creator &&
+            msg.sender != familyAdmin
+        ) {
+            revert NotVaultBeneficiary();
         }
         _;
     }
@@ -227,36 +265,22 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
     // CONSTRUCTOR
     // -------------------------------------------------------------
     /**
-     * @notice Khởi tạo hợp đồng FamilyHub trên Family L1
-     * @param _admin Địa chỉ Bố/Mẹ quản trị
-     * @param _initialGuardians Danh sách tối thiểu 3 người con bảo hộ
-     * @param _teleporterMessenger Địa chỉ hợp đồng Teleporter Messenger (nếu có)
+     * @notice Khởi tạo hợp đồng FamilyHub trên Avalanche Family L1
+     * @param _admin Địa chỉ người quản trị
+     * @param _teleporterMessenger Địa chỉ hợp đồng Teleporter Messenger
      * @param _cChainBlockchainId Mã Blockchain ID của C-Chain
      * @param _yieldVaultAddress Địa chỉ hợp đồng FamilyYieldVault trên C-Chain
      */
     constructor(
         address _admin,
-        address[] memory _initialGuardians,
         address _teleporterMessenger,
         bytes32 _cChainBlockchainId,
         address _yieldVaultAddress
     ) {
         if (_admin == address(0)) revert ZeroAddress();
-        if (_initialGuardians.length < 3) revert MinimumGuardiansRequired();
 
         familyAdmin = _admin;
-        isFamilyMember[_admin] = true;
-
-        for (uint256 i = 0; i < _initialGuardians.length; i++) {
-            address g = _initialGuardians[i];
-            if (g == address(0)) revert ZeroAddress();
-            if (isGuardian[g]) revert InvalidGuardianCount();
-
-            isGuardian[g] = true;
-            isFamilyMember[g] = true;
-            guardiansList.push(g);
-            emit GuardianAdded(g);
-        }
+        isAllowlisted[_admin] = true;
 
         teleporterMessenger = ITeleporterMessenger(_teleporterMessenger);
         cChainBlockchainId = _cChainBlockchainId;
@@ -264,35 +288,8 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
     }
 
     // -------------------------------------------------------------
-    // 1. QUẢN TRỊ THÀNH VIÊN & SOCIAL RECOVERY
+    // 1. CẤU HÌNH & QUẢN TRỊ TRUNG TÂM
     // -------------------------------------------------------------
-
-    /**
-     * @notice Thiết lập địa chỉ người quản trị gia đình mới
-     */
-    function setFamilyAdmin(address _newAdmin) external onlyFamilyAdmin {
-        if (_newAdmin == address(0)) revert ZeroAddress();
-        address oldAdmin = familyAdmin;
-        familyAdmin = _newAdmin;
-        isFamilyMember[_newAdmin] = true;
-        emit FamilyAdminChanged(oldAdmin, _newAdmin);
-    }
-
-    /**
-     * @notice Cập nhật trạng thái thành viên gia đình (ví dụ: đăng ký ví ông bà, con nhỏ)
-     */
-    function setMemberStatus(address member, bool status) external onlyFamilyAdmin {
-        if (member == address(0)) revert ZeroAddress();
-        isFamilyMember[member] = status;
-        emit MemberUpdated(member, status);
-    }
-
-    /**
-     * @notice Thay đổi hạn mức rút tiền nhanh an toàn
-     */
-    function setFastWithdrawLimit(uint256 newLimit) external onlyFamilyAdmin {
-        fastWithdrawLimit = newLimit;
-    }
 
     /**
      * @notice Cập nhật cấu hình cầu nối Teleporter và Vault C-Chain
@@ -308,84 +305,135 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
     }
 
     /**
-     * @notice Khôi phục ví xã hội (Social Recovery) khi người thân bị mất điện thoại
-     * Yêu cầu tối thiểu >= 2 Guardians xác nhận để đổi ví cũ sang ví mới
+     * @notice Cập nhật trạng thái Allowlist cho địa chỉ ví
      */
-    function recoverMemberWallet(address oldWallet, address newWallet) external onlyGuardian {
-        if (oldWallet == address(0) || newWallet == address(0)) revert ZeroAddress();
-        bytes32 recoveryId = keccak256(abi.encodePacked(oldWallet, newWallet));
-
-        RecoveryRequest storage req = recoveryRequests[recoveryId];
-        if (req.executed) revert RecoveryAlreadyExecuted();
-
-        if (req.oldWallet == address(0)) {
-            req.oldWallet = oldWallet;
-            req.newWallet = newWallet;
-            emit WalletRecoveryProposed(recoveryId, oldWallet, newWallet);
-        }
-
-        if (hasApprovedRecovery[recoveryId][msg.sender]) revert AlreadyApproved();
-        hasApprovedRecovery[recoveryId][msg.sender] = true;
-        req.approvalsCount++;
-
-        emit WalletRecoveryApproved(recoveryId, msg.sender, req.approvalsCount);
-
-        // Đạt >= 2 chữ ký phê duyệt: Hoàn tất chuyển đổi ví
-        if (req.approvalsCount >= REQUIRED_APPROVALS) {
-            req.executed = true;
-
-            // Chuyển quyền thành viên
-            isFamilyMember[oldWallet] = false;
-            isFamilyMember[newWallet] = true;
-
-            // Nếu ví cũ là Guardian thì đổi vị trí
-            if (isGuardian[oldWallet]) {
-                isGuardian[oldWallet] = false;
-                isGuardian[newWallet] = true;
-                for (uint256 i = 0; i < guardiansList.length; i++) {
-                    if (guardiansList[i] == oldWallet) {
-                        guardiansList[i] = newWallet;
-                        break;
-                    }
-                }
-            }
-
-            // Nếu ví cũ là Admin
-            if (familyAdmin == oldWallet) {
-                familyAdmin = newWallet;
-            }
-
-            emit WalletRecovered(oldWallet, newWallet);
-        }
+    function setAllowlistStatus(address account, bool status) external onlyFamilyAdmin {
+        if (account == address(0)) revert ZeroAddress();
+        isAllowlisted[account] = status;
+        emit AllowlistStatusChanged(account, status);
     }
 
     // -------------------------------------------------------------
-    // 2. CƠ CHẾ NẠP TIỀN & ĐỆM THANH KHOẢN 10/90
+    // 2. KHỞI TẠO & QUẢN LÝ HŨ TIỀN ĐỘNG (DYNAMIC VAULTS)
     // -------------------------------------------------------------
 
     /**
-     * @notice Nạp tiền vào hũ tài chính gia đình
-     * Phân bổ: 10% giữ tại L1 (Liquid Buffer), 90% gửi C-Chain sinh lời ~8% APY
-     * Tính toán chuẩn xác tránh thất thoát số dư do làm tròn
-     * @param vaultType Loại hũ tài chính muốn nạp
+     * @notice Khởi tạo Hũ tiền mới với Bộ Quy Tắc tùy biến
+     * @param name Tên Hũ tiền (VD: "Hũ Báo Hiếu", "Hũ Lì Xì", "Quỹ Du Lịch")
+     * @param ruleType 1 trong 4 Bộ Quy Tắc (SHIELD, MILESTONE, ROSCA, SHARED_GOAL)
+     * @param bufferRatioBps Tỷ lệ đệm giữ lại L1 (basis points: 1000 = 10%, tối đa 10000 = 100%)
+     * @param fastWithdrawLimit Hạn mức rút nhanh không cần duyệt (áp dụng cho SHIELD)
+     * @param requiredApprovals Số chữ ký duyệt tối thiểu M/N khi rút tiền lớn
+     * @param guardians Danh sách ví bảo hộ / duyệt chi
+     * @param beneficiaries Danh sách ví người thụ hưởng
      */
-    function depositToVault(VaultType vaultType) external payable nonReentrant {
-        if (msg.value == 0) revert ZeroAmount();
+    function createCustomVault(
+        string calldata name,
+        RuleTemplate ruleType,
+        uint256 bufferRatioBps,
+        uint256 fastWithdrawLimit,
+        uint256 requiredApprovals,
+        address[] calldata guardians,
+        address[] calldata beneficiaries
+    ) external returns (uint256 vaultId) {
+        if (bytes(name).length == 0) revert ZeroAmount();
+        if (bufferRatioBps > 10000) revert InvalidBufferRatio();
+        if (guardians.length == 0) revert InvalidApprovalThreshold();
+        if (requiredApprovals == 0 || requiredApprovals > guardians.length) {
+            revert InvalidApprovalThreshold();
+        }
 
-        // Tính toán phân bổ không làm tròn số học (No rounding loss)
-        uint256 toBridge = (msg.value * 90) / 100;
+        vaultCounter++;
+        vaultId = vaultCounter;
+
+        DynamicVault storage newVault = vaults[vaultId];
+        newVault.vaultId = vaultId;
+        newVault.name = name;
+        newVault.creator = msg.sender;
+        newVault.ruleType = ruleType;
+        newVault.totalBalance = 0;
+        newVault.l1BufferBalance = 0;
+        newVault.cChainPrincipal = 0;
+        newVault.bufferRatioBps = bufferRatioBps;
+        newVault.fastWithdrawLimit = fastWithdrawLimit;
+        newVault.requiredApprovals = requiredApprovals;
+        newVault.guardians = guardians;
+        newVault.beneficiaries = beneficiaries;
+        newVault.isActive = true;
+
+        // Đăng ký quyền Guardians và lưu vào danh sách Hũ của từng Guardian
+        for (uint256 i = 0; i < guardians.length; i++) {
+            address g = guardians[i];
+            if (g == address(0)) revert ZeroAddress();
+            isVaultGuardian[vaultId][g] = true;
+            isAllowlisted[g] = true;
+            _registerUserVault(g, vaultId);
+        }
+
+        // Đăng ký quyền Beneficiaries và lưu vào danh sách Hũ
+        for (uint256 i = 0; i < beneficiaries.length; i++) {
+            address b = beneficiaries[i];
+            if (b == address(0)) revert ZeroAddress();
+            isVaultBeneficiary[vaultId][b] = true;
+            isAllowlisted[b] = true;
+            _registerUserVault(b, vaultId);
+        }
+
+        // Đăng ký creator
+        _registerUserVault(msg.sender, vaultId);
+
+        emit VaultCreated(
+            vaultId,
+            name,
+            msg.sender,
+            ruleType,
+            bufferRatioBps,
+            requiredApprovals
+        );
+
+        return vaultId;
+    }
+
+    function _registerUserVault(address user, uint256 vaultId) internal {
+        uint256[] storage uVaults = _userVaults[user];
+        for (uint256 i = 0; i < uVaults.length; i++) {
+            if (uVaults[i] == vaultId) return; // Đã có trong danh sách
+        }
+        uVaults.push(vaultId);
+    }
+
+    // -------------------------------------------------------------
+    // 3. NẠP TIỀN VÀ ĐIỀU CHUYỂN VỐN (DEPOSIT & TELEPORTER BRIDGE)
+    // -------------------------------------------------------------
+
+    /**
+     * @notice Nạp tiền vào Hũ và tự động tách đệm thanh khoản L1 / C-Chain theo bufferRatioBps
+     * @param vaultId Mã Hũ tiền nạp
+     */
+    function depositToVault(uint256 vaultId) external payable nonReentrant {
+        if (msg.value == 0) revert ZeroAmount();
+        DynamicVault storage vault = vaults[vaultId];
+        if (!vault.isActive) revert VaultInactive();
+
+        // Tính toán phần giữ lại L1 và phần chuyển C-Chain không mất số dư làm tròn
+        uint256 toBridge = (msg.value * (10000 - vault.bufferRatioBps)) / 10000;
         uint256 toBuffer = msg.value - toBridge;
 
-        localBufferBalances[vaultType] += toBuffer;
-        remoteYieldBalances[vaultType] += toBridge;
+        vault.l1BufferBalance += toBuffer;
+        vault.cChainPrincipal += toBridge;
+        vault.totalBalance += msg.value;
 
-        emit FundsDeposited(vaultType, msg.sender, msg.value, toBuffer, toBridge);
+        emit FundsDeposited(vaultId, msg.sender, msg.value, toBuffer, toBridge);
 
-        // Gửi thông điệp Teleporter sang Avalanche Fuji C-Chain nếu đã cấu hình
-        if (address(teleporterMessenger) != address(0) && yieldVaultAddress != address(0)) {
+        // Gửi thông điệp Teleporter sang C-Chain nếu có phần chuyển tiếp
+        if (
+            toBridge > 0 &&
+            address(teleporterMessenger) != address(0) &&
+            yieldVaultAddress != address(0)
+        ) {
             bytes memory payload = abi.encode(
                 BridgeAction.DEPOSIT,
-                vaultType,
+                vaultId,
                 toBridge,
                 msg.sender
             );
@@ -404,70 +452,72 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
     }
 
     // -------------------------------------------------------------
-    // 3. ĐA CHỮ KÝ PHÂN TẦNG CHỐNG LỪA ĐẢO (TIERED MULTISIG)
+    // 4. RÚT TIỀN NHANH (FAST WITHDRAWAL <= LIMIT, 0 GAS)
     // -------------------------------------------------------------
 
     /**
-     * @notice Rút tiền nhỏ nhanh chóng (Fast Withdrawal)
-     * Thao tác 1 chạm dành cho ông bà, giải ngân tức thì từ bộ đệm 10% tại chỗ (< 1s, 0 gas fee)
-     * @param vaultType Hũ tài chính cần rút
-     * @param amount Số tiền muốn rút
-     * @param recipient Địa chỉ ví nhận tiền
+     * @notice Rút tiền nhanh từ bộ đệm L1 dành cho Beneficiary (áp dụng mạnh mẽ cho hũ SHIELD)
+     * @param vaultId Mã Hũ tiền
+     * @param amount Số tiền cần rút
      */
     function fastWithdraw(
-        VaultType vaultType,
-        uint256 amount,
-        address payable recipient
-    ) external nonReentrant onlyAuthorizedMember {
+        uint256 vaultId,
+        uint256 amount
+    ) external nonReentrant onlyVaultBeneficiary(vaultId) {
         if (amount == 0) revert ZeroAmount();
-        if (recipient == address(0)) revert ZeroAddress();
+        DynamicVault storage vault = vaults[vaultId];
+        if (!vault.isActive) revert VaultInactive();
 
-        // Kiểm tra ngưỡng an toàn chống lừa đảo
-        if (amount > fastWithdrawLimit) {
-            revert ExceedsFastLimit(amount, fastWithdrawLimit);
+        if (amount > vault.fastWithdrawLimit) {
+            revert ExceedsFastLimit(amount, vault.fastWithdrawLimit);
         }
 
-        // Kiểm tra số dư bộ đệm tại chỗ
-        if (localBufferBalances[vaultType] < amount) {
-            revert InsufficientLocalBuffer(localBufferBalances[vaultType], amount);
+        if (vault.l1BufferBalance < amount) {
+            revert InsufficientLocalBuffer(vault.l1BufferBalance, amount);
         }
 
-        // Cập nhật số dư trước khi chuyển tiền (Mô hình Checks-Effects-Interactions)
-        localBufferBalances[vaultType] -= amount;
+        vault.l1BufferBalance -= amount;
+        vault.totalBalance -= amount;
 
-        (bool success, ) = recipient.call{value: amount}("");
-        require(success, "L1 Fast Transfer Failed");
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        if (!success) revert TransferFailed();
 
-        emit FastWithdrawalExecuted(vaultType, recipient, amount);
+        emit FastWithdrawalExecuted(vaultId, msg.sender, amount);
     }
 
+    // -------------------------------------------------------------
+    // 5. ĐA CHỮ KÝ PHÂN TẦNG CHO HŨ (TIERED MULTISIG M/N)
+    // -------------------------------------------------------------
+
     /**
-     * @notice Khởi tạo yêu cầu rút tiền lớn (> 50 USDC hoặc vượt bộ đệm)
-     * Đưa vào danh sách chờ xác thực đa chữ ký từ các con
-     * @param vaultType Hũ tài chính
-     * @param amount Số tiền cần rút
-     * @param recipient Địa chỉ ví nhận
-     * @param reason Lý do rút tiền (Ví dụ: "Viện phí", "Sửa nhà", "Mua quà")
+     * @notice Khởi tạo phiếu yêu cầu rút tiền lớn vượt hạn mức nhanh
+     * @param vaultId Mã Hũ tiền
+     * @param amount Số tiền muốn rút
+     * @param reason Mục đích rút tiền
      */
     function requestLargeWithdrawal(
-        VaultType vaultType,
+        uint256 vaultId,
         uint256 amount,
-        address recipient,
         string calldata reason
-    ) external onlyAuthorizedMember returns (uint256) {
+    ) external onlyVaultBeneficiary(vaultId) returns (uint256 requestId) {
         if (amount == 0) revert ZeroAmount();
-        if (recipient == address(0)) revert ZeroAddress();
+        DynamicVault storage vault = vaults[vaultId];
+        if (!vault.isActive) revert VaultInactive();
+        if (amount > vault.totalBalance) {
+            revert InsufficientVaultBalance(vault.totalBalance, amount);
+        }
 
-        withdrawalRequestCount++;
-        uint256 requestId = withdrawalRequestCount;
+        requestCounter++;
+        requestId = requestCounter;
+
         uint256 deadline = block.timestamp + 48 hours;
 
         withdrawalRequests[requestId] = WithdrawalRequest({
             requestId: requestId,
+            vaultId: vaultId,
             requester: msg.sender,
-            vaultType: vaultType,
             amount: amount,
-            recipient: recipient,
+            recipient: msg.sender,
             reason: reason,
             approvalsCount: 0,
             deadline: deadline,
@@ -476,10 +526,9 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
 
         emit WithdrawalRequested(
             requestId,
+            vaultId,
             msg.sender,
-            vaultType,
             amount,
-            recipient,
             reason,
             deadline
         );
@@ -488,206 +537,289 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
     }
 
     /**
-     * @notice Ký duyệt yêu cầu rút tiền lớn (Dành cho Guardians - các con)
-     * Khi đạt đủ >= 2/3 chữ ký, hợp đồng tự động thực thi giải ngân
-     * @param requestId Mã yêu cầu rút tiền
+     * @notice Guardian ký duyệt yêu cầu rút tiền lớn của Hũ
+     * @param requestId Mã định danh yêu cầu
      */
-    function approveWithdrawal(uint256 requestId) external onlyGuardian nonReentrant {
+    function approveWithdrawal(uint256 requestId) external nonReentrant {
         WithdrawalRequest storage req = withdrawalRequests[requestId];
-        if (req.amount == 0) revert RequestNotFound();
+        if (req.requestId == 0) revert RequestNotFound();
         if (req.executed) revert RequestAlreadyExecuted();
         if (block.timestamp > req.deadline) revert RequestExpired();
+
+        uint256 vaultId = req.vaultId;
+        if (!isVaultGuardian[vaultId][msg.sender] && msg.sender != familyAdmin) {
+            revert NotVaultGuardian();
+        }
+
         if (hasApprovedRequest[requestId][msg.sender]) revert AlreadyApproved();
 
         hasApprovedRequest[requestId][msg.sender] = true;
         req.approvalsCount++;
 
-        emit WithdrawalApproved(requestId, msg.sender, req.approvalsCount);
+        emit WithdrawalApproved(requestId, vaultId, msg.sender, req.approvalsCount);
 
-        // Đạt tối thiểu 2/3 chữ ký: Tự động giải ngân ngay lập tức
-        if (req.approvalsCount >= REQUIRED_APPROVALS) {
-            _executeWithdrawal(req);
-        }
-    }
+        // Đủ số chữ ký quy định M/N -> Tự động giải ngân
+        DynamicVault storage vault = vaults[vaultId];
+        if (req.approvalsCount >= vault.requiredApprovals) {
+            req.executed = true;
 
-    /**
-     * @notice Hàm nội bộ thực thi giải ngân sau khi đủ chữ ký đa bảo hộ
-     */
-    function _executeWithdrawal(WithdrawalRequest storage req) internal {
-        req.executed = true;
+            // Kiểm tra số dư đệm L1 tại chỗ
+            if (vault.l1BufferBalance >= req.amount) {
+                vault.l1BufferBalance -= req.amount;
+                vault.totalBalance -= req.amount;
 
-        uint256 vaultLocal = localBufferBalances[req.vaultType];
-        bool fullyFunded = false;
+                (bool success, ) = payable(req.recipient).call{value: req.amount}("");
+                if (!success) revert TransferFailed();
 
-        if (vaultLocal >= req.amount) {
-            // Trường hợp 1: Bộ đệm địa phương đủ tiền chi trả
-            localBufferBalances[req.vaultType] -= req.amount;
-            fullyFunded = true;
-
-            (bool success, ) = payable(req.recipient).call{value: req.amount}("");
-            require(success, "L1 Buffer Payout Failed");
-        } else {
-            // Trường hợp 2: Bộ đệm không đủ, chi trả toàn bộ phần có sẵn + yêu cầu rút từ C-Chain
-            uint256 partialFromLocal = vaultLocal;
-            uint256 neededFromRemote = req.amount - partialFromLocal;
-
-            if (partialFromLocal > 0) {
-                localBufferBalances[req.vaultType] = 0;
-                (bool successLocal, ) = payable(req.recipient).call{value: partialFromLocal}("");
-                require(successLocal, "L1 Partial Buffer Payout Failed");
-            }
-
-            if (remoteYieldBalances[req.vaultType] >= neededFromRemote) {
-                remoteYieldBalances[req.vaultType] -= neededFromRemote;
+                emit WithdrawalExecuted(requestId, vaultId, req.recipient, req.amount, true);
             } else {
-                remoteYieldBalances[req.vaultType] = 0;
-            }
+                // Đệm L1 không đủ: giải ngân hết đệm L1 có sẵn và phát lệnh Teleporter rút phần thiếu từ C-Chain
+                uint256 availableLocal = vault.l1BufferBalance;
+                uint256 deficit = req.amount - availableLocal;
 
-            // Gửi thông điệp Teleporter sang C-Chain để rút phần thiếu về ví người nhận
-            if (address(teleporterMessenger) != address(0) && yieldVaultAddress != address(0)) {
-                bytes memory payload = abi.encode(
-                    BridgeAction.WITHDRAW,
-                    req.vaultType,
-                    neededFromRemote,
-                    req.recipient
-                );
+                vault.l1BufferBalance = 0;
+                vault.cChainPrincipal = vault.cChainPrincipal >= deficit
+                    ? vault.cChainPrincipal - deficit
+                    : 0;
+                vault.totalBalance = vault.totalBalance >= req.amount
+                    ? vault.totalBalance - req.amount
+                    : 0;
 
-                TeleporterMessageInput memory messageInput = TeleporterMessageInput({
-                    destinationBlockchainID: cChainBlockchainId,
-                    destinationAddress: yieldVaultAddress,
-                    feeInfo: TeleporterFeeInfo({feeTokenAddress: address(0), amount: 0}),
-                    requiredGasLimit: 250000,
-                    allowedRelayerAddresses: new address[](0),
-                    message: payload
-                });
+                if (availableLocal > 0) {
+                    (bool success, ) = payable(req.recipient).call{value: availableLocal}("");
+                    if (!success) revert TransferFailed();
+                }
 
-                teleporterMessenger.sendCrossChainMessage(messageInput);
+                // Gửi thông điệp Teleporter sang C-Chain để rút phần thiếu về ví người nhận
+                if (
+                    address(teleporterMessenger) != address(0) &&
+                    yieldVaultAddress != address(0)
+                ) {
+                    bytes memory payload = abi.encode(
+                        BridgeAction.WITHDRAW,
+                        vaultId,
+                        deficit,
+                        req.recipient
+                    );
+
+                    TeleporterMessageInput memory messageInput = TeleporterMessageInput({
+                        destinationBlockchainID: cChainBlockchainId,
+                        destinationAddress: yieldVaultAddress,
+                        feeInfo: TeleporterFeeInfo({feeTokenAddress: address(0), amount: 0}),
+                        requiredGasLimit: 250000,
+                        allowedRelayerAddresses: new address[](0),
+                        message: payload
+                    });
+
+                    teleporterMessenger.sendCrossChainMessage(messageInput);
+                }
+
+                emit WithdrawalExecuted(requestId, vaultId, req.recipient, req.amount, false);
             }
         }
-
-        emit WithdrawalExecuted(req.requestId, req.recipient, req.amount, fullyFunded);
     }
 
     // -------------------------------------------------------------
-    // 4. CHƯƠNG TRÌNH GIÁO DỤC TÀI CHÍNH (CHORE-TO-EARN)
+    // 6. NHIỆM VỤ CHORE-TO-EARN (ÁP DỤNG CHO MILESTONE VAULTS)
     // -------------------------------------------------------------
 
     /**
-     * @notice Bố mẹ tạo nhiệm vụ việc nhà cho con
-     * @param title Tên việc nhà (ví dụ: "Dọn dẹp phòng ngủ cuối tuần")
-     * @param rewardAmount Tiền thưởng khi hoàn thành (trích từ hũ KidsSavings)
-     * @param kidAddress Ví nhận thưởng của con
+     * @notice Tạo nhiệm vụ việc nhà hoặc cột mốc mới gắn với Hũ
      */
     function createChore(
+        uint256 vaultId,
         string calldata title,
         uint256 rewardAmount,
-        address kidAddress
-    ) external onlyFamilyAdmin returns (uint256) {
+        address assignee
+    ) external onlyVaultGuardian(vaultId) returns (uint256 taskId) {
         if (rewardAmount == 0) revert ZeroAmount();
-        if (kidAddress == address(0)) revert ZeroAddress();
+        if (assignee == address(0)) revert ZeroAddress();
+        DynamicVault storage vault = vaults[vaultId];
+        if (!vault.isActive) revert VaultInactive();
+        if (rewardAmount > vault.totalBalance) revert InsufficientVaultBalance(vault.totalBalance, rewardAmount);
 
-        choreCount++;
-        uint256 taskId = choreCount;
+        taskCounter++;
+        taskId = taskCounter;
 
-        chores[taskId] = Task({
+        tasks[taskId] = Task({
             taskId: taskId,
+            vaultId: vaultId,
             title: title,
             rewardAmount: rewardAmount,
-            kidAddress: kidAddress,
+            assignee: assignee,
             isCompleted: false,
             isRewarded: false
         });
 
-        // Tự động cấp quyền thành viên cho con nếu chưa có
-        if (!isFamilyMember[kidAddress]) {
-            isFamilyMember[kidAddress] = true;
-        }
-
-        emit ChoreCreated(taskId, title, rewardAmount, kidAddress);
+        emit ChoreCreated(taskId, vaultId, title, rewardAmount, assignee);
         return taskId;
     }
 
     /**
-     * @notice Con nhỏ nộp báo cáo hoàn thành nhiệm vụ
-     * @param taskId Mã nhiệm vụ
+     * @notice Người được giao nhiệm vụ báo cáo đã hoàn thành
      */
     function claimChoreCompleted(uint256 taskId) external {
-        Task storage task = chores[taskId];
-        if (task.rewardAmount == 0) revert TaskNotFound();
-        if (msg.sender != task.kidAddress) revert KidAddressMismatch();
-        require(!task.isCompleted, "Chore already claimed");
+        Task storage task = tasks[taskId];
+        if (task.taskId == 0) revert TaskNotFound();
+        if (msg.sender != task.assignee) revert AssigneeMismatch();
 
         task.isCompleted = true;
         emit ChoreClaimed(taskId, msg.sender);
     }
 
     /**
-     * @notice Bố mẹ xác nhận và trả thưởng từ hũ KidsSavings
-     * @param taskId Mã nhiệm vụ
+     * @notice Guardian duyệt và chuyển tiền thưởng nhiệm vụ
      */
-    function verifyAndRewardChore(uint256 taskId) external onlyFamilyAdmin nonReentrant {
-        Task storage task = chores[taskId];
-        if (task.rewardAmount == 0) revert TaskNotFound();
+    function verifyAndRewardChore(uint256 taskId) external nonReentrant {
+        Task storage task = tasks[taskId];
+        if (task.taskId == 0) revert TaskNotFound();
         if (!task.isCompleted) revert TaskNotCompleted();
         if (task.isRewarded) revert TaskAlreadyRewarded();
 
-        // Kiểm tra số dư đệm trong hũ Tiết kiệm con trẻ
-        if (localBufferBalances[VaultType.KidsSavings] < task.rewardAmount) {
-            revert InsufficientLocalBuffer(
-                localBufferBalances[VaultType.KidsSavings],
-                task.rewardAmount
-            );
+        uint256 vaultId = task.vaultId;
+        if (!isVaultGuardian[vaultId][msg.sender] && msg.sender != familyAdmin) {
+            revert NotVaultGuardian();
+        }
+
+        DynamicVault storage vault = vaults[vaultId];
+        if (vault.l1BufferBalance < task.rewardAmount) {
+            revert InsufficientLocalBuffer(vault.l1BufferBalance, task.rewardAmount);
         }
 
         task.isRewarded = true;
-        localBufferBalances[VaultType.KidsSavings] -= task.rewardAmount;
+        vault.l1BufferBalance -= task.rewardAmount;
+        vault.totalBalance -= task.rewardAmount;
 
-        (bool success, ) = payable(task.kidAddress).call{value: task.rewardAmount}("");
-        require(success, "Chore Reward Transfer Failed");
+        (bool success, ) = payable(task.assignee).call{value: task.rewardAmount}("");
+        if (!success) revert TransferFailed();
 
-        emit ChoreRewarded(taskId, task.kidAddress, task.rewardAmount);
+        emit ChoreRewarded(taskId, vaultId, task.assignee, task.rewardAmount);
     }
 
     // -------------------------------------------------------------
-    // 5. CALLBACK TELEPORTER (TIẾP NHẬN THÔNG ĐIỆP TỪ C-CHAIN)
+    // 7. SOCIAL RECOVERY CHO THÀNH VIÊN THEO HŨ
     // -------------------------------------------------------------
 
     /**
-     * @notice Tiếp nhận thông điệp phản hồi từ Avalanche Fuji C-Chain
+     * @notice Khôi phục ví xã hội khi thành viên bị mất máy, cần đủ chữ ký Guardians của Hũ
      */
+    function recoverMemberWallet(
+        uint256 vaultId,
+        address oldWallet,
+        address newWallet
+    ) external onlyVaultGuardian(vaultId) {
+        if (oldWallet == address(0) || newWallet == address(0)) revert ZeroAddress();
+        DynamicVault storage vault = vaults[vaultId];
+        if (!vault.isActive) revert VaultInactive();
+
+        bytes32 reqHash = keccak256(abi.encodePacked(vaultId, oldWallet, newWallet));
+        RecoveryRequest storage req = recoveryRequests[reqHash];
+
+        if (req.executed) revert RecoveryAlreadyExecuted();
+
+        if (req.vaultId == 0) {
+            req.vaultId = vaultId;
+            req.oldWallet = oldWallet;
+            req.newWallet = newWallet;
+        }
+
+        if (hasApprovedRecovery[reqHash][msg.sender]) revert AlreadyApproved();
+        hasApprovedRecovery[reqHash][msg.sender] = true;
+        req.approvalsCount++;
+
+        // Khi đủ số lượng Guardians của Hũ xác nhận
+        if (req.approvalsCount >= vault.requiredApprovals) {
+            req.executed = true;
+
+            // Chuyển quyền Beneficiary nếu có
+            if (isVaultBeneficiary[vaultId][oldWallet]) {
+                isVaultBeneficiary[vaultId][oldWallet] = false;
+                isVaultBeneficiary[vaultId][newWallet] = true;
+                _registerUserVault(newWallet, vaultId);
+            }
+
+            // Chuyển quyền Guardian nếu có
+            if (isVaultGuardian[vaultId][oldWallet]) {
+                isVaultGuardian[vaultId][oldWallet] = false;
+                isVaultGuardian[vaultId][newWallet] = true;
+                _registerUserVault(newWallet, vaultId);
+            }
+
+            isAllowlisted[newWallet] = true;
+            emit MemberWalletRecovered(vaultId, oldWallet, newWallet);
+        }
+    }
+
+    // -------------------------------------------------------------
+    // 8. CALLBACK TELEPORTER (TIẾP NHẬN PHẢN HỒI TỪ C-CHAIN)
+    // -------------------------------------------------------------
+
     function receiveTeleporterMessage(
         bytes32 /* originChainID */,
         address /* originSenderAddress */,
         bytes calldata /* message */
     ) external view override {
-        // Kiểm tra bảo mật nguồn gửi nếu messenger được cấu hình
         if (address(teleporterMessenger) != address(0)) {
             if (msg.sender != address(teleporterMessenger)) revert OnlyTeleporterMessenger();
         }
     }
 
     // -------------------------------------------------------------
-    // VIEW HELPERS
+    // 9. GETTER VIEW FUNCTIONS CHO DAPP
     // -------------------------------------------------------------
 
     /**
-     * @notice Lấy danh sách toàn bộ Guardians
+     * @notice Lấy thông tin chi tiết của 1 Hũ tiền
      */
-    function getGuardians() external view returns (address[] memory) {
-        return guardiansList;
+    function getVault(uint256 vaultId) external view returns (DynamicVault memory) {
+        return vaults[vaultId];
     }
 
     /**
-     * @notice Lấy thông tin tổng quan số dư 3 hũ tài chính
+     * @notice Lấy danh sách ID các Hũ mà một người dùng tham gia
      */
-    function getVaultOverview(
-        VaultType vaultType
-    ) external view returns (uint256 localBuffer, uint256 remoteYield, uint256 total) {
-        localBuffer = localBufferBalances[vaultType];
-        remoteYield = remoteYieldBalances[vaultType];
-        total = localBuffer + remoteYield;
+    function getUserVaultIds(address user) external view returns (uint256[] memory) {
+        return _userVaults[user];
     }
 
-    /// @notice Cho phép nhận AVAX trực tiếp bổ sung ngân sách
+    /**
+     * @notice Lấy danh sách Guardians của Hũ
+     */
+    function getVaultGuardians(uint256 vaultId) external view returns (address[] memory) {
+        return vaults[vaultId].guardians;
+    }
+
+    /**
+     * @notice Lấy danh sách Beneficiaries của Hũ
+     */
+    function getVaultBeneficiaries(uint256 vaultId) external view returns (address[] memory) {
+        return vaults[vaultId].beneficiaries;
+    }
+
+    /**
+     * @notice Tổng quan nhanh số dư của Hũ
+     */
+    function getVaultOverview(
+        uint256 vaultId
+    )
+        external
+        view
+        returns (
+            uint256 total,
+            uint256 l1Buffer,
+            uint256 cChainPrincipal,
+            uint256 bufferRatioBps
+        )
+    {
+        DynamicVault storage vault = vaults[vaultId];
+        return (
+            vault.totalBalance,
+            vault.l1BufferBalance,
+            vault.cChainPrincipal,
+            vault.bufferRatioBps
+        );
+    }
+
+    /// @notice Nhận AVAX trực tiếp bổ sung bộ đệm
     receive() external payable {}
 }
