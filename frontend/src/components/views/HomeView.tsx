@@ -1,8 +1,11 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { ActiveTab } from "../../types";
 import { useFamily } from "@/context/FamilyContext";
+import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface HomeViewProps {
   onNavigate: (tab: ActiveTab) => void;
@@ -13,408 +16,520 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onNavigate,
   onOpenDeposit,
 }) => {
-  const { vaults, totalFamilyWealth } = useFamily();
-  return (
-    <div className="flex flex-col w-full">
-      {/* SECTION 1: HERO */}
-      <section className="relative w-full pt-8 pb-16 px-gutter max-w-7xl mx-auto overflow-hidden">
-        <div className="absolute -top-32 right-1/4 w-96 h-96 bg-secondary-container/10 rounded-full blur-3xl pointer-events-none -z-10" />
-        <div className="absolute top-1/2 -left-20 w-80 h-80 bg-surface-container-high/60 rounded-full blur-2xl pointer-events-none -z-10" />
+  const { vaults } = useFamily();
+  const { isAuthenticated, user } = useAuth();
+  const { t } = useLanguage();
 
-        {/* Floating Badges Strip */}
-        <div className="flex flex-wrap items-center justify-center gap-space-sm mb-space-lg">
-          <div className="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-surface-container-lowest shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-secondary"></span>
-            <span className="font-label-caps text-label-caps text-on-surface">
-              Built on Avalanche L1
-            </span>
+  const handleStartCTA = () => {
+    if (isAuthenticated) {
+      if (user?.role === "ELDERLY") onNavigate("kinetix-shield");
+      else if (user?.role === "CHILD") onNavigate("kinetix-kids");
+      else onNavigate("quan-tri-cha-me");
+    }
+  };
+
+  return (
+    <div className="flex flex-col w-full text-on-surface">
+      
+      {/* ========================================================================= */}
+      {/* SECTION 1: HERO & CORE VALUE PROPOSITION */}
+      {/* ========================================================================= */}
+      <section id="about" className="relative w-full pt-12 pb-20 px-gutter max-w-7xl mx-auto overflow-hidden">
+        {/* Ambient lighting effects */}
+        <div className="absolute -top-32 right-1/4 w-[500px] h-[500px] bg-secondary/10 rounded-full blur-3xl pointer-events-none -z-10" />
+        <div className="absolute top-1/2 -left-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
+
+        {/* Feature Badges Strip */}
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-8">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/30 shadow-sm text-xs font-semibold">
+            <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
+            <span>{t("hero.badge.subnet")}</span>
           </div>
-          <div className="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-surface-container-lowest shadow-sm">
-            <span className="material-symbols-outlined text-[15px] text-tertiary-fixed-dim">
-              bolt
-            </span>
-            <span className="font-label-caps text-label-caps text-on-surface">
-              Zero Gas Fee (0 Gwei)
-            </span>
+
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/30 shadow-sm text-xs font-semibold">
+            <span className="material-symbols-outlined text-[16px] text-amber-500">bolt</span>
+            <span>{t("hero.badge.gas")}</span>
           </div>
-          <div className="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-surface-container-lowest shadow-sm">
-            <span className="material-symbols-outlined text-[15px] text-secondary">
-              verified_user
-            </span>
-            <span className="font-label-caps text-label-caps text-on-surface">
-              Anti-Scam Multisig 2/3
-            </span>
+
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/30 shadow-sm text-xs font-semibold">
+            <span className="material-symbols-outlined text-[16px] text-secondary">verified_user</span>
+            <span>{t("hero.badge.multisig")}</span>
           </div>
-          <div className="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-surface-container-lowest shadow-sm">
-            <span className="material-symbols-outlined text-[15px] text-on-surface-variant">
-              sync_alt
-            </span>
-            <span className="font-label-caps text-label-caps text-on-surface">
-              Teleporter ICM Powered
-            </span>
+
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/30 shadow-sm text-xs font-semibold">
+            <span className="material-symbols-outlined text-[16px] text-emerald-600">sync_alt</span>
+            <span>{t("hero.badge.teleporter")}</span>
           </div>
         </div>
 
-        {/* Main Title & Subtitle */}
-        <div className="text-center max-w-4xl mx-auto mb-space-xl">
-          <h1 className="font-display-lg text-display-lg md:text-[48px] md:leading-[56px] text-on-surface tracking-tight mb-space-md">
-            Hệ Điều Hành Tài Chính Gia Đình Đa Thế Hệ Trên{" "}
-            <span className="bg-gradient-to-r from-secondary to-secondary-container bg-clip-text text-transparent">
+        {/* Hero Title & Subtitle */}
+        <div className="text-center max-w-4xl mx-auto mb-12">
+          <h1 className="font-display-lg text-3xl sm:text-5xl lg:text-[54px] lg:leading-[64px] font-bold tracking-tight text-on-surface mb-6">
+            {t("hero.title")}{" "}
+            <span className="bg-gradient-to-r from-secondary via-secondary-container to-amber-500 bg-clip-text text-transparent">
               Avalanche
             </span>
           </h1>
-          <p className="font-body-lg text-body-lg text-on-surface-variant max-w-3xl mx-auto leading-relaxed">
-            Bảo vệ ông bà khỏi lừa đảo AI công nghệ cao, dạy con quản lý tài
-            chính sớm với 0đ phí gas, và tự động sinh lời 8%/năm từ dòng tiền
-            nhàn rỗi trong gia đình.
+
+          <p className="font-body-lg text-base sm:text-lg text-on-surface-variant max-w-3xl mx-auto leading-relaxed">
+            {t("hero.subtitle")}
           </p>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-space-md mt-space-lg">
-            <button
-              onClick={onOpenDeposit}
-              className="w-full sm:w-auto px-space-lg py-3 rounded-xl bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-on-secondary font-label-lg text-label-lg shadow-md transition-all flex items-center justify-center gap-space-xs"
-              type="button"
+          {/* Primary Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
+            {isAuthenticated ? (
+              <button
+                onClick={handleStartCTA}
+                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-secondary-container hover:bg-secondary text-white font-headline-sm text-base font-bold shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                type="button"
+              >
+                <span>{t("nav.dashboard")}</span>
+                <span className="material-symbols-outlined text-[20px]">space_dashboard</span>
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-secondary-container hover:bg-secondary text-white font-headline-sm text-base font-bold shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>{t("hero.cta.start")}</span>
+                <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+              </Link>
+            )}
+
+            <a
+              href="#architecture"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-surface-container-lowest hover:bg-surface-container text-on-surface font-headline-sm text-base font-bold shadow-sm border border-outline-variant/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Bắt đầu nạp Quỹ Gia Đình</span>
-              <span className="material-symbols-outlined text-[18px]">
-                arrow_forward
-              </span>
-            </button>
-            <button
-              onClick={() => onNavigate("quan-tri-cha-me")}
-              className="w-full sm:w-auto px-space-lg py-3 rounded-xl bg-surface-container-lowest hover:bg-surface-container text-on-surface font-label-lg text-label-lg shadow-sm transition-all flex items-center justify-center gap-space-xs"
-              type="button"
-            >
-              <span className="material-symbols-outlined text-[20px] text-secondary">
-                play_circle
-              </span>
-              <span>Trạm Quản Trị Cha Mẹ</span>
-            </button>
+              <span className="material-symbols-outlined text-[20px] text-secondary">explore</span>
+              <span>{t("hero.cta.explore")}</span>
+            </a>
           </div>
         </div>
 
-        {/* Split Interactive Hero Mockup Card */}
-        <div className="w-full bg-surface-container-lowest rounded-2xl shadow-xl p-space-md md:p-space-lg relative border border-surface-container-high/60">
-          <div className="flex flex-col lg:flex-row items-stretch justify-between gap-space-md">
-            {/* Left: Grandparent Quick Shield Card */}
-            <div className="flex-1 bg-surface-container-low rounded-xl p-space-md flex flex-col justify-between border border-surface-container-high/40">
-              <div>
-                <div className="flex items-center justify-between mb-space-sm">
-                  <span className="px-space-xs py-0.5 rounded font-label-caps text-label-caps bg-secondary-fixed text-on-secondary-fixed uppercase">
-                    Thế Hệ 1 • Ông Bà
-                  </span>
-                  <span className="flex items-center gap-1 font-label-caps text-label-caps text-on-surface-variant">
-                    <span className="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim"></span>{" "}
-                    Bảo vệ AI
-                  </span>
-                </div>
-                <div className="font-headline-sm text-headline-sm text-on-surface mb-1">
-                  ${vaults.retirementShield.localBuffer.toFixed(2)}{" "}
-                  <span className="font-label-md text-label-md text-on-surface-variant">
-                    USDC (Đệm L1)
-                  </span>
-                </div>
-                <p className="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
-                  Hạn mức chi tiêu tự do: 50$/ngày (Không cần duyệt)
-                </p>
-              </div>
-              <div className="space-y-space-xs">
-                <button
-                  onClick={() => onNavigate("kinetix-shield")}
-                  className="w-full py-space-sm rounded-lg bg-secondary text-on-secondary font-label-lg text-label-lg shadow-sm flex items-center justify-center gap-space-xs active:scale-95 transition-transform"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[18px]">
-                    shopping_basket
-                  </span>
-                  <span>Rút Đi Chợ ($20)</span>
-                </button>
-                <div className="p-space-xs rounded bg-surface-container-high text-center">
-                  <span className="font-label-caps text-label-caps text-on-surface-variant">
-                    Mọi giao dịch &gt; $50 kích hoạt chặn scam tự động
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Center: Parent Guardian multisig widget */}
-            <div className="flex-1 bg-inverse-surface rounded-xl p-space-md text-inverse-on-surface flex flex-col justify-between shadow-md">
-              <div>
-                <div className="flex items-center justify-between mb-space-sm">
-                  <span className="px-space-xs py-0.5 rounded font-label-caps text-label-caps bg-primary-container text-inverse-primary uppercase">
-                    Trạm Quản Trị Cha Mẹ
-                  </span>
-                  <span className="font-label-caps text-label-caps text-secondary-fixed flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">
-                      lock_clock
-                    </span>{" "}
-                    Multisig 2/3
-                  </span>
-                </div>
-                <div className="font-title-md text-title-md text-inverse-on-surface mb-space-xs">
-                  Cảnh báo Phê Duyệt Rút Lớn
-                </div>
-                <p className="font-body-sm text-body-sm text-outline-variant mb-space-md">
-                  Yêu cầu rút $1,000 từ Tài khoản Ông Nội đang chờ xác nhận.
-                </p>
-                {/* Multisig Signatures Indicator */}
-                <div className="bg-primary-container p-space-sm rounded-lg space-y-space-xs mb-space-md">
-                  <div className="flex items-center justify-between font-label-caps text-label-caps text-outline-variant">
-                    <span>Chữ Ký Giám Sát</span>
-                    <span className="text-tertiary-fixed-dim">1 / 2 Đã ký</span>
-                  </div>
-                  <div className="w-full bg-inverse-surface rounded-full h-2 overflow-hidden">
-                    <div className="bg-tertiary-fixed-dim h-full w-1/2"></div>
-                  </div>
-                  <div className="flex items-center gap-space-xs mt-space-xs">
-                    <span className="w-6 h-6 rounded-full bg-tertiary-fixed-dim/20 text-tertiary-fixed-dim flex items-center justify-center font-label-caps text-label-caps">
-                      ✓ Anh
-                    </span>
-                    <span className="w-6 h-6 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-label-caps text-label-caps animate-pulse">
-                      Ba
-                    </span>
-                    <span className="w-6 h-6 rounded-full bg-inverse-surface text-outline-variant flex items-center justify-center font-label-caps text-label-caps">
-                      Út
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => onNavigate("quan-tri-cha-me")}
-                className="w-full py-space-sm rounded-lg bg-surface-container-lowest text-on-surface font-label-lg text-label-lg flex items-center justify-center gap-space-xs hover:bg-surface-container transition-colors"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[18px]">
-                  verified
-                </span>
-                <span>Ký Lệnh Khẩn Cấp (0 Gas)</span>
-              </button>
-            </div>
-
-            {/* Right: Kids Smart Piggybank widget */}
-            <div className="flex-1 bg-surface-container-low rounded-xl p-space-md flex flex-col justify-between border border-surface-container-high/40">
-              <div>
-                <div className="flex items-center justify-between mb-space-sm">
-                  <span className="px-space-xs py-0.5 rounded font-label-caps text-label-caps bg-surface-container-highest text-on-surface uppercase">
-                    Thế Hệ Con Cái • Heo Đất
-                  </span>
-                  <span className="px-space-xs py-0.5 rounded-full font-label-caps text-label-caps bg-surface-container-highest text-on-tertiary-container flex items-center gap-1 font-bold">
-                    <span className="material-symbols-outlined text-[12px]">
-                      trending_up
-                    </span>{" "}
-                    +8.0% APY
-                  </span>
-                </div>
-                <div className="font-headline-sm text-headline-sm text-on-surface mb-1">
-                  ${vaults.kidsSavings.localBuffer.toFixed(2)}{" "}
-                  <span className="font-label-md text-label-md text-emerald-700 font-bold">
-                    +${vaults.kidsSavings.accruedYield.toFixed(2)} Lãi
-                  </span>
-                </div>
-                <p className="font-body-sm text-body-sm text-on-surface-variant mb-space-sm">
-                  Nhiệm vụ hôm nay: Điểm 10 toán &amp; rửa chén
-                </p>
-                <div className="p-space-xs rounded-lg bg-surface-container-lowest flex items-center justify-between mb-space-md shadow-sm">
-                  <div className="flex items-center gap-space-xs">
-                    <span className="material-symbols-outlined text-secondary text-[18px]">
-                      task_alt
-                    </span>
-                    <span className="font-label-md text-label-md text-on-surface font-medium">
-                      Đạt điểm 10 kiểm tra Toán
-                    </span>
-                  </div>
-                  <span className="font-label-caps text-label-caps px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface font-bold">
-                    +5.0 USDC
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => onNavigate("kinetix-kids")}
-                className="w-full py-space-sm rounded-lg bg-surface-container-highest hover:bg-surface-container text-on-surface font-label-lg text-label-lg flex items-center justify-center gap-space-xs transition-colors"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[18px]">
-                  savings
-                </span>
-                <span>Vào Heo Đất Của Bé</span>
-              </button>
-            </div>
+        {/* 4 Core Pillars Strip (Clean, Focused, High-Trust) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
+          <div className="p-5 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-1 text-left">
+            <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+              {t("hero.stat.gas")}
+            </span>
+            <span className="text-xl sm:text-2xl font-bold text-secondary font-mono">
+              {t("hero.stat.gasVal")}
+            </span>
+            <span className="text-[11px] text-on-surface-variant/80 mt-1">
+              Family L1 Zero-Gas Fee Config
+            </span>
           </div>
 
-          {/* Live Network Badge Ribbon */}
-          <div className="mt-space-md pt-space-md flex flex-wrap items-center justify-between gap-space-sm font-label-md text-label-md text-on-surface-variant border-t border-surface-container">
-            <div className="flex items-center gap-space-xs">
-              <span className="w-2.5 h-2.5 rounded-full bg-tertiary-fixed-dim"></span>
-              <span>Avalanche Subnet: Kinetix Family L1 (Chain ID: 99999)</span>
-            </div>
-            <div className="flex items-center gap-space-md">
-              <span>
-                Thời gian giao dịch: <strong>&lt; 0.8s</strong>
-              </span>
-              <span>
-                Chi phí người dùng: <strong>0.00 AVAX (Gasless)</strong>
-              </span>
-            </div>
+          <div className="p-5 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-1 text-left">
+            <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+              {t("hero.stat.speed")}
+            </span>
+            <span className="text-xl sm:text-2xl font-bold text-emerald-600 font-mono">
+              {t("hero.stat.speedVal")}
+            </span>
+            <span className="text-[11px] text-on-surface-variant/80 mt-1">
+              Giải ngân tức thì cho người già
+            </span>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-1 text-left">
+            <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+              {t("hero.stat.multisig")}
+            </span>
+            <span className="text-xl sm:text-2xl font-bold text-blue-600 font-mono">
+              {t("hero.stat.multisigVal")}
+            </span>
+            <span className="text-[11px] text-on-surface-variant/80 mt-1">
+              Chống lừa đảo lệnh rút &gt;50$
+            </span>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-1 text-left">
+            <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+              {t("hero.stat.yield")}
+            </span>
+            <span className="text-xl sm:text-2xl font-bold text-amber-600 font-mono">
+              {t("hero.stat.yieldVal")}
+            </span>
+            <span className="text-[11px] text-on-surface-variant/80 mt-1">
+              Fuji C-Chain DeFi Compound
+            </span>
           </div>
         </div>
       </section>
 
-      {/* SECTION 2: 3 HŨ TÀI CHÍNH & KIẾN TRÚC 10/90 */}
-      <section className="w-full py-space-xl px-gutter bg-surface-container-low border-t border-surface-container-high/40">
-        <div className="max-w-7xl mx-auto flex flex-col gap-space-xl">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-space-md">
-            <div>
-              <span className="font-label-caps text-label-caps text-secondary uppercase tracking-wider font-bold">
-                Cơ Chế Đệm Thanh Khoản 10/90
-              </span>
-              <h2 className="font-headline-lg text-headline-lg text-on-surface tracking-tight mt-1">
-                3 Hũ Ngân Sách Gia Đình Tự Động Sinh Lời DeFi
-              </h2>
-            </div>
-            <p className="max-w-md text-body-sm text-on-surface-variant">
-              10% vốn nạp giữ lại trên Family L1 để chi tiêu hàng ngày với tốc độ
-              dưới 1 giây và phí gas bằng 0. 90% còn lại tự động chuyển tiếp qua
-              Avalanche Teleporter sang Fuji C-Chain để sinh lời ~8% APY.
+      {/* ========================================================================= */}
+      {/* SECTION 2: KIẾN TRÚC ĐỆM THANH KHOẢN 10/90 */}
+      {/* ========================================================================= */}
+      <section id="architecture" className="w-full py-20 px-gutter bg-surface-container-low border-y border-outline-variant/20">
+        <div className="max-w-7xl mx-auto flex flex-col gap-12">
+          
+          <div className="text-center max-w-3xl mx-auto flex flex-col gap-3">
+            <span className="text-xs font-bold uppercase tracking-widest text-secondary font-mono">
+              {t("arch.badge")}
+            </span>
+            <h2 className="font-headline-lg text-2xl sm:text-4xl font-bold tracking-tight text-on-surface">
+              {t("arch.title")}
+            </h2>
+            <p className="text-sm sm:text-base text-on-surface-variant leading-relaxed">
+              {t("arch.desc")}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-space-lg">
-            {/* Hũ 1: RetirementShield */}
-            <div className="bg-surface-container-lowest p-space-lg rounded-2xl shadow-sm border border-surface-container-high flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-space-md">
-                  <div className="w-12 h-12 rounded-xl bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed">
-                    <span className="material-symbols-outlined text-[28px]">
-                      elderly
-                    </span>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full bg-secondary-fixed/50 text-secondary font-label-caps text-label-caps font-bold">
-                    Hũ 1 • Ông Bà
-                  </span>
+          {/* 4 Step Process Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            
+            {/* Step 1 */}
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col justify-between text-left">
+              <div className="flex flex-col gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                  1
                 </div>
-                <h3 className="font-headline-sm text-headline-sm text-on-surface mb-1">
-                  Báo Hiếu &amp; Hưu Trí
-                </h3>
-                <p className="text-body-sm text-on-surface-variant mb-space-md">
-                  Bảo vệ tài sản hưu trí, ngăn chặn các cuộc gọi lừa đảo giả mạo
-                  công an, viện phí bằng Đa chữ ký phân tầng.
-                </p>
-                <div className="bg-surface-container-low p-space-sm rounded-xl space-y-1 mb-space-md">
-                  <div className="flex justify-between text-body-sm">
-                    <span className="text-on-surface-variant">10% Đệm L1:</span>
-                    <span className="font-bold text-on-surface">35.00 USDC</span>
-                  </div>
-                  <div className="flex justify-between text-body-sm">
-                    <span className="text-on-surface-variant">90% C-Chain Lãi:</span>
-                    <span className="font-bold text-tertiary-fixed-dim">
-                      315.00 USDC (+8%)
-                    </span>
-                  </div>
+                <div>
+                  <h3 className="text-base font-bold text-on-surface mb-2">
+                    {t("arch.step1.title")}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {t("arch.step1.desc")}
+                  </p>
                 </div>
               </div>
-              <button
-                onClick={() => onNavigate("kinetix-shield")}
-                className="w-full py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-lg text-label-lg transition-colors flex items-center justify-center gap-1"
-              >
-                <span>Xem Chế Độ Ông Bà</span>
-                <span className="material-symbols-outlined text-[16px]">
-                  arrow_forward
-                </span>
-              </button>
+              <div className="mt-6 pt-4 border-t border-surface-container-low text-[11px] font-semibold text-secondary flex items-center gap-1">
+                <span className="material-symbols-outlined text-[15px]">account_balance_wallet</span>
+                <span>Smart Contract: FamilyHub</span>
+              </div>
             </div>
 
-            {/* Hũ 2: KidsSavings */}
-            <div className="bg-surface-container-lowest p-space-lg rounded-2xl shadow-sm border border-surface-container-high flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-space-md">
-                  <div className="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center text-on-surface">
-                    <span className="material-symbols-outlined text-[28px]">
-                      child_care
-                    </span>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-caps text-label-caps font-bold">
-                    Hũ 2 • Con Trẻ
-                  </span>
+            {/* Step 2 */}
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col justify-between text-left">
+              <div className="flex flex-col gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                  10%
                 </div>
-                <h3 className="font-headline-sm text-headline-sm text-on-surface mb-1">
-                  Lì Xì &amp; Tiết Kiệm Con
-                </h3>
-                <p className="text-body-sm text-on-surface-variant mb-space-md">
-                  Dạy con quản lý dòng tiền sớm qua mô hình Chore-to-Earn: hoàn
-                  thành việc nhà để nhận thưởng từ bố mẹ với 0 gas fee.
-                </p>
-                <div className="bg-surface-container-low p-space-sm rounded-xl space-y-1 mb-space-md">
-                  <div className="flex justify-between text-body-sm">
-                    <span className="text-on-surface-variant">10% Đệm L1:</span>
-                    <span className="font-bold text-on-surface">12.50 USDC</span>
-                  </div>
-                  <div className="flex justify-between text-body-sm">
-                    <span className="text-on-surface-variant">90% C-Chain Lãi:</span>
-                    <span className="font-bold text-tertiary-fixed-dim">
-                      113.00 USDC (+8%)
-                    </span>
-                  </div>
+                <div>
+                  <h3 className="text-base font-bold text-on-surface mb-2">
+                    {t("arch.step2.title")}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {t("arch.step2.desc")}
+                  </p>
                 </div>
               </div>
-              <button
-                onClick={() => onNavigate("kinetix-kids")}
-                className="w-full py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-lg text-label-lg transition-colors flex items-center justify-center gap-1"
-              >
-                <span>Xem Heo Đất Của Bé</span>
-                <span className="material-symbols-outlined text-[16px]">
-                  arrow_forward
-                </span>
-              </button>
+              <div className="mt-6 pt-4 border-t border-surface-container-low text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[15px]">bolt</span>
+                <span>Tốc độ &lt;0.8s • 0 Gwei Gas</span>
+              </div>
             </div>
 
-            {/* Hũ 3: FamilyROSCA */}
-            <div className="bg-surface-container-lowest p-space-lg rounded-2xl shadow-sm border border-surface-container-high flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-space-md">
-                  <div className="w-12 h-12 rounded-xl bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed">
-                    <span className="material-symbols-outlined text-[28px]">
-                      handshake
-                    </span>
+            {/* Step 3 */}
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col justify-between text-left">
+              <div className="flex flex-col gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                  <span className="material-symbols-outlined text-[24px]">sync_alt</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-on-surface mb-2">
+                    {t("arch.step3.title")}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {t("arch.step3.desc")}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-surface-container-low text-[11px] font-semibold text-blue-600 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[15px]">security</span>
+                <span>Mã hóa Avalanche Teleporter</span>
+              </div>
+            </div>
+
+            {/* Step 4 */}
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col justify-between text-left">
+              <div className="flex flex-col gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                  90%
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-on-surface mb-2">
+                    {t("arch.step4.title")}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {t("arch.step4.desc")}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-surface-container-low text-[11px] font-semibold text-amber-600 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[15px]">trending_up</span>
+                <span>~8.2% APY Fuji C-Chain</span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* SECTION 3: 3 GIẢI PHÁP CHO 3 THẾ HỆ */}
+      {/* ========================================================================= */}
+      <section id="solutions" className="w-full py-20 px-gutter max-w-7xl mx-auto">
+        <div className="flex flex-col gap-12">
+          
+          <div className="text-center max-w-3xl mx-auto flex flex-col gap-3">
+            <span className="text-xs font-bold uppercase tracking-widest text-secondary font-mono">
+              {t("solutions.badge")}
+            </span>
+            <h2 className="font-headline-lg text-2xl sm:text-4xl font-bold tracking-tight text-on-surface">
+              {t("solutions.title")}
+            </h2>
+            <p className="text-sm sm:text-base text-on-surface-variant leading-relaxed">
+              {t("solutions.desc")}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* Card 1: Ông Bà */}
+            <div className="p-8 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-md flex flex-col justify-between text-left hover:border-secondary/50 transition-all group">
+              <div className="flex flex-col gap-6">
+                <div className="flex items-center justify-between">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[32px]">elderly</span>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-caps text-label-caps font-bold">
-                    Hũ 3 • Họ Hàng
+                  <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-700 text-xs font-bold uppercase">
+                    {t("gen1.badge")}
                   </span>
                 </div>
-                <h3 className="font-headline-sm text-headline-sm text-on-surface mb-1">
-                  Quỹ Tương Trợ Dòng Họ
-                </h3>
-                <p className="text-body-sm text-on-surface-variant mb-space-md">
-                  Mô hình Họ/Hụi truyền thống được mã hóa minh bạch trên
-                  blockchain, tiền góp tự động tích lũy lãi suất trước ngày giải
-                  ngân.
-                </p>
-                <div className="bg-surface-container-low p-space-sm rounded-xl space-y-1 mb-space-md">
-                  <div className="flex justify-between text-body-sm">
-                    <span className="text-on-surface-variant">Quy mô vòng:</span>
-                    <span className="font-bold text-on-surface">1,000.00 USDC</span>
-                  </div>
-                  <div className="flex justify-between text-body-sm">
-                    <span className="text-on-surface-variant">Lãi chia đều:</span>
-                    <span className="font-bold text-tertiary-fixed-dim">
-                      +18.50 USDC
-                    </span>
+
+                <div>
+                  <h3 className="text-xl font-bold text-on-surface mb-2">
+                    {t("gen1.title")}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed mb-6">
+                    {t("gen1.desc")}
+                  </p>
+
+                  <div className="flex flex-col gap-3 text-xs leading-relaxed">
+                    <div className="flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
+                      <span className="text-on-surface">{t("gen1.feature1")}</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
+                      <span className="text-on-surface">{t("gen1.feature2")}</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
+                      <span className="text-on-surface">{t("gen1.feature3")}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => onNavigate("quy-rosca")}
-                className="w-full py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-lg text-label-lg transition-colors flex items-center justify-center gap-1"
-              >
-                <span>Xem Quỹ Dòng Họ ROSCA</span>
-                <span className="material-symbols-outlined text-[16px]">
-                  arrow_forward
-                </span>
-              </button>
+
+              <div className="mt-8 pt-4 border-t border-surface-container-low">
+                <button
+                  onClick={() => onNavigate("kinetix-shield")}
+                  className="w-full py-3 rounded-xl bg-surface-container hover:bg-secondary hover:text-white text-on-surface text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  type="button"
+                >
+                  <span>Khám Phá Kinetix Shield</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </button>
+              </div>
             </div>
+
+            {/* Card 2: Bố Mẹ / Guardians */}
+            <div className="p-8 rounded-3xl bg-slate-900 text-white shadow-xl flex flex-col justify-between text-left relative overflow-hidden border border-slate-800">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-secondary/20 rounded-full blur-2xl pointer-events-none" />
+
+              <div className="flex flex-col gap-6 relative z-10">
+                <div className="flex items-center justify-between">
+                  <div className="w-14 h-14 rounded-2xl bg-white/10 text-secondary-container flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[32px]">admin_panel_settings</span>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-secondary-container text-white text-xs font-bold uppercase">
+                    {t("gen2.badge")}
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-2">
+                    {t("gen2.title")}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed mb-6">
+                    {t("gen2.desc")}
+                  </p>
+
+                  <div className="flex flex-col gap-3 text-xs leading-relaxed">
+                    <div className="flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
+                      <span className="text-slate-200">{t("gen2.feature1")}</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
+                      <span className="text-slate-200">{t("gen2.feature2")}</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
+                      <span className="text-slate-200">{t("gen2.feature3")}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-4 border-t border-slate-800 relative z-10">
+                <button
+                  onClick={() => onNavigate("quan-tri-cha-me")}
+                  className="w-full py-3 rounded-xl bg-secondary-container hover:bg-secondary text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                  type="button"
+                >
+                  <span>Vào Trạm Quản Trị</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Card 3: Con Trẻ */}
+            <div className="p-8 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-md flex flex-col justify-between text-left hover:border-secondary/50 transition-all group">
+              <div className="flex flex-col gap-6">
+                <div className="flex items-center justify-between">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[32px]">savings</span>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 text-xs font-bold uppercase">
+                    {t("gen3.badge")}
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-bold text-on-surface mb-2">
+                    {t("gen3.title")}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed mb-6">
+                    {t("gen3.desc")}
+                  </p>
+
+                  <div className="flex flex-col gap-3 text-xs leading-relaxed">
+                    <div className="flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
+                      <span className="text-on-surface">{t("gen3.feature1")}</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
+                      <span className="text-on-surface">{t("gen3.feature2")}</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
+                      <span className="text-on-surface">{t("gen3.feature3")}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-4 border-t border-surface-container-low">
+                <button
+                  onClick={() => onNavigate("kinetix-kids")}
+                  className="w-full py-3 rounded-xl bg-surface-container hover:bg-emerald-600 hover:text-white text-on-surface text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  type="button"
+                >
+                  <span>Khám Phá Heo Đất Bé</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* SECTION 4: BẢO MẬT & CÔNG NGHỆ NỀN TẢNG */}
+      {/* ========================================================================= */}
+      <section id="security" className="w-full py-20 px-gutter bg-surface-container-low border-t border-outline-variant/20">
+        <div className="max-w-7xl mx-auto flex flex-col gap-12">
+          
+          <div className="text-center max-w-3xl mx-auto flex flex-col gap-3">
+            <span className="text-xs font-bold uppercase tracking-widest text-secondary font-mono">
+              {t("sec.badge")}
+            </span>
+            <h2 className="font-headline-lg text-2xl sm:text-4xl font-bold tracking-tight text-on-surface">
+              {t("sec.title")}
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+            
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-3">
+              <span className="material-symbols-outlined text-[28px] text-secondary">lan</span>
+              <h3 className="text-base font-bold text-on-surface">
+                {t("sec.item1.title")}
+              </h3>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                {t("sec.item1.desc")}
+              </p>
+            </div>
+
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-3">
+              <span className="material-symbols-outlined text-[28px] text-blue-600">key</span>
+              <h3 className="text-base font-bold text-on-surface">
+                {t("sec.item2.title")}
+              </h3>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                {t("sec.item2.desc")}
+              </p>
+            </div>
+
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-3">
+              <span className="material-symbols-outlined text-[28px] text-emerald-600">schedule</span>
+              <h3 className="text-base font-bold text-on-surface">
+                {t("sec.item3.title")}
+              </h3>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                {t("sec.item3.desc")}
+              </p>
+            </div>
+
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-3">
+              <span className="material-symbols-outlined text-[28px] text-amber-600">database</span>
+              <h3 className="text-base font-bold text-on-surface">
+                {t("sec.item4.title")}
+              </h3>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                {t("sec.item4.desc")}
+              </p>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* SECTION 5: CALL TO ACTION BANNER */}
+      {/* ========================================================================= */}
+      <section className="w-full py-16 px-gutter max-w-7xl mx-auto">
+        <div className="p-8 sm:p-14 rounded-3xl bg-gradient-to-r from-primary via-slate-900 to-primary text-white shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-8 text-center sm:text-left relative overflow-hidden">
+          <div className="max-w-2xl flex flex-col gap-3 relative z-10">
+            <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">
+              {t("cta.title")}
+            </h2>
+            <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+              {t("cta.desc")}
+            </p>
+          </div>
+
+          <div className="relative z-10 shrink-0">
+            <Link
+              href="/login"
+              className="px-8 py-4 rounded-2xl bg-secondary hover:bg-secondary-container text-white font-headline-sm text-sm sm:text-base font-bold shadow-xl transition-all active:scale-95 inline-flex items-center gap-2"
+            >
+              <span>{t("cta.btn")}</span>
+              <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+            </Link>
           </div>
         </div>
       </section>
+
     </div>
   );
 };
