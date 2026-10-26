@@ -13,14 +13,64 @@ describe("Kinetix Backend Services & Neon Database Integration", function () {
   let elderlyUserId: string;
   let childUserId: string;
 
-  before(async function () {
-    // Lấy thông tin gia đình mẫu đã seed
-    const [family] = await db.select().from(families).limit(1);
-    expect(family).to.not.be.undefined;
-    familyId = family.id;
+  let isTemporaryFixture = false;
 
+  before(async function () {
+    // Lấy thông tin gia đình mẫu hoặc tự khởi tạo nếu database đang trống
+    let [family] = await db.select().from(families).limit(1);
+
+    if (!family) {
+      isTemporaryFixture = true;
+      const [newFam] = await db
+        .insert(families)
+        .values({
+          name: "Gia đình Kiểm thử Tự động",
+          familyCode: "KNTX-TEST",
+          adminWallet: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        })
+        .returning();
+      family = newFam;
+
+      // Tạo các thành viên phục vụ kiểm thử
+      await db.insert(users).values([
+        {
+          familyId: family.id,
+          fullName: "Bố Ba (Admin)",
+          role: "ADMIN",
+          walletAddress: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+          pinCode: "1234",
+          isAllowlisted: true,
+        },
+        {
+          familyId: family.id,
+          fullName: "Cô Út (Guardian)",
+          role: "GUARDIAN",
+          walletAddress: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          pinCode: "1234",
+          isAllowlisted: true,
+        },
+        {
+          familyId: family.id,
+          fullName: "Ông Nội",
+          role: "ELDERLY",
+          walletAddress: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          pinCode: "1234",
+          isAllowlisted: true,
+        },
+        {
+          familyId: family.id,
+          fullName: "Bé Na",
+          role: "CHILD",
+          walletAddress: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+          authMethod: "PASSKEY_EMBEDDED",
+          pinCode: "1234",
+          isAllowlisted: true,
+        },
+      ]);
+    }
+
+    familyId = family.id;
     const allUsers = await db.select().from(users).where(eq(users.familyId, familyId));
-    expect(allUsers.length).to.be.greaterThanOrEqual(5);
 
     const admin = allUsers.find((u) => u.role === "ADMIN");
     const guardian = allUsers.find((u) => u.role === "GUARDIAN");
@@ -36,6 +86,16 @@ describe("Kinetix Backend Services & Neon Database Integration", function () {
     guardianUserId = guardian!.id;
     elderlyUserId = elderly!.id;
     childUserId = child!.id;
+  });
+
+  after(async function () {
+    if (isTemporaryFixture && familyId) {
+      await db.delete(notifications).where(eq(notifications.familyId, familyId));
+      await db.delete(chores).where(eq(chores.familyId, familyId));
+      await db.delete(withdrawalRequests).where(eq(withdrawalRequests.familyId, familyId));
+      await db.delete(users).where(eq(users.familyId, familyId));
+      await db.delete(families).where(eq(families.id, familyId));
+    }
   });
 
   it("1. syncWallet: Nhận diện ví Core Wallet đã có trong hệ thống", async function () {

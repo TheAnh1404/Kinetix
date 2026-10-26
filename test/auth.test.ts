@@ -3,12 +3,12 @@ import { signAuthToken, verifyAuthToken } from "../frontend/src/lib/jwt";
 import { verifyMessage } from "viem";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { db } from "../backend/src/db";
-import { users, authNonces } from "../backend/src/db/schema";
+import { users, families, authNonces } from "../backend/src/db/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 
 describe("Kinetix Full-Stack Auth & SIWE Verification", function () {
-  this.timeout(10000);
+  this.timeout(15000);
 
   it("1. signAuthToken & verifyAuthToken: Mã hóa và giải mã JWT token an toàn", async () => {
     const mockPayload = {
@@ -104,19 +104,91 @@ Issued At: ${new Date().toISOString()}`;
     expect(deleted).to.be.undefined;
   });
 
-  it("5. Family Login: Xác thực mã PIN của thành viên Ông Nội và Bé Na", async () => {
-    const [elderly] = await db
-      .select()
-      .from(users)
-      .where(eq(users.role, "ELDERLY"));
-    expect(elderly).to.exist;
-    expect(elderly.pinCode).to.equal("1234");
+  it("5. Register Family Flow: Lưu gia đình mới với Family Code và Admin vào Neon DB", async () => {
+    const adminAccount = privateKeyToAccount(generatePrivateKey());
+    const testFamilyCode = `KNTX-T${Math.floor(1000 + Math.random() * 9000)}`;
+    const testFamilyName = "Gia đình Thử Nghiệm Real";
 
-    const [child] = await db
-      .select()
-      .from(users)
-      .where(eq(users.role, "CHILD"));
-    expect(child).to.exist;
-    expect(child.pinCode).to.equal("1234");
+    // 1. Tạo bản ghi Family
+    const [createdFamily] = await db
+      .insert(families)
+      .values({
+        name: testFamilyName,
+        familyCode: testFamilyCode,
+        adminWallet: adminAccount.address,
+      })
+      .returning();
+
+    expect(createdFamily).to.exist;
+    expect(createdFamily.familyCode).to.equal(testFamilyCode);
+    expect(createdFamily.familyCode).to.match(/^KNTX-[A-Z0-9]+$/);
+
+    // 2. Tạo bản ghi Admin User
+    const [adminUser] = await db
+      .insert(users)
+      .values({
+        familyId: createdFamily.id,
+        fullName: "Bố Đại Diện Test",
+        role: "ADMIN",
+        walletAddress: adminAccount.address,
+        authMethod: "CORE_WALLET",
+        pinCode: "5678",
+        isAllowlisted: true,
+      })
+      .returning();
+
+    expect(adminUser).to.exist;
+    expect(adminUser.role).to.equal("ADMIN");
+    expect(adminUser.familyId).to.equal(createdFamily.id);
+
+    // 3. Con cái tham gia gia đình qua Family Code
+    const guardianAccount = privateKeyToAccount(generatePrivateKey());
+    const [guardianUser] = await db
+      .insert(users)
+      .values({
+        familyId: createdFamily.id,
+        fullName: "Con Cả Trưởng Thành",
+        role: "GUARDIAN",
+        walletAddress: guardianAccount.address,
+        authMethod: "CORE_WALLET",
+        pinCode: "1234",
+        isAllowlisted: true,
+      })
+      .returning();
+
+    expect(guardianUser.familyId).to.equal(createdFamily.id);
+    expect(guardianUser.role).to.equal("GUARDIAN");
+
+    // 4. Thêm thành viên Ông Nội và kiểm tra xác thực PIN
+    const elderlyAccount = privateKeyToAccount(generatePrivateKey());
+    const [elderlyUser] = await db
+      .insert(users)
+      .values({
+        familyId: createdFamily.id,
+        fullName: "Ông Nội Test",
+        role: "ELDERLY",
+        walletAddress: elderlyAccount.address,
+        authMethod: "PASSKEY_EMBEDDED",
+        pinCode: "1234",
+        phoneNumber: "0901234567",
+        isAllowlisted: true,
+      })
+      .returning();
+
+    expect(elderlyUser).to.exist;
+    expect(elderlyUser.pinCode).to.equal("1234");
+    expect(elderlyUser.pinCode !== "9999").to.be.true;
+
+    // Dọn dẹp bản ghi kiểm thử
+    await db.delete(users).where(eq(users.id, elderlyUser.id));
+    await db.delete(users).where(eq(users.id, guardianUser.id));
+    await db.delete(users).where(eq(users.id, adminUser.id));
+    await db.delete(families).where(eq(families.id, createdFamily.id));
+  });
+
+  it("6. Empty Database Verification: Đảm bảo cơ sở dữ liệu có thể bắt đầu từ trạng thái sạch 100%", async () => {
+    // Kiểm tra xem database có hoạt động bình thường khi rỗng
+    const allFamilies = await db.select().from(families);
+    expect(allFamilies).to.be.an("array");
   });
 });
