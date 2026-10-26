@@ -30,6 +30,7 @@ async function seed() {
       .insert(families)
       .values({
         name: "Gia đình Hạnh Phúc",
+        familyCode: "KNTX-8888",
         adminWallet: adminWalletAddress,
         l1HubAddress: l1Hub,
         cchainVaultAddress: cChainVault,

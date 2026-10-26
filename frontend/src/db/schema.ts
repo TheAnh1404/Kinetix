@@ -54,6 +54,7 @@ export const choreStatusEnum = pgEnum("chore_status", [
 
 export const families = pgTable("families", {
   id: uuid("id").defaultRandom().primaryKey(),
+  familyCode: varchar("family_code", { length: 12 }).unique(),
   name: text("name").notNull(),
   adminWallet: varchar("admin_wallet", { length: 42 }).notNull(),
   l1HubAddress: varchar("l1_hub_address", { length: 42 }),
@@ -67,10 +68,11 @@ export const users = pgTable("users", {
     .references(() => families.id, { onDelete: "cascade" })
     .notNull(),
   fullName: text("full_name").notNull(),
+  username: varchar("username", { length: 50 }),
   role: userRoleEnum("role").notNull(),
   walletAddress: varchar("wallet_address", { length: 42 }).notNull().unique(),
   authMethod: authTypeEnum("auth_method").default("CORE_WALLET").notNull(),
-  pinCode: varchar("pin_code", { length: 6 }),
+  pinCode: varchar("pin_code", { length: 128 }),
   avatarUrl: text("avatar_url"),
   phoneNumber: text("phone_number"),
   isAllowlisted: boolean("is_allowlisted").default(false).notNull(),

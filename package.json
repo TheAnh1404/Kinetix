@@ -5,12 +5,15 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
+    "sol:format": "prettier --write \"contracts/**/*.sol\"",
+    "sol:lint": "solhint \"contracts/**/*.sol\"",
     "deploy:fuji": "hardhat run scripts/deploy.ts --network fuji",
     "deploy:familyL1": "hardhat run scripts/deploy.ts --network familyL1",
     "db:generate": "drizzle-kit generate --config=backend/drizzle.config.ts",
     "db:push": "drizzle-kit push --config=backend/drizzle.config.ts",
     "db:migrate": "tsx backend/src/db/migrate.ts",
     "db:seed": "tsx backend/src/db/seed.ts",
+    "db:clear": "tsx scripts/clear-db.ts",
     "db:studio": "drizzle-kit studio --config=backend/drizzle.config.ts",
     "server:start": "tsx backend/src/server.ts",
     "worker:listen": "tsx backend/src/workers/eventListener.ts"
@@ -47,6 +50,9 @@
     "@types/ws": "^8.5.10",
     "drizzle-kit": "^0.21.4",
     "hardhat": "^2.22.3",
+    "prettier": "^3.9.10",
+    "prettier-plugin-solidity": "^2.4.1",
+    "solhint": "^6.2.5",
     "ts-node": "^10.9.2",
     "tsx": "^4.10.5",
     "typescript": "^5.4.5"
