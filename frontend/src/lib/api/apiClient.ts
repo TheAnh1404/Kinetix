@@ -136,6 +136,21 @@ class ApiClient {
   }
 
   /**
+   * Tạo việc nhà mới cho con
+   */
+  async createChore(payload: {
+    familyId: string;
+    title: string;
+    rewardAmount: number;
+    childId?: string;
+  }) {
+    return this.request('/chores/create', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /**
    * Lấy thông báo theo userId
    */
   async getNotifications(userId: string) {

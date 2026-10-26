@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FamilyService } from "@/lib/familyService";
+import { db } from "@/db";
+import { chores, users } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
 
 export async function GET(
   req: NextRequest,
@@ -11,8 +13,25 @@ export async function GET(
       return NextResponse.json({ error: "familyId is required" }, { status: 400 });
     }
 
-    const chores = await FamilyService.getFamilyChores(familyId);
-    return NextResponse.json({ success: true, data: chores });
+    const choreList = await db
+      .select({
+        id: chores.id,
+        familyId: chores.familyId,
+        childId: chores.childId,
+        childName: users.fullName,
+        childAvatar: users.avatarUrl,
+        title: chores.title,
+        rewardAmount: chores.rewardAmount,
+        status: chores.status,
+        proofImageUrl: chores.proofImageUrl,
+        createdAt: chores.createdAt,
+      })
+      .from(chores)
+      .leftJoin(users, eq(chores.childId, users.id))
+      .where(eq(chores.familyId, familyId))
+      .orderBy(desc(chores.createdAt));
+
+    return NextResponse.json({ success: true, data: choreList });
   } catch (error: any) {
     console.error("Lỗi GET /api/chores/[familyId]:", error);
     return NextResponse.json(

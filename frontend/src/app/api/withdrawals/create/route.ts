@@ -13,11 +13,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    let normalizedVault: "RetirementShield" | "KidsSavings" | "FamilyROSCA" = "RetirementShield";
+    if (vault === "KidsSavings" || vault === "Kids Savings") {
+      normalizedVault = "KidsSavings";
+    } else if (vault === "FamilyROSCA" || vault === "Family ROSCA") {
+      normalizedVault = "FamilyROSCA";
+    }
+
     const result = await FamilyService.createWithdrawalRequest({
       familyId,
       requesterId,
       amount: Number(amount),
-      vault,
+      vault: normalizedVault,
       reason,
       onchainRequestId: onchainRequestId ? Number(onchainRequestId) : undefined,
     });

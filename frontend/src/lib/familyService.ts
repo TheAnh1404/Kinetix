@@ -194,7 +194,30 @@ export class FamilyService {
   }
 
   /**
-   * 4. Trẻ em nộp báo cáo hoàn thành việc nhà (Chore-to-Earn)
+   * 4a. Tạo nhiệm vụ việc nhà mới
+   */
+  static async createChore(params: {
+    familyId: string;
+    childId: string;
+    title: string;
+    rewardAmount: number;
+  }): Promise<Chore> {
+    const [newChore] = await db
+      .insert(chores)
+      .values({
+        familyId: params.familyId,
+        childId: params.childId,
+        title: params.title,
+        rewardAmount: params.rewardAmount.toFixed(2),
+        status: "TODO",
+      })
+      .returning();
+
+    return newChore;
+  }
+
+  /**
+   * 4b. Trẻ em nộp báo cáo hoàn thành việc nhà (Chore-to-Earn)
    */
   static async submitChore(choreId: string, proofImageUrl?: string): Promise<Chore> {
     const [existing] = await db
