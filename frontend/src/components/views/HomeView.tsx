@@ -16,7 +16,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onNavigate,
   onOpenDeposit,
 }) => {
-  const { vaults } = useFamily();
+  const { dynamicVaults, currentWorkspace } = useFamily();
   const { isAuthenticated, user } = useAuth();
   const { t } = useLanguage();
 
@@ -97,7 +97,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             )}
 
             <a
-              href="#architecture"
+              href="#rules"
               className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-surface-container-lowest hover:bg-surface-container text-on-surface font-headline-sm text-base font-bold shadow-sm border border-outline-variant/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[20px] text-secondary">explore</span>
@@ -106,7 +106,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
         </div>
 
-        {/* 4 Core Pillars Strip (Clean, Focused, High-Trust) */}
+        {/* 4 Core Pillars Strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
           <div className="p-5 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-1 text-left">
             <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
@@ -116,7 +116,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               {t("hero.stat.gasVal")}
             </span>
             <span className="text-[11px] text-on-surface-variant/80 mt-1">
-              Family L1 Zero-Gas Fee Config
+              Custom Fee Config (0 Gwei)
             </span>
           </div>
 
@@ -128,7 +128,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               {t("hero.stat.speedVal")}
             </span>
             <span className="text-[11px] text-on-surface-variant/80 mt-1">
-              Giải ngân tức thì cho người già
+              Giải ngân đệm L1 tức thì
             </span>
           </div>
 
@@ -140,7 +140,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               {t("hero.stat.multisigVal")}
             </span>
             <span className="text-[11px] text-on-surface-variant/80 mt-1">
-              Chống lừa đảo lệnh rút &gt;50$
+              Ngưỡng duyệt riêng cho từng Hũ
             </span>
           </div>
 
@@ -152,14 +152,275 @@ export const HomeView: React.FC<HomeViewProps> = ({
               {t("hero.stat.yieldVal")}
             </span>
             <span className="text-[11px] text-on-surface-variant/80 mt-1">
-              Fuji C-Chain DeFi Compound
+              Fuji C-Chain DeFi 8% APY
             </span>
           </div>
         </div>
       </section>
 
       {/* ========================================================================= */}
-      {/* SECTION 2: KIẾN TRÚC ĐỆM THANH KHOẢN 10/90 */}
+      {/* SECTION 2: ĐA KHÔNG GIAN CHIA SẺ (MULTI-SPACE WORKSPACES) */}
+      {/* ========================================================================= */}
+      <section id="workspaces" className="w-full py-20 px-gutter bg-surface-container-low border-y border-outline-variant/20">
+        <div className="max-w-7xl mx-auto flex flex-col gap-12">
+          
+          <div className="text-center max-w-3xl mx-auto flex flex-col gap-3">
+            <span className="text-xs font-bold uppercase tracking-widest text-secondary font-mono">
+              {t("ws.badge")}
+            </span>
+            <h2 className="font-headline-lg text-2xl sm:text-4xl font-bold tracking-tight text-on-surface">
+              {t("ws.title")}
+            </h2>
+            <p className="text-sm sm:text-base text-on-surface-variant leading-relaxed">
+              {t("ws.desc")}
+            </p>
+          </div>
+
+          {/* 4 Workspace Types Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            
+            {/* WS 1: Đại Gia Đình */}
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col justify-between text-left hover:border-primary/50 transition-all group">
+              <div className="flex flex-col gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold text-lg shadow-sm group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[26px]">family_restroom</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-on-surface mb-2">
+                    {t("ws.family.title")}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {t("ws.family.desc")}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-surface-container-low text-[11px] font-semibold text-primary flex items-center gap-1">
+                <span className="material-symbols-outlined text-[15px]">verified</span>
+                <span>Hũ đề xuất: SHIELD + MILESTONE</span>
+              </div>
+            </div>
+
+            {/* WS 2: Anh Em Ruột */}
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col justify-between text-left hover:border-secondary/50 transition-all group">
+              <div className="flex flex-col gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-secondary/15 text-secondary flex items-center justify-center font-bold text-lg shadow-sm group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[26px]">diversity_1</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-on-surface mb-2">
+                    {t("ws.siblings.title")}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {t("ws.siblings.desc")}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-surface-container-low text-[11px] font-semibold text-secondary flex items-center gap-1">
+                <span className="material-symbols-outlined text-[15px]">lock</span>
+                <span>Đa chữ ký M/N phân quyền</span>
+              </div>
+            </div>
+
+            {/* WS 3: Hội Bạn Thân */}
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col justify-between text-left hover:border-indigo-500/50 transition-all group">
+              <div className="flex flex-col gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold text-lg shadow-sm group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[26px]">group</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-on-surface mb-2">
+                    {t("ws.friends.title")}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {t("ws.friends.desc")}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-surface-container-low text-[11px] font-semibold text-indigo-600 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[15px]">flight_takeoff</span>
+                <span>Hũ đề xuất: SHARED_GOAL</span>
+              </div>
+            </div>
+
+            {/* WS 4: CLB Sinh Viên / Cộng Đồng */}
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col justify-between text-left hover:border-emerald-500/50 transition-all group">
+              <div className="flex flex-col gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-lg shadow-sm group-hover:scale-105 transition-transform">
+                  <span className="material-symbols-outlined text-[26px]">hub</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-on-surface mb-2">
+                    {t("ws.community.title")}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {t("ws.community.desc")}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-surface-container-low text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[15px]">receipt_long</span>
+                <span>Minh bạch 100% On-Chain</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* SECTION 3: 4 BỘ QUY TẮC TÙY BIẾN (COMPOSABLE RULE TEMPLATES) */}
+      {/* ========================================================================= */}
+      <section id="rules" className="w-full py-20 px-gutter max-w-7xl mx-auto">
+        <div className="flex flex-col gap-12">
+          
+          <div className="text-center max-w-3xl mx-auto flex flex-col gap-3">
+            <span className="text-xs font-bold uppercase tracking-widest text-secondary font-mono">
+              {t("rules.badge")}
+            </span>
+            <h2 className="font-headline-lg text-2xl sm:text-4xl font-bold tracking-tight text-on-surface">
+              {t("rules.title")}
+            </h2>
+            <p className="text-sm sm:text-base text-on-surface-variant leading-relaxed">
+              {t("rules.desc")}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            
+            {/* Rule 0: SHIELD */}
+            <div className="p-7 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-md flex flex-col justify-between text-left hover:border-error/50 transition-all group">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-error/10 text-error flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[26px]">shield</span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-error/10 text-error uppercase">
+                    {t("rules.shield.badge")}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-on-surface mb-2">
+                    {t("rules.shield.title")}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {t("rules.shield.desc")}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-surface-container-low text-xs space-y-1.5 font-mono">
+                <div className="flex justify-between text-on-surface-variant">
+                  <span>Rút nhanh:</span>
+                  <span className="font-bold text-on-surface">≤ 50 AVAX (0 gas)</span>
+                </div>
+                <div className="flex justify-between text-on-surface-variant">
+                  <span>Rút lớn:</span>
+                  <span className="font-bold text-error">Cần M/N Guardians</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Rule 1: MILESTONE */}
+            <div className="p-7 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-md flex flex-col justify-between text-left hover:border-amber-500/50 transition-all group">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[26px]">military_tech</span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-700 uppercase">
+                    {t("rules.milestone.badge")}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-on-surface mb-2">
+                    {t("rules.milestone.title")}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {t("rules.milestone.desc")}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-surface-container-low text-xs space-y-1.5 font-mono">
+                <div className="flex justify-between text-on-surface-variant">
+                  <span>Vốn sinh lãi:</span>
+                  <span className="font-bold text-emerald-600">8.0% APY C-Chain</span>
+                </div>
+                <div className="flex justify-between text-on-surface-variant">
+                  <span>Mở thưởng:</span>
+                  <span className="font-bold text-amber-600">Nghiệm thu ảnh chụp</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Rule 2: ROSCA */}
+            <div className="p-7 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-md flex flex-col justify-between text-left hover:border-emerald-500/50 transition-all group">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[26px]">cached</span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 uppercase">
+                    {t("rules.rosca.badge")}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-on-surface mb-2">
+                    {t("rules.rosca.title")}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {t("rules.rosca.desc")}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-surface-container-low text-xs space-y-1.5 font-mono">
+                <div className="flex justify-between text-on-surface-variant">
+                  <span>Đệm L1:</span>
+                  <span className="font-bold text-on-surface">0% (100% Sinh lời)</span>
+                </div>
+                <div className="flex justify-between text-on-surface-variant">
+                  <span>Kỳ giải ngân:</span>
+                  <span className="font-bold text-emerald-600">Gốc + Chia đều lãi</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Rule 3: SHARED_GOAL */}
+            <div className="p-7 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-md flex flex-col justify-between text-left hover:border-indigo-500/50 transition-all group">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[26px]">flag</span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-700 uppercase">
+                    {t("rules.goal.badge")}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-on-surface mb-2">
+                    {t("rules.goal.title")}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {t("rules.goal.desc")}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-surface-container-low text-xs space-y-1.5 font-mono">
+                <div className="flex justify-between text-on-surface-variant">
+                  <span>Mục tiêu:</span>
+                  <span className="font-bold text-on-surface">Theo Target dự án</span>
+                </div>
+                <div className="flex justify-between text-on-surface-variant">
+                  <span>Giải ngân:</span>
+                  <span className="font-bold text-indigo-600">Đủ tiền & Đủ chữ ký</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* SECTION 4: KIẾN TRÚC ĐỆM THANH KHOẢN LINH HOẠT & TELEPORTER */}
       {/* ========================================================================= */}
       <section id="architecture" className="w-full py-20 px-gutter bg-surface-container-low border-y border-outline-variant/20">
         <div className="max-w-7xl mx-auto flex flex-col gap-12">
@@ -196,7 +457,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
               <div className="mt-6 pt-4 border-t border-surface-container-low text-[11px] font-semibold text-secondary flex items-center gap-1">
                 <span className="material-symbols-outlined text-[15px]">account_balance_wallet</span>
-                <span>Smart Contract: FamilyHub</span>
+                <span>Hợp đồng: FamilyHub.sol</span>
               </div>
             </div>
 
@@ -204,7 +465,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col justify-between text-left">
               <div className="flex flex-col gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                  10%
+                  0-50%
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-on-surface mb-2">
@@ -238,7 +499,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
               <div className="mt-6 pt-4 border-t border-surface-container-low text-[11px] font-semibold text-blue-600 flex items-center gap-1">
                 <span className="material-symbols-outlined text-[15px]">security</span>
-                <span>Mã hóa Avalanche Teleporter</span>
+                <span>Giao tiếp Teleporter ICM/ICTT</span>
               </div>
             </div>
 
@@ -246,7 +507,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col justify-between text-left">
               <div className="flex flex-col gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-amber-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                  90%
+                  8% APY
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-on-surface mb-2">
@@ -259,7 +520,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
               <div className="mt-6 pt-4 border-t border-surface-container-low text-[11px] font-semibold text-amber-600 flex items-center gap-1">
                 <span className="material-symbols-outlined text-[15px]">trending_up</span>
-                <span>~8.2% APY Fuji C-Chain</span>
+                <span>FamilyYieldVault.sol</span>
               </div>
             </div>
 
@@ -269,184 +530,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
       </section>
 
       {/* ========================================================================= */}
-      {/* SECTION 3: 3 GIẢI PHÁP CHO 3 THẾ HỆ */}
+      {/* SECTION 5: BẢO MẬT CẤP DOANH NGHIỆP */}
       {/* ========================================================================= */}
-      <section id="solutions" className="w-full py-20 px-gutter max-w-7xl mx-auto">
+      <section id="security" className="w-full py-20 px-gutter max-w-7xl mx-auto">
         <div className="flex flex-col gap-12">
-          
-          <div className="text-center max-w-3xl mx-auto flex flex-col gap-3">
-            <span className="text-xs font-bold uppercase tracking-widest text-secondary font-mono">
-              {t("solutions.badge")}
-            </span>
-            <h2 className="font-headline-lg text-2xl sm:text-4xl font-bold tracking-tight text-on-surface">
-              {t("solutions.title")}
-            </h2>
-            <p className="text-sm sm:text-base text-on-surface-variant leading-relaxed">
-              {t("solutions.desc")}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* Card 1: Ông Bà */}
-            <div className="p-8 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-md flex flex-col justify-between text-left hover:border-secondary/50 transition-all group">
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[32px]">elderly</span>
-                  </div>
-                  <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-700 text-xs font-bold uppercase">
-                    {t("gen1.badge")}
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-bold text-on-surface mb-2">
-                    {t("gen1.title")}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed mb-6">
-                    {t("gen1.desc")}
-                  </p>
-
-                  <div className="flex flex-col gap-3 text-xs leading-relaxed">
-                    <div className="flex items-start gap-2.5">
-                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
-                      <span className="text-on-surface">{t("gen1.feature1")}</span>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
-                      <span className="text-on-surface">{t("gen1.feature2")}</span>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
-                      <span className="text-on-surface">{t("gen1.feature3")}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 pt-4 border-t border-surface-container-low">
-                <button
-                  onClick={() => onNavigate("kinetix-shield")}
-                  className="w-full py-3 rounded-xl bg-surface-container hover:bg-secondary hover:text-white text-on-surface text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  type="button"
-                >
-                  <span>Khám Phá Kinetix Shield</span>
-                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Card 2: Bố Mẹ / Guardians */}
-            <div className="p-8 rounded-3xl bg-slate-900 text-white shadow-xl flex flex-col justify-between text-left relative overflow-hidden border border-slate-800">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-secondary/20 rounded-full blur-2xl pointer-events-none" />
-
-              <div className="flex flex-col gap-6 relative z-10">
-                <div className="flex items-center justify-between">
-                  <div className="w-14 h-14 rounded-2xl bg-white/10 text-secondary-container flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[32px]">admin_panel_settings</span>
-                  </div>
-                  <span className="px-3 py-1 rounded-full bg-secondary-container text-white text-xs font-bold uppercase">
-                    {t("gen2.badge")}
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-bold text-white mb-2">
-                    {t("gen2.title")}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed mb-6">
-                    {t("gen2.desc")}
-                  </p>
-
-                  <div className="flex flex-col gap-3 text-xs leading-relaxed">
-                    <div className="flex items-start gap-2.5">
-                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
-                      <span className="text-slate-200">{t("gen2.feature1")}</span>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
-                      <span className="text-slate-200">{t("gen2.feature2")}</span>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
-                      <span className="text-slate-200">{t("gen2.feature3")}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 pt-4 border-t border-slate-800 relative z-10">
-                <button
-                  onClick={() => onNavigate("quan-tri-cha-me")}
-                  className="w-full py-3 rounded-xl bg-secondary-container hover:bg-secondary text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
-                  type="button"
-                >
-                  <span>Vào Trạm Quản Trị</span>
-                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Card 3: Con Trẻ */}
-            <div className="p-8 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-md flex flex-col justify-between text-left hover:border-secondary/50 transition-all group">
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between">
-                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[32px]">savings</span>
-                  </div>
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 text-xs font-bold uppercase">
-                    {t("gen3.badge")}
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-bold text-on-surface mb-2">
-                    {t("gen3.title")}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed mb-6">
-                    {t("gen3.desc")}
-                  </p>
-
-                  <div className="flex flex-col gap-3 text-xs leading-relaxed">
-                    <div className="flex items-start gap-2.5">
-                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
-                      <span className="text-on-surface">{t("gen3.feature1")}</span>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
-                      <span className="text-on-surface">{t("gen3.feature2")}</span>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <span className="material-symbols-outlined text-secondary text-[18px] shrink-0 mt-0.5">check_circle</span>
-                      <span className="text-on-surface">{t("gen3.feature3")}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 pt-4 border-t border-surface-container-low">
-                <button
-                  onClick={() => onNavigate("kinetix-kids")}
-                  className="w-full py-3 rounded-xl bg-surface-container hover:bg-emerald-600 hover:text-white text-on-surface text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  type="button"
-                >
-                  <span>Khám Phá Heo Đất Bé</span>
-                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                </button>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* SECTION 4: BẢO MẬT & CÔNG NGHỆ NỀN TẢNG */}
-      {/* ========================================================================= */}
-      <section id="security" className="w-full py-20 px-gutter bg-surface-container-low border-t border-outline-variant/20">
-        <div className="max-w-7xl mx-auto flex flex-col gap-12">
           
           <div className="text-center max-w-3xl mx-auto flex flex-col gap-3">
             <span className="text-xs font-bold uppercase tracking-widest text-secondary font-mono">
@@ -457,10 +544,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
-            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-3">
-              <span className="material-symbols-outlined text-[28px] text-secondary">lan</span>
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-3 text-left">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <span className="material-symbols-outlined text-[22px]">policy</span>
+              </div>
               <h3 className="text-base font-bold text-on-surface">
                 {t("sec.item1.title")}
               </h3>
@@ -469,8 +558,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </p>
             </div>
 
-            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-3">
-              <span className="material-symbols-outlined text-[28px] text-blue-600">key</span>
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-3 text-left">
+              <div className="w-10 h-10 rounded-xl bg-secondary/15 text-secondary flex items-center justify-center">
+                <span className="material-symbols-outlined text-[22px]">vpn_key</span>
+              </div>
               <h3 className="text-base font-bold text-on-surface">
                 {t("sec.item2.title")}
               </h3>
@@ -479,8 +570,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </p>
             </div>
 
-            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-3">
-              <span className="material-symbols-outlined text-[28px] text-emerald-600">schedule</span>
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-3 text-left">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[22px]">schedule</span>
+              </div>
               <h3 className="text-base font-bold text-on-surface">
                 {t("sec.item3.title")}
               </h3>
@@ -489,8 +582,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </p>
             </div>
 
-            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-3">
-              <span className="material-symbols-outlined text-[28px] text-amber-600">database</span>
+            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm flex flex-col gap-3 text-left">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[22px]">cloud_sync</span>
+              </div>
               <h3 className="text-base font-bold text-on-surface">
                 {t("sec.item4.title")}
               </h3>
@@ -505,27 +600,28 @@ export const HomeView: React.FC<HomeViewProps> = ({
       </section>
 
       {/* ========================================================================= */}
-      {/* SECTION 5: CALL TO ACTION BANNER */}
+      {/* SECTION 6: CALL TO ACTION BANNER */}
       {/* ========================================================================= */}
-      <section className="w-full py-16 px-gutter max-w-7xl mx-auto">
-        <div className="p-8 sm:p-14 rounded-3xl bg-gradient-to-r from-primary via-slate-900 to-primary text-white shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-8 text-center sm:text-left relative overflow-hidden">
-          <div className="max-w-2xl flex flex-col gap-3 relative z-10">
-            <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">
+      <section className="w-full pb-20 px-gutter max-w-7xl mx-auto">
+        <div className="rounded-3xl bg-gradient-to-br from-primary via-primary-container to-secondary-container p-8 sm:p-14 text-white text-center shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="relative z-10 max-w-2xl mx-auto flex flex-col gap-4 items-center">
+            <h2 className="font-display-sm text-2xl sm:text-4xl font-extrabold tracking-tight">
               {t("cta.title")}
             </h2>
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+            <p className="text-sm sm:text-base opacity-90 leading-relaxed">
               {t("cta.desc")}
             </p>
-          </div>
-
-          <div className="relative z-10 shrink-0">
-            <Link
-              href="/login"
-              className="px-8 py-4 rounded-2xl bg-secondary hover:bg-secondary-container text-white font-headline-sm text-sm sm:text-base font-bold shadow-xl transition-all active:scale-95 inline-flex items-center gap-2"
-            >
-              <span>{t("cta.btn")}</span>
-              <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-            </Link>
+            <div className="pt-4">
+              <Link
+                href="/login"
+                className="px-8 py-4 rounded-2xl bg-white text-primary hover:bg-slate-50 font-bold text-sm shadow-xl transition-all active:scale-95 inline-flex items-center gap-2 cursor-pointer"
+              >
+                <span>{t("cta.btn")}</span>
+                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </Link>
+            </div>
           </div>
         </div>
       </section>

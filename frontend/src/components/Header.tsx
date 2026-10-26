@@ -85,31 +85,39 @@ export const Header: React.FC<HeaderProps> = ({
           <nav className="hidden md:flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => scrollToSection("about")}
-              className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all cursor-pointer"
+              className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all cursor-pointer"
               type="button"
             >
               {t("nav.about")}
             </button>
 
             <button
+              onClick={() => scrollToSection("workspaces")}
+              className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all cursor-pointer"
+              type="button"
+            >
+              {t("nav.workspaces")}
+            </button>
+
+            <button
+              onClick={() => scrollToSection("rules")}
+              className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all cursor-pointer"
+              type="button"
+            >
+              {t("nav.rules")}
+            </button>
+
+            <button
               onClick={() => scrollToSection("architecture")}
-              className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all cursor-pointer"
+              className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all cursor-pointer"
               type="button"
             >
               {t("nav.architecture")}
             </button>
 
             <button
-              onClick={() => scrollToSection("solutions")}
-              className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all cursor-pointer"
-              type="button"
-            >
-              {t("nav.solutions")}
-            </button>
-
-            <button
               onClick={() => scrollToSection("security")}
-              className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all cursor-pointer"
+              className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all cursor-pointer"
               type="button"
             >
               {t("nav.security")}

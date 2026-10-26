@@ -83,6 +83,63 @@ const DEFAULT_VAULTS = {
   },
 };
 
+const DEFAULT_DYNAMIC_VAULTS: DynamicVaultItem[] = [
+  {
+    id: 'v-shield',
+    workspaceId: 'ws-1',
+    onchainVaultId: 0,
+    name: 'Hũ Báo Hiếu & Dưỡng Già Ông Bà',
+    description: 'Bộ quy tắc SHIELD: Rút nhanh thường nhật từ đệm L1, rút lớn cần 2 Guardians duyệt.',
+    ruleTemplate: 'SHIELD',
+    bufferRatioBps: 1000,
+    fastWithdrawLimit: 50,
+    requiredApprovals: 2,
+    cachedTotalBalance: 1200,
+    cachedL1Buffer: 120,
+    cachedCChainYield: 86.4,
+    totalBalance: 1200,
+    l1BufferBalance: 120,
+    cChainPrincipal: 1080,
+    isActive: true,
+  },
+  {
+    id: 'v-milestone',
+    workspaceId: 'ws-1',
+    onchainVaultId: 1,
+    name: 'Hũ Tiết Kiệm Khởi Nghiệp Trẻ Nhỏ',
+    description: 'Bộ quy tắc MILESTONE: Quỹ việc nhà Chore-to-Earn, vốn sinh lời 8% APY trên C-Chain.',
+    ruleTemplate: 'MILESTONE',
+    bufferRatioBps: 2000,
+    fastWithdrawLimit: 20,
+    requiredApprovals: 2,
+    cachedTotalBalance: 450,
+    cachedL1Buffer: 90,
+    cachedCChainYield: 28.8,
+    totalBalance: 450,
+    l1BufferBalance: 90,
+    cChainPrincipal: 360,
+    isActive: true,
+  },
+  {
+    id: 'v-rosca',
+    workspaceId: 'ws-1',
+    onchainVaultId: 2,
+    name: 'Hũ Tương Trợ Dòng Họ Nguyễn',
+    description: 'Bộ quy tắc ROSCA: Góp vốn xoay vòng 4 kỳ, vốn nhàn rỗi sinh lời DeFi trên C-Chain.',
+    ruleTemplate: 'ROSCA',
+    bufferRatioBps: 0,
+    fastWithdrawLimit: 1000,
+    requiredApprovals: 3,
+    cachedTotalBalance: 3000,
+    cachedL1Buffer: 0,
+    cachedCChainYield: 240,
+    totalBalance: 3000,
+    l1BufferBalance: 0,
+    cChainPrincipal: 3000,
+    isActive: true,
+  },
+];
+
 interface FamilyContextType {
   // Workspaces & Multi-Space
   workspaces: WorkspaceItem[];
@@ -181,8 +238,8 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [currentWorkspace, setCurrentWorkspace] = useState<WorkspaceItem | null>(null);
 
   // Dynamic Vaults
-  const [dynamicVaults, setDynamicVaults] = useState<DynamicVaultItem[]>([]);
-  const [selectedVault, setSelectedVault] = useState<DynamicVaultItem | null>(null);
+  const [dynamicVaults, setDynamicVaults] = useState<DynamicVaultItem[]>(DEFAULT_DYNAMIC_VAULTS);
+  const [selectedVault, setSelectedVault] = useState<DynamicVaultItem | null>(DEFAULT_DYNAMIC_VAULTS[0]);
 
   const [isWalletConnected, setIsWalletConnected] = useState<boolean>(true);
   const [connectedWalletAddress, setConnectedWalletAddress] = useState<string | null>(
@@ -298,6 +355,11 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           cachedTotalBalance: Number(v.cachedTotalBalance || 0),
           cachedL1Buffer: Number(v.cachedL1Buffer || 0),
           cachedCChainYield: Number(v.cachedCChainYield || 0),
+          totalBalance: Number(v.cachedTotalBalance || 0),
+          l1BufferBalance: Number(v.cachedL1Buffer || 0),
+          cChainPrincipal: Number(v.cachedTotalBalance || 0) > Number(v.cachedL1Buffer || 0)
+            ? Number(v.cachedTotalBalance || 0) - Number(v.cachedL1Buffer || 0)
+            : Number(v.cachedCChainYield || 0),
           isActive: v.isActive ?? true,
         }));
         setDynamicVaults(loadedVaults);

@@ -2,15 +2,47 @@
 
 import React, { useState } from "react";
 import { useFamily } from "@/context/FamilyContext";
-import { VaultType } from "@/contracts/config";
+import { useLanguage } from "@/context/LanguageContext";
 
 export const ElderlyView: React.FC = () => {
-  const { vaults, quickWithdraw, requestLargeWithdraw, currentMember, members } = useFamily();
+  const {
+    dynamicVaults,
+    currentWorkspace,
+    fastWithdrawFromVault,
+    requestVaultWithdrawal,
+    quickWithdraw,
+    requestLargeWithdraw,
+    currentMember,
+    members,
+    vaults: fallbackVaults,
+  } = useFamily();
+
+  const { language } = useLanguage();
+
+  // Tìm các Hũ tiền thuộc bộ quy tắc SHIELD (Bảo vệ & Trợ cấp)
+  const shieldVaults = dynamicVaults.filter((v) => v.ruleTemplate === "SHIELD");
+  const [selectedVaultId, setSelectedVaultId] = useState<number | null>(
+    shieldVaults.length > 0 ? shieldVaults[0].onchainVaultId : null
+  );
+
+  const activeVault =
+    shieldVaults.find((v) => v.onchainVaultId === selectedVaultId) || shieldVaults[0];
+
+  // Hạn mức rút nhanh lấy từ Hũ tiền (mặc định 50 nếu chưa cấu hình)
+  const fastLimit = activeVault?.fastWithdrawLimit || 50;
+  const bufferBalance = activeVault
+    ? activeVault.l1BufferBalance
+    : fallbackVaults.retirementShield.localBuffer;
+  const cChainPrincipal = activeVault
+    ? activeVault.cChainPrincipal
+    : fallbackVaults.retirementShield.remoteYield;
+
   const [selectedPill, setSelectedPill] = useState<number>(20);
   const [largeAmount, setLargeAmount] = useState<string>("1000");
   const [largeReason, setLargeReason] = useState<string>(
     "Khám bệnh đột xuất tại Bệnh viện Tim TW"
   );
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [notification, setNotification] = useState<{
     show: boolean;
     title: string;
@@ -23,52 +55,86 @@ export const ElderlyView: React.FC = () => {
     type: "success",
   });
 
-  const bufferBalance = vaults.retirementShield.localBuffer;
   const adminOrGuardian = members.find((m) => m.role === "ADMIN" || m.role === "GUARDIAN");
   const emergencyPhone = adminOrGuardian?.phoneNumber || "0908889999";
 
+  // Rút tiền tức thì < 1 giây, 0đ gas
   const handleQuickWithdraw = async () => {
     if (bufferBalance < selectedPill) {
-      alert("Số dư đệm Family L1 không đủ!");
+      alert("Số dư đệm Family L1 của Hũ không đủ! Vui lòng nạp thêm hoặc yêu cầu rút lớn.");
       return;
     }
-    const success = await quickWithdraw(VaultType.RetirementShield, selectedPill);
-    if (success) {
-      setNotification({
-        show: true,
-        title: "🎉 RÚT TIỀN ĐI CHỢ THÀNH CÔNG TỨC THÌ!",
-        message: `Đã giải ngân ${selectedPill} USDC (~${(selectedPill * 25000).toLocaleString(
-          "vi-VN"
-        )} VNĐ) từ đệm Family L1 trong <1 giây với 0đ phí gas!`,
-        type: "success",
-      });
+    setIsProcessing(true);
+    try {
+      let success = false;
+      if (activeVault) {
+        success = await fastWithdrawFromVault(activeVault.onchainVaultId, selectedPill);
+      } else {
+        success = await quickWithdraw(0, selectedPill);
+      }
+
+      if (success) {
+        setNotification({
+          show: true,
+          title: "🎉 RÚT TIỀN ĐI CHỢ THÀNH CÔNG TỨC THÌ!",
+          message: `Đã giải ngân ${selectedPill} USDC (~${(selectedPill * 25000).toLocaleString(
+            "vi-VN"
+          )} VNĐ) từ đệm Family L1 trong <1 giây với 0đ phí gas!`,
+          type: "success",
+        });
+      }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
+  // Yêu cầu rút tiền lớn > hạn mức cần M/N Guardians ký duyệt
   const handleRequestLargeWithdrawal = async () => {
     const amt = parseFloat(largeAmount);
-    if (!amt || amt <= 50) {
-      alert("Khoản rút lớn phải trên 50 USDC. Khoản nhỏ xin dùng nút rút tức thì bên trái!");
+    if (!amt || amt <= fastLimit) {
+      alert(
+        `Khoản rút lớn phải trên ${fastLimit} USDC. Khoản nhỏ xin dùng nút rút tức thì bên trái!`
+      );
       return;
     }
-    const { success, requestId } = await requestLargeWithdraw(
-      VaultType.RetirementShield,
-      amt,
-      largeReason
-    );
-    if (success) {
-      const guardianNames =
-        members
-          .filter((m) => m.role === "GUARDIAN" || m.role === "ADMIN")
-          .map((m) => m.name)
-          .join(", ") || "người bảo hộ";
+    setIsProcessing(true);
+    try {
+      let success = false;
+      let requestId: number | undefined;
 
-      setNotification({
-        show: true,
-        title: "🛡️ ĐÃ KÍCH HOẠT BẢO VỆ CHỐNG LỪA ĐẢO AI (Multisig 2/3)!",
-        message: `Yêu cầu rút ${amt} USDC (Mã #${requestId || "001"} - ${largeReason}) đã được ghi danh vào Smart Contract và gửi khẩn cấp tới các con (${guardianNames}). Cần 2/3 con ký duyệt mới giải ngân!`,
-        type: "warning",
-      });
+      if (activeVault) {
+        const res = await requestVaultWithdrawal(
+          activeVault.onchainVaultId,
+          amt,
+          largeReason
+        );
+        success = res.success;
+        requestId = res.requestId;
+      } else {
+        const res = await requestLargeWithdraw(0, amt, largeReason);
+        success = res.success;
+        requestId = res.requestId;
+      }
+
+      if (success) {
+        const reqApprovals = activeVault?.requiredApprovals || 2;
+        const guardianNames =
+          members
+            .filter((m) => m.role === "GUARDIAN" || m.role === "ADMIN")
+            .map((m) => m.name)
+            .join(", ") || "người bảo hộ";
+
+        setNotification({
+          show: true,
+          title: "🛡️ ĐÃ KÍCH HOẠT BẢO VỆ CHỐNG LỪA ĐẢO AI (Multisig)!",
+          message: `Yêu cầu rút ${amt} USDC (Mã #${
+            requestId || "001"
+          } - "${largeReason}") đã ghi vào Smart Contract và gửi khẩn cấp tới các con (${guardianNames}). Cần tối thiểu ${reqApprovals} chữ ký Guardians duyệt mới giải ngân!`,
+          type: "warning",
+        });
+      }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -88,7 +154,7 @@ export const ElderlyView: React.FC = () => {
               {notification.type === "success" ? "check_circle" : "shield"}
             </span>
             <div>
-              <h4 className="font-headline-sm text-headline-sm">
+              <h4 className="font-headline-sm text-headline-sm font-bold">
                 {notification.title}
               </h4>
               <p className="text-body-md mt-1">{notification.message}</p>
@@ -96,7 +162,8 @@ export const ElderlyView: React.FC = () => {
           </div>
           <button
             onClick={() => setNotification({ ...notification, show: false })}
-            className="text-gray-500 hover:text-black"
+            className="text-gray-500 hover:text-black cursor-pointer"
+            type="button"
           >
             <span className="material-symbols-outlined">close</span>
           </button>
@@ -131,15 +198,36 @@ export const ElderlyView: React.FC = () => {
                 shield
               </span>
               <span className="font-label-lg text-label-lg text-on-surface">
-                Chế độ Bảo Vệ Kinetix Shield: <strong>ĐANG BẬT</strong>
+                Chế độ Bảo Vệ Kinetix SHIELD: <strong>ĐANG BẬT</strong>
               </span>
             </div>
-            <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
+            <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight font-bold">
               Chào {currentMember?.name || "Ông Nội"} ❤️
             </h1>
             <p className="font-title-md text-title-md text-on-surface-variant font-normal">
-              Chúc Ông ngày mới an vui, mạnh khỏe và thảnh thơi.
+              {currentWorkspace ? `Không gian: ${currentWorkspace.name} • ` : ""}Chúc Ông ngày mới an vui, mạnh khỏe và thảnh thơi.
             </p>
+
+            {/* Selector if multiple SHIELD vaults */}
+            {shieldVaults.length > 1 && (
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs font-semibold text-on-surface-variant">Chọn Hũ:</span>
+                {shieldVaults.map((vault) => (
+                  <button
+                    key={vault.id}
+                    onClick={() => setSelectedVaultId(vault.onchainVaultId)}
+                    className={`px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all ${
+                      activeVault?.onchainVaultId === vault.onchainVaultId
+                        ? "bg-secondary text-white"
+                        : "bg-surface-container hover:bg-surface-container-high text-on-surface"
+                    }`}
+                    type="button"
+                  >
+                    {vault.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -155,14 +243,14 @@ export const ElderlyView: React.FC = () => {
             <span className="font-label-caps text-label-caps tracking-widest opacity-90 uppercase">
               Hỗ Trợ Gia Đình
             </span>
-            <span className="font-headline-sm text-headline-sm">
+            <span className="font-headline-sm text-headline-sm font-bold">
               Cần trợ giúp? Bấm gọi con ngay
             </span>
           </div>
         </a>
       </div>
 
-      {/* Main Hero Balance Card (Simplified, Zero Jargon, Very Large Typography) */}
+      {/* Main Hero Balance Card */}
       <div className="w-full bg-surface-container-lowest rounded-2xl p-space-lg md:p-space-xl shadow-sm relative overflow-hidden flex flex-col gap-space-md border border-surface-container-high/60">
         <div className="absolute -right-16 -top-16 w-64 h-64 bg-surface-container-high/40 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -172,12 +260,12 @@ export const ElderlyView: React.FC = () => {
               savings
             </span>
             <span className="font-headline-sm text-headline-sm text-on-surface-variant font-bold">
-              Tiền sinh hoạt sẵn sàng tiêu (Hũ Báo Hiếu)
+              {activeVault ? activeVault.name : "Tiền sinh hoạt sẵn sàng tiêu (Hũ Báo Hiếu)"}
             </span>
           </div>
-          <div className="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-surface-container text-on-surface font-label-lg text-label-lg">
+          <div className="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-surface-container text-on-surface font-label-lg text-label-lg font-medium">
             <span className="material-symbols-outlined text-[18px]">lock</span>
-            <span>Ví An Toàn Riêng Biệt (Allowlisted)</span>
+            <span>Bộ đệm L1: Rút tức thì 0 gas fee</span>
           </div>
         </div>
 
@@ -196,15 +284,14 @@ export const ElderlyView: React.FC = () => {
             eco
           </span>
           <p className="font-body-lg text-body-lg">
-            Đã bao gồm <strong>28 USDC (~700.000 VNĐ)</strong> tiền lãi tháng
-            này con cháu gửi tặng sinh lời tự động mỗi ngày từ Avalanche Fuji C-Chain.
+            Phần vốn nhàn rỗi <strong>{cChainPrincipal.toLocaleString()} USDC</strong> đang sinh lời tự động <strong>8% APY</strong> mỗi ngày từ Avalanche Fuji C-Chain và tự động chuyển về đệm L1 khi cần!
           </p>
         </div>
       </div>
 
       {/* Dual Action Area: High-Contrast Large Action Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-lg w-full">
-        {/* Card A: Daily Spending (Fast & Immediate <= 50 USDC) */}
+        {/* Card A: Daily Spending (Fast & Immediate <= fastLimit) */}
         <div className="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm flex flex-col justify-between gap-space-md border border-surface-container-high/60">
           <div className="flex flex-col gap-space-sm">
             <div className="flex items-center gap-space-xs text-on-tertiary-container">
@@ -215,12 +302,11 @@ export const ElderlyView: React.FC = () => {
                 Rút Tức Thì (1 Chạm)
               </span>
             </div>
-            <h2 className="font-headline-lg text-headline-lg text-on-surface">
-              Rút tiền chợ / Mua thuốc
+            <h2 className="font-headline-lg text-headline-lg text-on-surface font-bold">
+              Rút tiền chợ / Mua thuốc (≤ {fastLimit} USDC)
             </h2>
             <p className="font-title-md text-title-md text-on-surface-variant font-normal">
-              Dành cho chi tiêu nhỏ lẻ dưới 50 USDC. Nhận tiền về tài khoản trong
-              1 giây mà không cần con cháu duyệt.
+              Dành cho chi tiêu nhỏ lẻ thường nhật. Nhận tiền về tài khoản trong 1 giây mà không cần con cháu duyệt, 0đ phí giao dịch.
             </p>
 
             {/* Quick Select Preset Pills */}
@@ -229,20 +315,20 @@ export const ElderlyView: React.FC = () => {
                 Chọn số tiền muốn lấy:
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-space-xs">
-                {[10, 20, 50].map((val) => {
+                {[10, 20, fastLimit].map((val) => {
                   const isSelected = selectedPill === val;
                   return (
                     <button
                       key={val}
                       onClick={() => setSelectedPill(val)}
-                      className={`py-space-sm px-space-xs rounded-xl font-headline-sm text-headline-sm flex flex-col items-center justify-center transition-all ${
+                      className={`py-space-sm px-space-xs rounded-xl font-headline-sm text-headline-sm flex flex-col items-center justify-center transition-all cursor-pointer ${
                         isSelected
                           ? "bg-secondary text-on-secondary shadow-md scale-[1.02]"
                           : "bg-surface-container hover:bg-surface-container-high text-on-surface"
                       }`}
                       type="button"
                     >
-                      <span>{val} USDC</span>
+                      <span className="font-bold">{val} USDC</span>
                       <span
                         className={`font-label-md text-label-md ${
                           isSelected ? "text-white/80" : "text-on-surface-variant"
@@ -260,13 +346,25 @@ export const ElderlyView: React.FC = () => {
           <div className="pt-space-md flex flex-col gap-space-xs">
             <button
               onClick={handleQuickWithdraw}
-              className="w-full py-space-md px-space-lg bg-surface-container-high hover:bg-surface-container text-on-surface hover:text-on-surface font-headline-sm text-headline-sm rounded-xl shadow-md flex items-center justify-center gap-space-sm transition-all active:scale-[0.98]"
+              disabled={isProcessing}
+              className="w-full py-space-md px-space-lg bg-surface-container-high hover:bg-surface-container text-on-surface font-headline-sm text-headline-sm rounded-xl shadow-md flex items-center justify-center gap-space-sm transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60"
               type="button"
             >
-              <span className="material-symbols-outlined text-[28px] text-tertiary-fixed-dim">
-                bolt
-              </span>
-              <span>RÚT {selectedPill} USDC NGAY (Miễn phí 100%)</span>
+              {isProcessing ? (
+                <>
+                  <span className="material-symbols-outlined animate-spin text-[28px]">
+                    progress_activity
+                  </span>
+                  <span>Đang giải ngân...</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-[28px] text-tertiary-fixed-dim">
+                    bolt
+                  </span>
+                  <span className="font-bold">RÚT {selectedPill} USDC NGAY (0đ Phí Gas)</span>
+                </>
+              )}
             </button>
             <span className="font-label-md text-label-md text-center text-outline">
               Bảo mật tự động bởi Hợp đồng FamilyHub trên Avalanche Family L1
@@ -274,7 +372,7 @@ export const ElderlyView: React.FC = () => {
           </div>
         </div>
 
-        {/* Card B: High-Value Spending (Anti-Scam Protection > 50 USDC) */}
+        {/* Card B: High-Value Spending (Anti-Scam Protection > fastLimit) */}
         <div className="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm flex flex-col justify-between gap-space-md border border-surface-container-high/60">
           <div className="flex flex-col gap-space-sm">
             <div className="flex items-center gap-space-xs text-secondary">
@@ -282,15 +380,14 @@ export const ElderlyView: React.FC = () => {
                 shield_with_heart
               </span>
               <span className="font-label-caps text-label-caps bg-secondary-fixed px-space-xs py-0.5 rounded uppercase font-bold text-on-secondary-fixed">
-                Bảo Vệ Đa Chữ Ký Multisig
+                Bảo Vệ Đa Chữ Ký Multisig ({activeVault?.requiredApprovals || 2} Chữ Ký)
               </span>
             </div>
-            <h2 className="font-headline-lg text-headline-lg text-on-surface">
-              Rút khoản tiền lớn (&gt; 50 USDC)
+            <h2 className="font-headline-lg text-headline-lg text-on-surface font-bold">
+              Rút khoản tiền lớn (&gt; {fastLimit} USDC)
             </h2>
             <p className="font-title-md text-title-md text-on-surface-variant font-normal">
-              Dùng khi khám chữa bệnh, sửa nhà hoặc việc hệ trọng. Tự động kích
-              hoạt cơ chế chống lừa đảo AI và kẻ gian mạo danh.
+              Dùng khi khám chữa bệnh, sửa nhà hoặc việc hệ trọng. Tự động kích hoạt cơ chế chống lừa đảo AI và kẻ gian mạo danh.
             </p>
 
             {/* Input Amount & Reason */}
@@ -306,12 +403,12 @@ export const ElderlyView: React.FC = () => {
                   <input
                     value={largeAmount}
                     onChange={(e) => setLargeAmount(e.target.value)}
-                    className="w-full py-space-sm px-space-md bg-surface rounded-xl font-headline-sm text-headline-sm text-on-surface placeholder:text-outline border border-surface-container-high focus:outline-none focus:ring-2 focus:ring-secondary"
+                    className="w-full py-space-sm px-space-md bg-surface rounded-xl font-headline-sm text-headline-sm text-on-surface placeholder:text-outline border border-surface-container-high focus:outline-none focus:ring-2 focus:ring-secondary font-bold"
                     id="largeAmount"
                     placeholder="Ví dụ: 100, 500, 1000"
                     type="number"
                   />
-                  <span className="absolute right-space-md font-headline-sm text-headline-sm text-on-surface-variant">
+                  <span className="absolute right-space-md font-headline-sm text-headline-sm text-on-surface-variant font-bold">
                     USDC
                   </span>
                 </div>
@@ -338,16 +435,28 @@ export const ElderlyView: React.FC = () => {
           <div className="pt-space-md flex flex-col gap-space-xs">
             <button
               onClick={handleRequestLargeWithdrawal}
-              className="w-full py-space-md px-space-lg bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-on-secondary font-headline-sm text-headline-sm rounded-xl shadow-md flex items-center justify-center gap-space-sm transition-all active:scale-[0.98]"
+              disabled={isProcessing}
+              className="w-full py-space-md px-space-lg bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-on-secondary font-headline-sm text-headline-sm rounded-xl shadow-md flex items-center justify-center gap-space-sm transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 font-bold"
               type="button"
             >
-              <span className="material-symbols-outlined text-[28px]">
-                send_time_extension
-              </span>
-              <span>GỬI YÊU CẦU CHO CÁC CON DUYỆT</span>
+              {isProcessing ? (
+                <>
+                  <span className="material-symbols-outlined animate-spin text-[28px]">
+                    progress_activity
+                  </span>
+                  <span>Đang gửi yêu cầu...</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-[28px]">
+                    send_time_extension
+                  </span>
+                  <span>GỬI YÊU CẦU CHO CÁC CON DUYỆT</span>
+                </>
+              )}
             </button>
             <span className="font-label-md text-label-md text-center text-outline">
-              Bắt buộc tối thiểu 2/3 Guardians ký duyệt mới giải ngân
+              Bắt buộc tối thiểu {activeVault?.requiredApprovals || 2} Guardians ký duyệt mới giải ngân
             </span>
           </div>
         </div>

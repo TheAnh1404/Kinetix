@@ -103,5 +103,8 @@ export interface DynamicVaultItem {
   cachedTotalBalance: number;
   cachedL1Buffer: number;
   cachedCChainYield: number;
+  totalBalance: number;
+  l1BufferBalance: number;
+  cChainPrincipal: number;
   isActive: boolean;
 }
