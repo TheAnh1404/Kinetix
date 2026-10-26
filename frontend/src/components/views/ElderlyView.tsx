@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
+import { useFamily } from "@/context/FamilyContext";
+import { VaultType } from "@/contracts/config";
 
 export const ElderlyView: React.FC = () => {
-  const [balance, setBalance] = useState<number>(350);
+  const { vaults, quickWithdraw, requestLargeWithdraw } = useFamily();
   const [selectedPill, setSelectedPill] = useState<number>(20);
   const [largeAmount, setLargeAmount] = useState<string>("1000");
   const [largeReason, setLargeReason] = useState<string>(
@@ -21,35 +23,45 @@ export const ElderlyView: React.FC = () => {
     type: "success",
   });
 
-  const handleQuickWithdraw = () => {
-    if (balance < selectedPill) {
-      alert("Số dư đệm không đủ!");
+  const bufferBalance = vaults.retirementShield.localBuffer;
+
+  const handleQuickWithdraw = async () => {
+    if (bufferBalance < selectedPill) {
+      alert("Số dư đệm Family L1 không đủ!");
       return;
     }
-    const newBal = balance - selectedPill;
-    setBalance(newBal);
-    setNotification({
-      show: true,
-      title: "🎉 RÚT TIỀN ĐI CHỢ THÀNH CÔNG TỨC THÌ!",
-      message: `Đã giải ngân ${selectedPill} USDC (~${(selectedPill * 25000).toLocaleString(
-        "vi-VN"
-      )} VNĐ) về tài khoản tiêu dùng trong 0.8 giây với 0đ phí gas!`,
-      type: "success",
-    });
+    const success = await quickWithdraw(VaultType.RetirementShield, selectedPill);
+    if (success) {
+      setNotification({
+        show: true,
+        title: "🎉 RÚT TIỀN ĐI CHỢ THÀNH CÔNG TỨC THÌ!",
+        message: `Đã giải ngân ${selectedPill} USDC (~${(selectedPill * 25000).toLocaleString(
+          "vi-VN"
+        )} VNĐ) từ đệm Family L1 trong <1 giây với 0đ phí gas!`,
+        type: "success",
+      });
+    }
   };
 
-  const handleRequestLargeWithdrawal = () => {
+  const handleRequestLargeWithdrawal = async () => {
     const amt = parseFloat(largeAmount);
     if (!amt || amt <= 50) {
       alert("Khoản rút lớn phải trên 50 USDC. Khoản nhỏ xin dùng nút rút tức thì bên trái!");
       return;
     }
-    setNotification({
-      show: true,
-      title: "🛡️ ĐÃ KÍCH HOẠT BẢO VỆ CHỐNG LỪA ĐẢO AI!",
-      message: `Yêu cầu rút ${amt} USDC (${largeReason}) đã được gửi khẩn cấp tới 3 người con (Bố Ba, Anh Cả, Cô Út). Cần ít nhất 2/3 con ký duyệt on-chain trên Family L1 để bảo vệ tài sản cho Ông!`,
-      type: "warning",
-    });
+    const { success, requestId } = await requestLargeWithdraw(
+      VaultType.RetirementShield,
+      amt,
+      largeReason
+    );
+    if (success) {
+      setNotification({
+        show: true,
+        title: "🛡️ ĐÃ KÍCH HOẠT BẢO VỆ CHỐNG LỪA ĐẢO AI (Multisig 2/3)!",
+        message: `Yêu cầu rút ${amt} USDC (Mã #${requestId || '001'} - ${largeReason}) đã được ghi danh vào Smart Contract và gửi khẩn cấp tới 3 người con (Bố Ba, Anh Cả, Cô Út). Cần 2/3 con ký duyệt mới giải ngân!`,
+        type: "warning",
+      });
+    }
   };
 
   return (
@@ -160,10 +172,10 @@ export const ElderlyView: React.FC = () => {
 
         <div className="flex flex-col lg:flex-row lg:items-baseline gap-space-sm lg:gap-space-lg relative z-10">
           <span className="font-display-lg text-display-lg md:text-[56px] md:leading-[64px] font-bold text-on-surface tracking-tight">
-            {balance.toFixed(2)} USDC
+            {bufferBalance.toFixed(2)} USDC
           </span>
           <span className="font-headline-lg text-headline-lg text-outline font-semibold">
-            ~ {(balance * 25000).toLocaleString("vi-VN")} VNĐ
+            ~ {(bufferBalance * 25000).toLocaleString("vi-VN")} VNĐ
           </span>
         </div>
 

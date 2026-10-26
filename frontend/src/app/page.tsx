@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ActiveTab, DemoMember, DEMO_MEMBERS } from '@/types';
+import { ActiveTab, DemoMember } from '@/types';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { HomeView } from '@/components/views/HomeView';
@@ -9,16 +9,25 @@ import { ElderlyView } from '@/components/views/ElderlyView';
 import { GuardianView } from '@/components/views/GuardianView';
 import { KidsView } from '@/components/views/KidsView';
 import { RoscaView } from '@/components/views/RoscaView';
+import { FamilyProvider, useFamily } from '@/context/FamilyContext';
+import { VaultType } from '@/contracts/config';
 
-export default function Home() {
+function FamilyAppContent() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('trang-chu');
-  const [currentMember, setCurrentMember] = useState<DemoMember>(DEMO_MEMBERS[0]); // Mặc định Bố Ba (ADMIN)
-  const [isWalletConnected, setIsWalletConnected] = useState<boolean>(true); // Giả lập đã kết nối Ví Core cho demo mượt mà
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState<string>('500');
   const [selectedVault, setSelectedVault] = useState<string>('Retirement Shield');
   const [isDepositing, setIsDepositing] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState(false);
+
+  const {
+    currentMember,
+    setCurrentMember,
+    isWalletConnected,
+    connectWallet,
+    disconnectWallet,
+    depositFunds,
+  } = useFamily();
 
   const handleSelectMember = (member: DemoMember) => {
     setCurrentMember(member);
@@ -32,17 +41,28 @@ export default function Home() {
     }
   };
 
-  const handleDepositSubmit = (e: React.FormEvent) => {
+  const handleDepositSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsDepositing(true);
-    setTimeout(() => {
-      setIsDepositing(false);
+
+    const vType =
+      selectedVault === 'Retirement Shield'
+        ? VaultType.RetirementShield
+        : selectedVault === 'Kids Savings'
+        ? VaultType.KidsSavings
+        : VaultType.FamilyROSCA;
+
+    const amt = parseFloat(depositAmount) || 0;
+    const success = await depositFunds(vType, amt);
+
+    setIsDepositing(false);
+    if (success) {
       setDepositSuccess(true);
       setTimeout(() => {
         setDepositSuccess(false);
         setIsDepositModalOpen(false);
       }, 1500);
-    }, 1500);
+    }
   };
 
   return (
@@ -54,7 +74,13 @@ export default function Home() {
         currentMember={currentMember}
         onMemberChange={handleSelectMember}
         isWalletConnected={isWalletConnected}
-        onConnectWallet={() => setIsWalletConnected((prev) => !prev)}
+        onConnectWallet={() => {
+          if (isWalletConnected) {
+            disconnectWallet();
+          } else {
+            connectWallet();
+          }
+        }}
       />
 
       {/* Main Content Render Theo Tab */}
@@ -109,7 +135,7 @@ export default function Home() {
                 <span className="material-symbols-outlined text-[48px] text-emerald-600">check_circle</span>
                 <h4 className="font-headline-sm text-headline-sm text-emerald-800">Nạp Quỹ Thành Công!</h4>
                 <p className="font-body-sm text-body-sm text-emerald-700">
-                  Đã giữ lại 10% ({(parseFloat(depositAmount || '0') * 0.1).toFixed(2)} USDC) trên Family L1 và chuyển 90% ({(parseFloat(depositAmount || '0') * 0.9).toFixed(2)} USDC) sang Fuji C-Chain sinh lời 8.2% APY.
+                  Đã giải ngân on-chain: 10% ({(parseFloat(depositAmount || '0') * 0.1).toFixed(2)} USDC) vào đệm Family L1 và 90% ({(parseFloat(depositAmount || '0') * 0.9).toFixed(2)} USDC) sang Fuji C-Chain sinh lời 8.2% APY.
                 </p>
               </div>
             ) : (
@@ -207,5 +233,13 @@ export default function Home() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <FamilyProvider>
+      <FamilyAppContent />
+    </FamilyProvider>
   );
 }

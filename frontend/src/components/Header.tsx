@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { ActiveTab, DemoMember } from "../types";
 import { RoleSwitcherModal } from "./RoleSwitcherModal";
+import { useFamily } from "@/context/FamilyContext";
 
 interface HeaderProps {
   activeTab: ActiveTab;
@@ -22,6 +23,10 @@ export const Header: React.FC<HeaderProps> = ({
   onConnectWallet,
 }) => {
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+
+  const { notifications, unreadNotificationCount, markNotificationRead, isLiveWeb3 } =
+    useFamily();
 
   const navItems: { id: ActiveTab; label: string }[] = [
     { id: "trang-chu", label: "Trang Chủ" },
@@ -63,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   key={item.id}
                   onClick={() => onTabChange(item.id)}
-                  className={`px-space-md py-space-xs rounded-full font-label-lg text-label-lg transition-all ${
+                  className={`px-space-md py-space-xs rounded-full font-label-lg text-label-lg transition-all cursor-pointer ${
                     isActive
                       ? "bg-surface-container-high text-on-surface font-bold shadow-sm"
                       : "text-on-surface-variant hover:text-on-surface"
@@ -79,16 +84,94 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-space-sm">
             {/* Avalanche Subnet Zero Gas Badge */}
             <div className="hidden md:flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-low rounded-full">
-              <span className="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isLiveWeb3 ? "bg-emerald-500 animate-ping" : "bg-secondary-container animate-pulse"
+                }`}
+              ></span>
               <span className="font-label-caps text-label-caps text-on-surface-variant font-medium">
-                Avalanche Family L1 | 0 Gwei Gas
+                {isLiveWeb3 ? "Avalanche L1 (Live RPC)" : "Avalanche Family L1 | 0 Gwei Gas"}
               </span>
+            </div>
+
+            {/* Notification Bell Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsNotifOpen((prev) => !prev)}
+                className="relative w-9 h-9 rounded-xl bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface transition-all cursor-pointer"
+                title="Thông báo gia đình"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[20px]">notifications</span>
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-secondary text-white font-bold text-[10px] flex items-center justify-center animate-pulse">
+                    {unreadNotificationCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notification Menu */}
+              {isNotifOpen && (
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/30 p-space-sm z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="flex items-center justify-between p-space-xs pb-2 border-b border-surface-container-low">
+                    <span className="font-headline-sm text-sm text-on-surface font-bold">
+                      Hộp Thư Cảnh Báo ({notifications.length})
+                    </span>
+                    <button
+                      onClick={() => setIsNotifOpen(false)}
+                      className="text-on-surface-variant hover:text-on-surface text-xs font-bold"
+                    >
+                      Đóng
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-1 max-h-72 overflow-y-auto mt-2">
+                    {notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        onClick={() => markNotificationRead(n.id)}
+                        className={`p-space-xs rounded-xl flex items-start gap-2 cursor-pointer transition-colors ${
+                          n.isRead ? "bg-surface-container-low/40 opacity-70" : "bg-surface-container-low border border-secondary/20"
+                        }`}
+                      >
+                        <div
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                            n.type === "ALERT_SCAM"
+                              ? "bg-secondary text-white"
+                              : n.type === "TASK_COMPLETED"
+                              ? "bg-blue-600 text-white"
+                              : "bg-emerald-600 text-white"
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">
+                            {n.type === "ALERT_SCAM"
+                              ? "warning"
+                              : n.type === "TASK_COMPLETED"
+                              ? "task_alt"
+                              : "payments"}
+                          </span>
+                        </div>
+                        <div className="flex flex-col flex-1">
+                          <span className="font-label-md text-xs font-bold text-on-surface leading-snug">
+                            {n.title}
+                          </span>
+                          <span className="font-body-sm text-[11px] text-on-surface-variant leading-tight">
+                            {n.message}
+                          </span>
+                          <span className="font-label-caps text-[9px] text-on-surface-variant/70 mt-1">
+                            {n.createdAt}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Quick Role Switcher Button */}
             <button
               onClick={() => setIsRoleModalOpen(true)}
-              className="flex items-center gap-space-xs px-space-sm py-space-xs rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-all shadow-sm"
+              className="flex items-center gap-space-xs px-space-sm py-space-xs rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-all shadow-sm cursor-pointer"
               type="button"
             >
               <span className="material-symbols-outlined text-[16px] text-secondary">
@@ -102,7 +185,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Connect Wallet Button */}
             <button
               onClick={onConnectWallet}
-              className={`flex items-center gap-space-xs px-space-md py-space-xs font-label-lg text-label-lg rounded-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-all ${
+              className={`flex items-center gap-space-xs px-space-md py-space-xs font-label-lg text-label-lg rounded-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-all cursor-pointer ${
                 isWalletConnected
                   ? "bg-surface-container-high text-on-surface font-semibold"
                   : "bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-on-secondary"

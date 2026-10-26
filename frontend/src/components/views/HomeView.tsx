@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ActiveTab } from "../../types";
+import { useFamily } from "@/context/FamilyContext";
 
 interface HomeViewProps {
   onNavigate: (tab: ActiveTab) => void;
@@ -12,6 +13,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onNavigate,
   onOpenDeposit,
 }) => {
+  const { vaults, totalFamilyWealth } = useFamily();
   return (
     <div className="flex flex-col w-full">
       {/* SECTION 1: HERO */}
@@ -108,9 +110,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   </span>
                 </div>
                 <div className="font-headline-sm text-headline-sm text-on-surface mb-1">
-                  $350.00{" "}
+                  ${vaults.retirementShield.localBuffer.toFixed(2)}{" "}
                   <span className="font-label-md text-label-md text-on-surface-variant">
-                    USDC
+                    USDC (Đệm L1)
                   </span>
                 </div>
                 <p className="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
@@ -205,9 +207,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   </span>
                 </div>
                 <div className="font-headline-sm text-headline-sm text-on-surface mb-1">
-                  $125.50{" "}
-                  <span className="font-label-md text-label-md text-tertiary-fixed-variant">
-                    +$2.50 Lãi
+                  ${vaults.kidsSavings.localBuffer.toFixed(2)}{" "}
+                  <span className="font-label-md text-label-md text-emerald-700 font-bold">
+                    +${vaults.kidsSavings.accruedYield.toFixed(2)} Lãi
                   </span>
                 </div>
                 <p className="font-body-sm text-body-sm text-on-surface-variant mb-space-sm">

@@ -1,56 +1,33 @@
 "use client";
 
 import React, { useState } from "react";
+import { useFamily } from "@/context/FamilyContext";
 
 export const KidsView: React.FC = () => {
-  const [balance, setBalance] = useState<number>(125.5);
-  const [xp, setXp] = useState<number>(850);
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      title: "Đạt điểm 10 kiểm tra Toán",
-      reward: 5.0,
-      status: "SUBMITTED", // Bé đã nộp
-      proof: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400",
-    },
-    {
-      id: 2,
-      title: "Dọn dẹp phòng ngủ & gấp chăn gối",
-      reward: 2.0,
-      status: "TODO",
-      proof: null,
-    },
-    {
-      id: 3,
-      title: "Tưới cây ban công và nhặt lá vàng",
-      reward: 1.5,
-      status: "REWARDED", // Đã nhận
-      proof: "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=400",
-    },
-  ]);
-
+  const { chores, kidsBalance, kidsXp, submitChoreProof, verifyAndRewardChore } = useFamily();
   const [toast, setToast] = useState<string | null>(null);
 
   // Bé nộp việc nhà
-  const handleSubmitTask = (taskId: number) => {
-    setTasks(
-      tasks.map((t) => (t.id === taskId ? { ...t, status: "SUBMITTED" } : t))
+  const handleSubmitTask = async (taskId: number | string) => {
+    const success = await submitChoreProof(
+      taskId,
+      "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400"
     );
-    setToast(
-      "🎒 Bé Na đã nộp ảnh báo cáo việc nhà thành công! Bố Mẹ sẽ nhận được thông báo để kiểm tra và duyệt thưởng."
-    );
+    if (success) {
+      setToast(
+        "🎒 Bé Na đã nộp ảnh báo cáo việc nhà lên Smart Contract! Bố Mẹ sẽ nhận được thông báo để kiểm tra và duyệt thưởng."
+      );
+    }
   };
 
   // Bố mẹ duyệt thưởng
-  const handleVerifyReward = (taskId: number, rewardAmount: number) => {
-    setTasks(
-      tasks.map((t) => (t.id === taskId ? { ...t, status: "REWARDED" } : t))
-    );
-    setBalance((prev) => prev + rewardAmount);
-    setXp((prev) => Math.min(prev + 100, 1000));
-    setToast(
-      `🎉 CHÚC MỪNG BÉ NA! Bố Mẹ đã duyệt thưởng ${rewardAmount} USDC thẳng vào heo đất với 0đ phí gas trên Family L1!`
-    );
+  const handleVerifyReward = async (taskId: number | string, rewardAmount: number) => {
+    const success = await verifyAndRewardChore(taskId);
+    if (success) {
+      setToast(
+        `🎉 CHÚC MỪNG BÉ NA! Hợp đồng FamilyHub đã giải ngân ${rewardAmount} USDC thẳng vào heo đất với 0đ phí gas trên Family L1!`
+      );
+    }
   };
 
   return (
@@ -109,11 +86,11 @@ export const KidsView: React.FC = () => {
               <div className="w-44 md:w-56 h-3 bg-surface-container rounded-full overflow-hidden relative">
                 <div
                   className="h-full bg-secondary-container rounded-full transition-all duration-700"
-                  style={{ width: `${(xp / 1000) * 100}%` }}
+                  style={{ width: `${(kidsXp / 1000) * 100}%` }}
                 ></div>
               </div>
               <span className="font-label-caps text-label-caps text-on-surface font-bold">
-                {xp} / 1000 XP
+                {kidsXp} / 1000 XP
               </span>
             </div>
           </div>
@@ -214,7 +191,7 @@ export const KidsView: React.FC = () => {
               </span>
               <div className="flex items-baseline gap-1 my-1">
                 <span className="font-display-lg text-display-lg text-on-surface font-bold tracking-tight">
-                  {balance.toFixed(2)}
+                  {kidsBalance.toFixed(2)}
                 </span>
                 <span className="font-headline-sm text-headline-sm text-secondary-container font-bold">
                   USDC
@@ -223,7 +200,7 @@ export const KidsView: React.FC = () => {
               <div className="font-body-sm text-body-sm text-on-surface-variant">
                 Tương đương{" "}
                 <strong className="text-on-surface font-semibold">
-                  ~{(balance * 25000).toLocaleString("vi-VN")} VNĐ
+                  ~{(kidsBalance * 25000).toLocaleString("vi-VN")} VNĐ
                 </strong>
               </div>
             </div>
@@ -247,7 +224,7 @@ export const KidsView: React.FC = () => {
                   Thưởng làm việc nhà:
                 </span>
                 <span className="font-semibold text-on-surface">
-                  {(balance - 102.5).toFixed(2)} USDC
+                  {(kidsBalance - 102.5 > 0 ? kidsBalance - 102.5 : 0).toFixed(2)} USDC
                 </span>
               </div>
               <div className="flex items-center justify-between text-body-sm font-body-sm">
@@ -291,14 +268,14 @@ export const KidsView: React.FC = () => {
                 </p>
               </div>
               <span className="px-3 py-1 rounded-full bg-surface-container text-xs font-bold text-on-surface">
-                {tasks.filter((t) => t.status === "REWARDED").length}/{tasks.length}{" "}
+                {chores.filter((t) => t.status === "REWARDED").length}/{chores.length}{" "}
                 Hoàn thành
               </span>
             </div>
 
             {/* Tasks List */}
             <div className="flex flex-col gap-3">
-              {tasks.map((task) => (
+              {chores.map((task) => (
                 <div
                   key={task.id}
                   className="p-4 rounded-xl border border-surface-container-high bg-surface-container-low/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all hover:bg-surface-container-low"
@@ -325,7 +302,7 @@ export const KidsView: React.FC = () => {
                       </span>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="font-bold text-xs px-2 py-0.5 rounded bg-surface-container-high text-on-surface">
-                          +{task.reward.toFixed(1)} USDC
+                          +{task.rewardAmount.toFixed(1)} USDC
                         </span>
                         <span
                           className={`text-xs font-bold px-2 py-0.5 rounded-full ${
@@ -351,15 +328,15 @@ export const KidsView: React.FC = () => {
                     {task.status === "TODO" && (
                       <button
                         onClick={() => handleSubmitTask(task.id)}
-                        className="px-3.5 py-1.5 rounded-xl bg-secondary-container hover:bg-secondary text-white text-xs font-bold transition-all shadow-sm"
+                        className="px-3.5 py-1.5 rounded-xl bg-secondary-container hover:bg-secondary text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
                       >
                         Nộp Ảnh Báo Cáo
                       </button>
                     )}
                     {task.status === "SUBMITTED" && (
                       <button
-                        onClick={() => handleVerifyReward(task.id, task.reward)}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1"
+                        onClick={() => handleVerifyReward(task.id, task.rewardAmount)}
+                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-[16px]">
                           verified
@@ -372,7 +349,7 @@ export const KidsView: React.FC = () => {
                         <span className="material-symbols-outlined text-[16px]">
                           check
                         </span>
-                        Đã cộng vào Heo Đất
+                        Đã cộng vào Heo Đất (0 Gas)
                       </span>
                     )}
                   </div>

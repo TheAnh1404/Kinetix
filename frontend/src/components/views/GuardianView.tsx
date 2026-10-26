@@ -1,19 +1,28 @@
 "use client";
 
 import React, { useState } from "react";
+import { useFamily } from "@/context/FamilyContext";
 
 export const GuardianView: React.FC = () => {
-  // Trạng thái phê duyệt Multisig
-  const [approvalsCount, setApprovalsCount] = useState<number>(1);
-  const [isApproved, setIsApproved] = useState<boolean>(false);
+  const { withdrawalRequests, approveWithdrawal, vaults, currentMember } = useFamily();
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [isSigning, setIsSigning] = useState(false);
 
-  const handleApprove = () => {
-    setApprovalsCount(2);
-    setIsApproved(true);
-    setFeedback(
-      "🎉 BẠN (BỐ BA) ĐÃ KÝ DUYỆT THÀNH CÔNG! Đạt 2/3 chữ ký Guardians. Hợp đồng FamilyHub tự động giải ngân 1,000 USDC cho Ông Nội với 0đ phí gas!"
-    );
+  // Yêu cầu rút tiền đang chờ xử lý
+  const activeRequest = withdrawalRequests.find((r) => r.status === 'PENDING') || withdrawalRequests[0];
+  const isApproved = activeRequest?.status === 'EXECUTED' || (activeRequest?.approvalsCount ?? 0) >= 2;
+  const approvalsCount = isApproved ? 2 : (activeRequest?.approvalsCount ?? 1);
+
+  const handleApprove = async () => {
+    if (!activeRequest) return;
+    setIsSigning(true);
+    const success = await approveWithdrawal(activeRequest.id);
+    setIsSigning(false);
+    if (success) {
+      setFeedback(
+        `🎉 BẠN (${currentMember.name}) ĐÃ KÝ DUYỆT THÀNH CÔNG! Đạt 2/3 chữ ký Guardians. Hợp đồng FamilyHub trên Avalanche Family L1 tự động giải ngân ${activeRequest.amount} USDC cho ${activeRequest.requesterName} với 0đ phí gas!`
+      );
+    }
   };
 
   const handleReject = () => {
@@ -330,7 +339,7 @@ export const GuardianView: React.FC = () => {
             </p>
           </div>
           <span className="px-3 py-1 rounded-full bg-surface-container-high text-xs font-bold text-on-surface">
-            Tổng tài sản: $1,475.50 USDC
+            Tổng tài sản: ${(vaults.retirementShield.total + vaults.kidsSavings.total + vaults.familyRosca.total).toLocaleString()} USDC
           </span>
         </div>
 
@@ -353,12 +362,12 @@ export const GuardianView: React.FC = () => {
                   </span>
                   Hũ Báo Hiếu (RetirementShield)
                 </td>
-                <td className="py-3.5 px-4 font-mono font-medium">35.00 USDC</td>
-                <td className="py-3.5 px-4 font-mono text-tertiary-fixed-dim font-medium">
-                  315.00 USDC (+8.0% APY)
+                <td className="py-3.5 px-4 font-mono font-medium">{vaults.retirementShield.localBuffer.toFixed(2)} USDC</td>
+                <td className="py-3.5 px-4 font-mono text-emerald-700 font-medium">
+                  {vaults.retirementShield.remoteYield.toFixed(2)} USDC (+8.0% APY)
                 </td>
                 <td className="py-3.5 px-4 font-bold text-on-surface">
-                  350.00 USDC
+                  {vaults.retirementShield.total.toFixed(2)} USDC
                 </td>
                 <td className="py-3.5 px-4 text-right">
                   <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
@@ -373,12 +382,12 @@ export const GuardianView: React.FC = () => {
                   </span>
                   Heo Đất Con Trẻ (KidsSavings)
                 </td>
-                <td className="py-3.5 px-4 font-mono font-medium">12.50 USDC</td>
-                <td className="py-3.5 px-4 font-mono text-tertiary-fixed-dim font-medium">
-                  113.00 USDC (+8.0% APY)
+                <td className="py-3.5 px-4 font-mono font-medium">{vaults.kidsSavings.localBuffer.toFixed(2)} USDC</td>
+                <td className="py-3.5 px-4 font-mono text-emerald-700 font-medium">
+                  {vaults.kidsSavings.remoteYield.toFixed(2)} USDC (+8.0% APY)
                 </td>
                 <td className="py-3.5 px-4 font-bold text-on-surface">
-                  125.50 USDC
+                  {vaults.kidsSavings.total.toFixed(2)} USDC
                 </td>
                 <td className="py-3.5 px-4 text-right">
                   <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
@@ -393,12 +402,12 @@ export const GuardianView: React.FC = () => {
                   </span>
                   Quỹ Tương Trợ Họ Hàng (FamilyROSCA)
                 </td>
-                <td className="py-3.5 px-4 font-mono font-medium">100.00 USDC</td>
-                <td className="py-3.5 px-4 font-mono text-tertiary-fixed-dim font-medium">
-                  900.00 USDC (+18.50 lãi)
+                <td className="py-3.5 px-4 font-mono font-medium">{vaults.familyRosca.localBuffer.toFixed(2)} USDC</td>
+                <td className="py-3.5 px-4 font-mono text-emerald-700 font-medium">
+                  {vaults.familyRosca.remoteYield.toFixed(2)} USDC (+{vaults.familyRosca.accruedYield.toFixed(2)} lãi)
                 </td>
                 <td className="py-3.5 px-4 font-bold text-on-surface">
-                  1,000.00 USDC
+                  {vaults.familyRosca.total.toFixed(2)} USDC
                 </td>
                 <td className="py-3.5 px-4 text-right">
                   <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold">

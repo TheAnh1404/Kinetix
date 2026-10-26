@@ -113,7 +113,8 @@ cp .env.example .env
 npx hardhat compile
 ```
 
-### 4. Run Unit Tests (14/14 Pass)
+### 4. Run Unit Tests (20/20 Pass)
+Chạy toàn bộ 20 bài kiểm thử đơn vị cho cả Smart Contracts (14/14) và Backend Services (6/6):
 ```bash
 npx hardhat test
 ```
@@ -129,18 +130,19 @@ Deploy to Family L1:
 npm run deploy:familyL1
 ```
 
-### 6. Run Frontend (Stitch UI)
+### 6. Run Frontend (Fullstack Web3 & Stitch UI)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Truy cập ứng dụng tại `http://localhost:3000` để trải nghiệm đầy đủ 5 giao diện phân quyền thế hệ gia đình:
-- **Trang Chủ:** Bức tranh tổng tài sản gia đình, bộ đệm thanh khoản 10/90, và sinh lời DeFi trên C-Chain.
-- **Kinetix Shield (Chế Độ Ông Bà):** Rút tiền nhanh $\le 50$ USDC trong 1 chạm (<1s, 0 gas) và phát hiện giao dịch đáng ngờ $>50$ USDC.
-- **Quản Trị Cha Mẹ:** Bảng điều khiển bảo hộ với tính năng phê duyệt đa chữ ký 2/3 (Multisig).
-- **Kinetix Kids:** Heo đất tích lũy, đổi thưởng nhiệm vụ việc nhà (Chore-to-Earn).
+Truy cập ứng dụng tại `http://localhost:3000` để trải nghiệm hệ thống Fullstack kết nối trực tiếp Smart Contracts và Neon Database:
+- **Trang Chủ:** Bức tranh tổng tài sản gia đình, bộ đệm thanh khoản 10/90, nạp tiền vào quỹ qua smart contract `depositToVault`.
+- **Kinetix Shield (Chế Độ Ông Bà):** Rút tiền nhanh $\le 50$ USDC trong 1 chạm (<1s, 0 gas) và tạo yêu cầu rút tiền lớn $>50$ USDC bảo vệ chống lừa đảo AI.
+- **Quản Trị Cha Mẹ:** Bảng điều khiển bảo hộ với tính năng phê duyệt đa chữ ký 2/3 (Multisig) on-chain qua `approveWithdrawal`.
+- **Kinetix Kids:** Heo đất tích lũy, nộp báo cáo việc nhà và cha mẹ ký duyệt phát thưởng trực tiếp on-chain qua `verifyAndRewardChore`.
 - **Quỹ Tương Trợ ROSCA:** Mô hình Họ Hụi truyền thống bất biến trên Avalanche L1, sinh lãi DeFi tự động.
+- **Hộp Thư Cảnh Báo:** Nhận thông báo tức thời về giao dịch khả nghi, hoàn thành việc nhà và chi trả lợi suất.
 
 ---
 
