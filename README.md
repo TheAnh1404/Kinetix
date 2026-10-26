@@ -71,6 +71,19 @@ Kinetix/
 │   │   └── MockTeleporterMessenger.sol # Local cross-chain testing harness
 │   ├── FamilyHub.sol             # Core family governance & multisig contract
 │   └── FamilyYieldVault.sol      # C-Chain 8% APY yield engine
+├── frontend/                     # Next.js 14 App Router UI (Google Stitch Design)
+│   ├── src/
+│   │   ├── app/                  # App Router, Layout, Global styles
+│   │   ├── components/           # Role switcher, Header, Footer
+│   │   │   └── views/            # 5 Role-based interactive views
+│   │   │       ├── HomeView.tsx      # Trang Chủ - Tổng quan hệ điều hành
+│   │   │       ├── ElderlyView.tsx   # Kinetix Shield - Chế độ Ông Bà (<50 USDC fast)
+│   │   │       ├── GuardianView.tsx  # Quản Trị Cha Mẹ - Multisig 2/3 Emergency
+│   │   │       ├── KidsView.tsx      # Kinetix Kids - Heo Đất & Chore-to-Earn
+│   │   │       └── RoscaView.tsx     # Quỹ Họ Hụi ROSCA On-chain Dòng Họ
+│   │   └── types/                # Navigation tabs & demo members
+│   ├── tailwind.config.ts        # Stitch Material 3 design tokens & palettes
+│   └── package.json
 ├── scripts/
 │   └── deploy.ts                 # Multi-network deployment script
 ├── test/
@@ -115,6 +128,19 @@ Deploy to Family L1:
 ```bash
 npm run deploy:familyL1
 ```
+
+### 6. Run Frontend (Stitch UI)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Truy cập ứng dụng tại `http://localhost:3000` để trải nghiệm đầy đủ 5 giao diện phân quyền thế hệ gia đình:
+- **Trang Chủ:** Bức tranh tổng tài sản gia đình, bộ đệm thanh khoản 10/90, và sinh lời DeFi trên C-Chain.
+- **Kinetix Shield (Chế Độ Ông Bà):** Rút tiền nhanh $\le 50$ USDC trong 1 chạm (<1s, 0 gas) và phát hiện giao dịch đáng ngờ $>50$ USDC.
+- **Quản Trị Cha Mẹ:** Bảng điều khiển bảo hộ với tính năng phê duyệt đa chữ ký 2/3 (Multisig).
+- **Kinetix Kids:** Heo đất tích lũy, đổi thưởng nhiệm vụ việc nhà (Chore-to-Earn).
+- **Quỹ Tương Trợ ROSCA:** Mô hình Họ Hụi truyền thống bất biến trên Avalanche L1, sinh lãi DeFi tự động.
 
 ---
 
