@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, families } from "@/db/schema";
 import { verifyAuthToken, SESSION_COOKIE_NAME } from "@/lib/jwt";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/auth/me
- * Lấy thông tin phiên đăng nhập và quyền truy cập hiện tại từ Cookie
+ * Lấy thông tin phiên đăng nhập và dữ liệu Gia Đình thực tế từ Neon Database
  */
 export async function GET(req: NextRequest) {
   try {
@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
         success: false,
         isAuthenticated: false,
         user: null,
+        family: null,
       });
     }
 
@@ -28,13 +29,20 @@ export async function GET(req: NextRequest) {
         success: false,
         isAuthenticated: false,
         user: null,
+        family: null,
       });
     }
 
     // Truy vấn dữ liệu mới nhất từ Neon DB
     let currentUser: any = payload;
+    let currentFamily: any = null;
+
     try {
-      const [dbUser] = await db.select().from(users).where(eq(users.id, payload.userId));
+      const [dbUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, payload.userId));
+
       if (dbUser) {
         currentUser = {
           id: dbUser.id,
@@ -43,16 +51,34 @@ export async function GET(req: NextRequest) {
           role: dbUser.role,
           walletAddress: dbUser.walletAddress,
           avatarUrl: dbUser.avatarUrl,
+          phoneNumber: dbUser.phoneNumber,
         };
+
+        const [dbFamily] = await db
+          .select()
+          .from(families)
+          .where(eq(families.id, dbUser.familyId));
+
+        if (dbFamily) {
+          currentFamily = {
+            id: dbFamily.id,
+            name: dbFamily.name,
+            familyCode: dbFamily.familyCode,
+            adminWallet: dbFamily.adminWallet,
+            l1HubAddress: dbFamily.l1HubAddress,
+            cchainVaultAddress: dbFamily.cchainVaultAddress,
+          };
+        }
       }
     } catch (dbErr) {
-      // Dùng dữ liệu trong token nếu DB không phản hồi
+      console.warn("DB query warning in /api/auth/me:", dbErr);
     }
 
     return NextResponse.json({
       success: true,
       isAuthenticated: true,
       user: currentUser,
+      family: currentFamily,
     });
   } catch (error: any) {
     console.error("Lỗi get /api/auth/me:", error);
@@ -60,6 +86,7 @@ export async function GET(req: NextRequest) {
       success: false,
       isAuthenticated: false,
       user: null,
+      family: null,
     });
   }
 }

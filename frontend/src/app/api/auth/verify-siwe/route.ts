@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyMessage } from "viem";
-import { eq, sql, gt } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { users, families, authNonces } from "@/db/schema";
 import { signAuthToken, SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "@/lib/jwt";
@@ -11,15 +11,29 @@ export const dynamic = "force-dynamic";
  * Trích xuất các trường từ thông điệp chuẩn SIWE EIP-4361
  */
 function parseSiweMessage(message: string): { address?: string; nonce?: string } {
-  // Regex lấy địa chỉ ví (sau dòng 'wants you to sign in with your Ethereum account:')
   const addressMatch = message.match(/0x[a-fA-F0-9]{40}/i);
-  // Regex lấy nonce
   const nonceMatch = message.match(/Nonce:\s*([a-zA-Z0-9_-]+)/i);
 
   return {
-    address: addressMatch ? addressMatch[0] : undefined,
+    address: addressMatch ? addressMatch[0].toLowerCase() : undefined,
     nonce: nonceMatch ? nonceMatch[1] : undefined,
   };
+}
+
+/**
+ * Điều hướng theo vai trò thành viên
+ */
+function getRedirectPathByRole(role: string): string {
+  switch (role) {
+    case "ELDERLY":
+      return "/?tab=kinetix-shield";
+    case "CHILD":
+      return "/?tab=kinetix-kids";
+    case "ADMIN":
+    case "GUARDIAN":
+    default:
+      return "/?tab=quan-tri-cha-me";
+  }
 }
 
 /**
@@ -33,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     if (!message || !signature) {
       return NextResponse.json(
-        { error: "Thiếu thông điệp message hoặc chữ ký signature" },
+        { error: "Thiếu thông điệp message hoặc chữ ký signature." },
         { status: 400 }
       );
     }
@@ -44,7 +58,7 @@ export async function POST(req: NextRequest) {
     const nonce = parsed.nonce;
     if (!address) {
       return NextResponse.json(
-        { error: "Không tìm thấy địa chỉ ví hợp lệ trong SIWE message" },
+        { error: "Không tìm thấy địa chỉ ví hợp lệ trong SIWE message." },
         { status: 400 }
       );
     }
@@ -58,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     if (!isValidSignature) {
       return NextResponse.json(
-        { error: "Chữ ký mật mã không hợp lệ hoặc không khớp với địa chỉ ví" },
+        { error: "Chữ ký mật mã không hợp lệ hoặc không khớp với địa chỉ ví." },
         { status: 401 }
       );
     }
@@ -78,13 +92,13 @@ export async function POST(req: NextRequest) {
           // Kiểm tra hạn sử dụng
           if (new Date(nonceRecord.expiresAt) < new Date()) {
             return NextResponse.json(
-              { error: "Mã nonce đã hết hạn (quá 5 phút). Vui lòng thử lại" },
+              { error: "Mã nonce đã hết hạn. Vui lòng tải lại và thử lại." },
               { status: 400 }
             );
           }
         }
       } catch (nonceErr) {
-        console.warn("Bỏ qua lỗi nonce DB kiểm tra (Demo mode):", nonceErr);
+        console.warn("Lỗi kiểm tra nonce DB:", nonceErr);
       }
     }
 
@@ -95,58 +109,56 @@ export async function POST(req: NextRequest) {
       .from(users)
       .where(sql`LOWER(${users.walletAddress}) = ${lowerAddress}`);
 
-    let user = existingUser;
-
-    // 5. Nếu ví mới chưa có trong hệ thống: Tự động đăng ký vào Gia đình mẫu (Demo Mode)
-    if (!user) {
-      let [family] = await db.select().from(families).limit(1);
-      if (!family) {
-        [family] = await db
-          .insert(families)
-          .values({
-            name: "Gia đình Kinetix",
-            adminWallet: address,
-          })
-          .returning();
-      }
-
-      const [newUser] = await db
-        .insert(users)
-        .values({
-          familyId: family.id,
-          fullName: `Thành viên (${address.slice(0, 6)}...${address.slice(-4)})`,
-          role: "GUARDIAN",
-          walletAddress: address,
-          authMethod: "CORE_WALLET",
-          isAllowlisted: true,
-          pinCode: "1234",
-        })
-        .returning();
-
-      user = newUser;
+    // 5. Nếu ví CHƯA đăng ký trong Database -> Trả về mã WALLET_NOT_REGISTERED
+    if (!existingUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "WALLET_NOT_REGISTERED",
+          error: "Địa chỉ ví này chưa được đăng ký trong hệ thống Kinetix. Vui lòng chọn 'Tạo Gia Đình Mới' hoặc 'Gia Nhập Gia Đình'.",
+          address: lowerAddress,
+        },
+        { status: 404 }
+      );
     }
+
+    // Lấy thông tin gia đình của user
+    const [family] = await db
+      .select()
+      .from(families)
+      .where(eq(families.id, existingUser.familyId));
 
     // 6. Ký JWT Session Token
     const token = await signAuthToken({
-      userId: user.id,
-      familyId: user.familyId,
-      fullName: user.fullName,
-      role: user.role,
-      walletAddress: user.walletAddress,
-      avatarUrl: user.avatarUrl,
+      userId: existingUser.id,
+      familyId: existingUser.familyId,
+      fullName: existingUser.fullName,
+      role: existingUser.role,
+      walletAddress: existingUser.walletAddress,
+      avatarUrl: existingUser.avatarUrl,
     });
+
+    const redirectUrl = getRedirectPathByRole(existingUser.role);
 
     // 7. Tạo phản hồi và gắn HTTP-Only Secure Cookie
     const response = NextResponse.json({
       success: true,
-      message: "Đăng nhập ví Core Wallet thành công",
+      message: "Đăng nhập ví Core Wallet thành công!",
+      redirectUrl,
+      family: family
+        ? {
+            id: family.id,
+            name: family.name,
+            familyCode: family.familyCode,
+          }
+        : null,
       user: {
-        id: user.id,
-        familyId: user.familyId,
-        fullName: user.fullName,
-        role: user.role,
-        walletAddress: user.walletAddress,
-        avatarUrl: user.avatarUrl,
+        id: existingUser.id,
+        familyId: existingUser.familyId,
+        fullName: existingUser.fullName,
+        role: existingUser.role,
+        walletAddress: existingUser.walletAddress,
+        avatarUrl: existingUser.avatarUrl,
       },
     });
 

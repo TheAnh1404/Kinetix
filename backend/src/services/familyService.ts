@@ -55,6 +55,7 @@ export class FamilyService {
         .insert(families)
         .values({
           name: "Gia đình Kinetix",
+          familyCode: `KNTX-${Math.floor(1000 + Math.random() * 9000)}`,
           adminWallet: walletAddress,
         })
         .returning();
