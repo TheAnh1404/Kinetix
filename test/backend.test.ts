@@ -189,4 +189,56 @@ describe("Kinetix Backend Services & Neon Database Integration", function () {
     expect(list.length).to.be.greaterThan(0);
     expect(list[0].type).to.be.oneOf(["ALERT_SCAM", "APPROVAL_NEEDED", "TASK_COMPLETED", "YIELD_PAYOUT"]);
   });
+
+  it("7. Dynamic Vaults: Tạo Hũ động mới với cấu hình tùy biến (RuleTemplate SHARED_GOAL)", async function () {
+    const vault = await FamilyService.createCustomVault({
+      workspaceId: familyId,
+      onchainVaultId: 99,
+      name: "Quỹ Đi Phượt Xuyên Việt",
+      description: "Tích lũy mua sắm đồ phượt và cắm trại",
+      ruleTemplate: "SHARED_GOAL",
+      bufferRatioBps: 1500, // 15% L1 / 85% C-Chain
+      fastWithdrawLimit: 100, // Rút nhanh lên tới 100 AVAX
+      requiredApprovals: 2,
+      guardianUserIds: [adminUserId, guardianUserId],
+      beneficiaryUserIds: [elderlyUserId],
+    });
+
+    expect(vault.name).to.equal("Quỹ Đi Phượt Xuyên Việt");
+    expect(vault.ruleTemplate).to.equal("SHARED_GOAL");
+    expect(vault.bufferRatioBps).to.equal(1500);
+    expect(Number(vault.fastWithdrawLimit)).to.equal(100);
+
+    const details = await FamilyService.getWorkspaceDetails(familyId);
+    expect(details).to.not.be.null;
+    expect(details?.vaults.some((v) => v.name === "Quỹ Đi Phượt Xuyên Việt")).to.be.true;
+  });
+
+  it("8. Dynamic Vault Withdrawal: Kiểm tra hạn mức rút nhanh lấy từ Dynamic Vault (<=100 EXECUTED, >100 PENDING)", async function () {
+    const details = await FamilyService.getWorkspaceDetails(familyId);
+    const customVault = details?.vaults.find((v) => v.name === "Quỹ Đi Phượt Xuyên Việt");
+    expect(customVault).to.not.be.undefined;
+
+    // Rút 80 AVAX (<= 100 AVAX limit của hũ này) -> giải ngân tức thì
+    const fastRes = await FamilyService.createWithdrawalRequest({
+      familyId,
+      vaultId: customVault!.id,
+      requesterId: elderlyUserId,
+      amount: 80,
+      reason: "Mua lều cắm trại",
+    });
+    expect(fastRes.isFastWithdraw).to.be.true;
+    expect(fastRes.request.status).to.equal("EXECUTED");
+
+    // Rút 120 AVAX (> 100 AVAX limit) -> kích hoạt Multisig PENDING
+    const slowRes = await FamilyService.createWithdrawalRequest({
+      familyId,
+      vaultId: customVault!.id,
+      requesterId: elderlyUserId,
+      amount: 120,
+      reason: "Mua xe máy cào cào",
+    });
+    expect(slowRes.isFastWithdraw).to.be.false;
+    expect(slowRes.request.status).to.equal("PENDING");
+  });
 });

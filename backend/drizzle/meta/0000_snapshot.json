@@ -1,9 +1,38 @@
 {
-  "id": "d30085e4-5a8b-4c48-8476-1996eca3022b",
+  "id": "0c446321-fd55-4d48-aaf3-ade8c78f3c17",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "6",
   "dialect": "postgresql",
   "tables": {
+    "public.auth_nonces": {
+      "name": "auth_nonces",
+      "schema": "",
+      "columns": {
+        "nonce": {
+          "name": "nonce",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
     "public.chores": {
       "name": "chores",
       "schema": "",
@@ -20,6 +49,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "vault_id": {
+          "name": "vault_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "child_id": {
           "name": "child_id",
@@ -75,12 +110,25 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "chores_family_id_families_id_fk": {
-          "name": "chores_family_id_families_id_fk",
+        "chores_family_id_workspaces_id_fk": {
+          "name": "chores_family_id_workspaces_id_fk",
           "tableFrom": "chores",
-          "tableTo": "families",
+          "tableTo": "workspaces",
           "columnsFrom": [
             "family_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "chores_vault_id_vaults_id_fk": {
+          "name": "chores_vault_id_vaults_id_fk",
+          "tableFrom": "chores",
+          "tableTo": "vaults",
+          "columnsFrom": [
+            "vault_id"
           ],
           "columnsTo": [
             "id"
@@ -105,8 +153,8 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.families": {
-      "name": "families",
+    "public.workspaces": {
+      "name": "workspaces",
       "schema": "",
       "columns": {
         "id": {
@@ -116,14 +164,28 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "workspace_code": {
+          "name": "workspace_code",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "name": {
           "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "admin_wallet": {
-          "name": "admin_wallet",
+        "type": {
+          "name": "type",
+          "type": "workspace_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'FAMILY'"
+        },
+        "creator_wallet": {
+          "name": "creator_wallet",
           "type": "varchar(42)",
           "primaryKey": false,
           "notNull": true
@@ -151,7 +213,15 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {
+        "workspaces_workspace_code_unique": {
+          "name": "workspaces_workspace_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_code"
+          ]
+        }
+      }
     },
     "public.notifications": {
       "name": "notifications",
@@ -211,10 +281,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "notifications_family_id_families_id_fk": {
-          "name": "notifications_family_id_families_id_fk",
+        "notifications_family_id_workspaces_id_fk": {
+          "name": "notifications_family_id_workspaces_id_fk",
           "tableFrom": "notifications",
-          "tableTo": "families",
+          "tableTo": "workspaces",
           "columnsFrom": [
             "family_id"
           ],
@@ -252,24 +322,17 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "family_id": {
-          "name": "family_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "full_name": {
           "name": "full_name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "role": {
-          "name": "role",
-          "type": "user_role",
-          "typeSchema": "public",
+        "username": {
+          "name": "username",
+          "type": "varchar(50)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "wallet_address": {
           "name": "wallet_address",
@@ -285,6 +348,18 @@
           "notNull": true,
           "default": "'CORE_WALLET'"
         },
+        "pin_code": {
+          "name": "pin_code",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "avatar_url": {
+          "name": "avatar_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "phone_number": {
           "name": "phone_number",
           "type": "text",
@@ -298,6 +373,28 @@
           "notNull": true,
           "default": false
         },
+        "default_role": {
+          "name": "default_role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'GUARDIAN'"
+        },
+        "family_id": {
+          "name": "family_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'GUARDIAN'"
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -308,17 +405,17 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "users_family_id_families_id_fk": {
-          "name": "users_family_id_families_id_fk",
+        "users_family_id_workspaces_id_fk": {
+          "name": "users_family_id_workspaces_id_fk",
           "tableFrom": "users",
-          "tableTo": "families",
+          "tableTo": "workspaces",
           "columnsFrom": [
             "family_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -332,6 +429,193 @@
           ]
         }
       }
+    },
+    "public.vault_members": {
+      "name": "vault_members",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "vault_id": {
+          "name": "vault_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vault_role": {
+          "name": "vault_role",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vault_members_vault_id_vaults_id_fk": {
+          "name": "vault_members_vault_id_vaults_id_fk",
+          "tableFrom": "vault_members",
+          "tableTo": "vaults",
+          "columnsFrom": [
+            "vault_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "vault_members_user_id_users_id_fk": {
+          "name": "vault_members_user_id_users_id_fk",
+          "tableFrom": "vault_members",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.vaults": {
+      "name": "vaults",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "onchain_vault_id": {
+          "name": "onchain_vault_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rule_template": {
+          "name": "rule_template",
+          "type": "rule_template",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buffer_ratio_bps": {
+          "name": "buffer_ratio_bps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1000
+        },
+        "fast_withdraw_limit": {
+          "name": "fast_withdraw_limit",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'50'"
+        },
+        "required_approvals": {
+          "name": "required_approvals",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 2
+        },
+        "cached_total_balance": {
+          "name": "cached_total_balance",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "cached_l1_buffer": {
+          "name": "cached_l1_buffer",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "cached_cchain_yield": {
+          "name": "cached_cchain_yield",
+          "type": "numeric(18, 6)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vaults_workspace_id_workspaces_id_fk": {
+          "name": "vaults_workspace_id_workspaces_id_fk",
+          "tableFrom": "vaults",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
     },
     "public.withdrawal_requests": {
       "name": "withdrawal_requests",
@@ -350,6 +634,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "vault_id": {
+          "name": "vault_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "requester_id": {
           "name": "requester_id",
           "type": "uuid",
@@ -364,10 +654,10 @@
         },
         "vault": {
           "name": "vault",
-          "type": "vault_type",
-          "typeSchema": "public",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false,
+          "default": "'SHIELD'"
         },
         "reason": {
           "name": "reason",
@@ -419,12 +709,25 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "withdrawal_requests_family_id_families_id_fk": {
-          "name": "withdrawal_requests_family_id_families_id_fk",
+        "withdrawal_requests_family_id_workspaces_id_fk": {
+          "name": "withdrawal_requests_family_id_workspaces_id_fk",
           "tableFrom": "withdrawal_requests",
-          "tableTo": "families",
+          "tableTo": "workspaces",
           "columnsFrom": [
             "family_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "withdrawal_requests_vault_id_vaults_id_fk": {
+          "name": "withdrawal_requests_vault_id_vaults_id_fk",
+          "tableFrom": "withdrawal_requests",
+          "tableTo": "vaults",
+          "columnsFrom": [
+            "vault_id"
           ],
           "columnsTo": [
             "id"
@@ -438,6 +741,76 @@
           "tableTo": "users",
           "columnsFrom": [
             "requester_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.workspace_members": {
+      "name": "workspace_members",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "joined_at": {
+          "name": "joined_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "workspace_members_workspace_id_workspaces_id_fk": {
+          "name": "workspace_members_workspace_id_workspaces_id_fk",
+          "tableFrom": "workspace_members",
+          "tableTo": "workspaces",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "workspace_members_user_id_users_id_fk": {
+          "name": "workspace_members_user_id_users_id_fk",
+          "tableFrom": "workspace_members",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
           ],
           "columnsTo": [
             "id"
@@ -479,6 +852,16 @@
         "EXECUTED"
       ]
     },
+    "public.rule_template": {
+      "name": "rule_template",
+      "schema": "public",
+      "values": [
+        "SHIELD",
+        "MILESTONE",
+        "ROSCA",
+        "SHARED_GOAL"
+      ]
+    },
     "public.user_role": {
       "name": "user_role",
       "schema": "public",
@@ -489,13 +872,14 @@
         "CHILD"
       ]
     },
-    "public.vault_type": {
-      "name": "vault_type",
+    "public.workspace_type": {
+      "name": "workspace_type",
       "schema": "public",
       "values": [
-        "RetirementShield",
-        "KidsSavings",
-        "FamilyROSCA"
+        "FAMILY",
+        "SIBLINGS",
+        "FRIENDS",
+        "COMMUNITY"
       ]
     }
   },
