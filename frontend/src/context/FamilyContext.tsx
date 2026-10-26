@@ -9,7 +9,6 @@ import {
 } from '@/contracts/config';
 import {
   FAMILY_HUB_ABI,
-  FAMILY_YIELD_VAULT_ABI,
 } from '@/contracts/abis';
 import { getWalletClient, publicClientL1 } from '@/lib/web3/client';
 import { apiClient } from '@/lib/api/apiClient';
@@ -56,6 +55,27 @@ interface VaultBalance {
   total: number;
 }
 
+const DEFAULT_VAULTS = {
+  retirementShield: {
+    localBuffer: 0,
+    remoteYield: 0,
+    accruedYield: 0,
+    total: 0,
+  },
+  kidsSavings: {
+    localBuffer: 0,
+    remoteYield: 0,
+    accruedYield: 0,
+    total: 0,
+  },
+  familyRosca: {
+    localBuffer: 0,
+    remoteYield: 0,
+    accruedYield: 0,
+    total: 0,
+  },
+};
+
 interface FamilyContextType {
   // Members & Auth
   currentMember: DemoMember;
@@ -100,7 +120,7 @@ interface FamilyContextType {
   kidsXp: number;
   submitChoreProof: (choreId: string | number, proofUrl: string) => Promise<boolean>;
   verifyAndRewardChore: (choreId: string | number) => Promise<boolean>;
-  createChore: (params: { title: string; rewardAmount: number; childName?: string }) => Promise<boolean>;
+  createChore: (params: { title: string; rewardAmount: number; childName?: string; childId?: string }) => Promise<boolean>;
 
   // Notifications
   notifications: NotificationItem[];
@@ -128,125 +148,74 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [isLiveWeb3, setIsLiveWeb3] = useState<boolean>(false);
   const [isLiveBackend, setIsLiveBackend] = useState<boolean>(false);
 
-  // Số dư 3 hũ ngân sách
-  const [vaults, setVaults] = useState({
-    retirementShield: {
-      localBuffer: 1250, // 10% tại chỗ trên Family L1
-      remoteYield: 11250, // 90% trên Fuji C-Chain
-      accruedYield: 245.5,
-      total: 12500,
-    },
-    kidsSavings: {
-      localBuffer: 500,
-      remoteYield: 4500,
-      accruedYield: 98.2,
-      total: 5000,
-    },
-    familyRosca: {
-      localBuffer: 750,
-      remoteYield: 6750,
-      accruedYield: 147.3,
-      total: 7500,
-    },
-  });
+  // Số dư 3 hũ ngân sách (Khởi tạo mặc định 0, đồng bộ theo familyId)
+  const [vaults, setVaults] = useState(DEFAULT_VAULTS);
 
-  // Danh sách yêu cầu rút tiền lớn (Anti-scam Multisig 2/3)
-  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequestItem[]>([
-    {
-      id: 'req-001',
-      onchainRequestId: 1,
-      requesterName: 'Ông Nội (Nguyễn Văn An)',
-      requesterAddress: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
-      amount: 1000,
-      vault: 'Retirement Shield',
-      reason: 'Khám bệnh đột xuất tại Bệnh viện Tim TW',
-      approvalsCount: 1,
-      requiredApprovals: 2,
-      status: 'PENDING',
-      createdAt: '15 phút trước',
-      guardianSignatures: [
-        { guardianName: 'Anh Cả (Nguyễn Văn Hùng)', signed: true, signedAt: '10 phút trước' },
-        { guardianName: 'Bố Ba (Nguyễn Văn Bình - Bạn)', signed: false },
-        { guardianName: 'Cô Út (Nguyễn Thị Mai)', signed: false },
-      ],
-    },
-  ]);
+  // Danh sách yêu cầu rút tiền lớn (Khởi tạo rỗng, nạp từ Neon PostgreSQL)
+  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequestItem[]>([]);
 
-  // Danh sách việc nhà (Chore-to-Earn)
-  const [chores, setChores] = useState<ChoreItem[]>([
-    {
-      id: 1,
-      title: 'Đạt điểm 10 kiểm tra Toán giữa kỳ',
-      rewardAmount: 5.0,
-      status: 'SUBMITTED',
-      proofImageUrl: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400',
-    },
-    {
-      id: 2,
-      title: 'Dọn dẹp phòng ngủ & gấp chăn gối',
-      rewardAmount: 2.0,
-      status: 'TODO',
-      proofImageUrl: null,
-    },
-    {
-      id: 3,
-      title: 'Tưới cây ban công và nhặt lá vàng',
-      rewardAmount: 1.5,
-      status: 'REWARDED',
-      proofImageUrl: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=400',
-    },
-  ]);
+  // Danh sách việc nhà (Khởi tạo rỗng, nạp từ Neon PostgreSQL)
+  const [chores, setChores] = useState<ChoreItem[]>([]);
+  const [kidsBalance, setKidsBalance] = useState<number>(0);
+  const [kidsXp, setKidsXp] = useState<number>(0);
 
-  const [kidsBalance, setKidsBalance] = useState<number>(125.5);
-  const [kidsXp, setKidsXp] = useState<number>(850);
+  // Hộp thư thông báo (Khởi tạo rỗng, nạp từ Neon PostgreSQL)
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
-  // Hộp thư thông báo
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: 'notif-1',
-      title: 'Cảnh báo rút tiền lớn (>50 USDC)',
-      message: 'Ông Nội vừa gửi yêu cầu rút 1,000 USDC. Đang chờ bạn ký duyệt!',
-      type: 'ALERT_SCAM',
-      createdAt: '15 phút trước',
-      isRead: false,
-    },
-    {
-      id: 'notif-2',
-      title: 'Bé Na đã nộp bài tập việc nhà',
-      message: 'Nhiệm vụ: Đạt điểm 10 kiểm tra Toán. Hãy kiểm tra và thưởng 5 USDC!',
-      type: 'TASK_COMPLETED',
-      createdAt: '30 phút trước',
-      isRead: false,
-    },
-    {
-      id: 'notif-3',
-      title: 'Lợi suất DeFi C-Chain được phân phối',
-      message: '+18.50 USDC tiền lãi vừa được tích lũy vào Quỹ Tương Trợ Họ Hàng.',
-      type: 'YIELD_PAYOUT',
-      createdAt: '2 giờ trước',
-      isRead: true,
-    },
-  ]);
+  // Helper cập nhật vaults và lưu trữ theo familyId vào localStorage
+  const updateAndPersistVaults = (
+    updater: (prev: typeof DEFAULT_VAULTS) => typeof DEFAULT_VAULTS,
+    famId?: string
+  ) => {
+    setVaults((prev) => {
+      const next = updater(prev);
+      const targetFamilyId = famId || familyInfo?.id;
+      if (targetFamilyId && typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`kinetix_vaults_${targetFamilyId}`, JSON.stringify(next));
+        } catch (e) {
+          console.warn('Lỗi lưu vaults vào localStorage:', e);
+        }
+      }
+      return next;
+    });
+  };
 
-  // Đồng bộ phiên đăng nhập & nạp danh sách thành viên thực tế từ Neon PostgreSQL
+  // Đồng bộ phiên đăng nhập & nạp dữ liệu thực tế 100% từ Neon PostgreSQL
   const refreshMembers = async () => {
     try {
       const meRes = await fetch('/api/auth/me', { cache: 'no-store' });
       const meData = await meRes.json();
       if (meData.success && meData.user && meData.family) {
-        setFamilyInfo({
+        const fam = {
           id: meData.family.id,
           name: meData.family.name,
           familyCode: meData.family.familyCode,
-        });
+        };
+        setFamilyInfo(fam);
 
-        // Nạp danh sách thành viên trong gia đình từ PostgreSQL
+        // Nạp số dư vaults đã lưu của gia đình
+        if (typeof window !== 'undefined') {
+          const cached = localStorage.getItem(`kinetix_vaults_${meData.family.id}`);
+          if (cached) {
+            try {
+              setVaults(JSON.parse(cached));
+            } catch {
+              setVaults(DEFAULT_VAULTS);
+            }
+          } else {
+            setVaults(DEFAULT_VAULTS);
+          }
+        }
+
+        // 1. Nạp danh sách thành viên trong gia đình từ PostgreSQL
         const membersRes = await fetch(`/api/families/${meData.family.id}/members`, {
           cache: 'no-store',
         });
         const membersData = await membersRes.json();
+        let mappedMembers: DemoMember[] = [];
         if (membersData.success && Array.isArray(membersData.members) && membersData.members.length > 0) {
-          const mappedMembers: DemoMember[] = membersData.members.map((u: any) => ({
+          mappedMembers = membersData.members.map((u: any) => ({
             id: u.id,
             name: u.fullName,
             role: u.role,
@@ -278,12 +247,110 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
           setMembers(mappedMembers);
 
-          // Gán currentMember khớp với người đang đăng nhập
           const currentLoggedIn = mappedMembers.find((m) => m.id === meData.user.id);
           if (currentLoggedIn) {
             setCurrentMember(currentLoggedIn);
             setConnectedWalletAddress(currentLoggedIn.walletAddress);
           }
+        }
+
+        // 2. Nạp danh sách yêu cầu rút tiền từ PostgreSQL
+        try {
+          const withdrawalsRes = await fetch(`/api/withdrawals/${meData.family.id}`, {
+            cache: 'no-store',
+          });
+          const withdrawalsData = await withdrawalsRes.json();
+          if (withdrawalsData.success && Array.isArray(withdrawalsData.data)) {
+            const guardianList = mappedMembers.filter(
+              (m) => m.role === 'GUARDIAN' || m.role === 'ADMIN'
+            );
+            const mappedWithdrawals: WithdrawalRequestItem[] = withdrawalsData.data.map((w: any) => {
+              const sigs = guardianList.map((g, idx) => ({
+                guardianName: g.name,
+                signed: idx < (w.approvalsCount ?? 0),
+                signedAt: idx < (w.approvalsCount ?? 0) ? 'Đã ký duyệt' : undefined,
+              }));
+              return {
+                id: String(w.id),
+                onchainRequestId: w.onchainRequestId ?? 1,
+                requesterName: w.requesterName || 'Thành viên gia đình',
+                requesterAddress: w.requesterAddress || '0x...',
+                amount: Number(w.amount),
+                vault:
+                  w.vault === 'KidsSavings'
+                    ? 'Kids Savings'
+                    : w.vault === 'FamilyROSCA'
+                    ? 'Family ROSCA'
+                    : 'Retirement Shield',
+                reason: w.reason || '',
+                approvalsCount: Number(w.approvalsCount ?? 0),
+                requiredApprovals: Number(w.requiredApprovals ?? 2),
+                status: w.status,
+                createdAt: new Date(w.createdAt).toLocaleString('vi-VN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  day: '2-digit',
+                  month: '2-digit',
+                }),
+                guardianSignatures: sigs,
+              };
+            });
+            setWithdrawalRequests(mappedWithdrawals);
+          }
+        } catch (wErr) {
+          console.warn('Lỗi nạp withdrawals:', wErr);
+        }
+
+        // 3. Nạp danh sách việc nhà từ PostgreSQL
+        try {
+          const choresRes = await fetch(`/api/chores/${meData.family.id}`, {
+            cache: 'no-store',
+          });
+          const choresData = await choresRes.json();
+          if (choresData.success && Array.isArray(choresData.data)) {
+            const mappedChores: ChoreItem[] = choresData.data.map((c: any) => ({
+              id: c.id,
+              title: c.title,
+              rewardAmount: Number(c.rewardAmount),
+              status: c.status,
+              proofImageUrl: c.proofImageUrl,
+              childName: c.childName || 'Bé',
+              childAvatar: c.childAvatar,
+              deadline: 'Hôm nay',
+            }));
+            setChores(mappedChores);
+            const totalRewarded = mappedChores
+              .filter((c) => c.status === 'REWARDED')
+              .reduce((sum, c) => sum + c.rewardAmount, 0);
+            setKidsBalance(totalRewarded);
+            setKidsXp(mappedChores.filter((c) => c.status === 'REWARDED').length * 150);
+          }
+        } catch (cErr) {
+          console.warn('Lỗi nạp chores:', cErr);
+        }
+
+        // 4. Nạp danh sách thông báo từ PostgreSQL
+        try {
+          const notifsRes = await fetch(`/api/notifications/${meData.user.id}`, {
+            cache: 'no-store',
+          });
+          const notifsData = await notifsRes.json();
+          if (notifsData.success && Array.isArray(notifsData.data)) {
+            const mappedNotifs: NotificationItem[] = notifsData.data.map((n: any) => ({
+              id: String(n.id),
+              title: n.title,
+              message: n.message,
+              type: n.type,
+              createdAt: new Date(n.createdAt).toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              isRead: n.isRead,
+            }));
+            setNotifications(mappedNotifs);
+          }
+        } catch (nErr) {
+          console.warn('Lỗi nạp notifications:', nErr);
         }
       }
     } catch (err) {
@@ -345,7 +412,7 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setIsLiveBackend(false);
       }
 
-      // 3. Nạp dữ liệu thành viên từ DB
+      // 3. Nạp dữ liệu thành viên và các bản ghi từ DB
       await refreshMembers();
     }
     checkConnectivity();
@@ -356,7 +423,6 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     vaults.retirementShield.total + vaults.kidsSavings.total + vaults.familyRosca.total;
 
   const refreshBalances = async () => {
-    // Có thể đọc từ contract nếu Web3 Live
     if (isLiveWeb3) {
       try {
         const res = (await publicClientL1.readContract({
@@ -370,7 +436,7 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         const remote = parseFloat(formatEther(res[1]));
         const total = parseFloat(formatEther(res[2]));
 
-        setVaults((prev) => ({
+        updateAndPersistVaults((prev) => ({
           ...prev,
           retirementShield: {
             ...prev.retirementShield,
@@ -407,15 +473,15 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     }
 
-    // Cập nhật state UI
-    setVaults((prev) => {
-      const targetKey =
-        vaultType === VaultType.RetirementShield
-          ? 'retirementShield'
-          : vaultType === VaultType.KidsSavings
-          ? 'kidsSavings'
-          : 'familyRosca';
+    // Cập nhật state UI & lưu trữ persistent
+    const targetKey =
+      vaultType === VaultType.RetirementShield
+        ? 'retirementShield'
+        : vaultType === VaultType.KidsSavings
+        ? 'kidsSavings'
+        : 'familyRosca';
 
+    updateAndPersistVaults((prev) => {
       const currentVault = prev[targetKey];
       return {
         ...prev,
@@ -463,7 +529,7 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     }
 
-    setVaults((prev) => ({
+    updateAndPersistVaults((prev) => ({
       ...prev,
       retirementShield: {
         ...prev.retirementShield,
@@ -476,7 +542,7 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       {
         id: `notif-${Date.now()}`,
         title: 'Rút tiền nhanh thành công',
-        message: `Ông Nội đã rút ${amount} USDC từ bộ đệm L1 (Thời gian: <1s, Phí gas: 0đ).`,
+        message: `${currentMember.name} đã rút ${amount} USDC từ bộ đệm L1 (Thời gian: <1s, Phí gas: 0đ).`,
         type: 'FAST_WITHDRAW',
         createdAt: 'Vừa xong',
         isRead: false,
@@ -511,41 +577,29 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     }
 
-    const newReq: WithdrawalRequestItem = {
-      id: `req-${Date.now()}`,
-      onchainRequestId: onchainReqId,
-      requesterName: currentMember.name,
-      requesterAddress: currentMember.walletAddress,
-      amount,
-      vault:
-        vault === VaultType.RetirementShield
-          ? 'Retirement Shield'
-          : vault === VaultType.KidsSavings
-          ? 'Kids Savings'
-          : 'Family ROSCA',
-      reason,
-      approvalsCount: 0,
-      requiredApprovals: 2,
-      status: 'PENDING',
-      createdAt: 'Vừa xong',
-      guardianSignatures: [
-        { guardianName: 'Anh Cả (Nguyễn Văn Hùng)', signed: false },
-        { guardianName: 'Bố Ba (Nguyễn Văn Bình)', signed: false },
-        { guardianName: 'Cô Út (Nguyễn Thị Mai)', signed: false },
-      ],
-    };
+    const vaultName =
+      vault === VaultType.RetirementShield
+        ? 'Retirement Shield'
+        : vault === VaultType.KidsSavings
+        ? 'Kids Savings'
+        : 'Family ROSCA';
 
-    setWithdrawalRequests((prev) => [newReq, ...prev]);
-
-    // Gửi lên Backend nếu có kết nối
-    apiClient.createWithdrawal({
-      familyId: 'family-001',
-      requesterId: currentMember.id,
-      amount,
-      vault: newReq.vault,
-      reason,
-      onchainRequestId: onchainReqId,
-    });
+    // Gửi lên Backend Next.js API để lưu vào Neon PostgreSQL
+    if (familyInfo?.id) {
+      try {
+        await apiClient.createWithdrawal({
+          familyId: familyInfo.id,
+          requesterId: currentMember.id,
+          amount,
+          vault: vaultName,
+          reason,
+          onchainRequestId: onchainReqId,
+        });
+        await refreshMembers();
+      } catch (e) {
+        console.warn('Lỗi gọi API createWithdrawal:', e);
+      }
+    }
 
     setNotifications((prev) => [
       {
@@ -580,38 +634,22 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     }
 
-    setWithdrawalRequests((prev) =>
-      prev.map((req) => {
-        if (req.id === requestId || req.onchainRequestId === requestId) {
-          const newApprovals = req.approvalsCount + 1;
-          const isExecuted = newApprovals >= req.requiredApprovals;
-
-          return {
-            ...req,
-            approvalsCount: newApprovals,
-            status: isExecuted ? 'EXECUTED' : 'PENDING',
-            guardianSignatures: req.guardianSignatures.map((g) =>
-              g.guardianName.includes('Bố Ba') || g.guardianName.includes(currentMember.name)
-                ? { ...g, signed: true, signedAt: 'Vừa xong' }
-                : g
-            ),
-          };
-        }
-        return req;
-      })
-    );
-
-    // Báo Backend
-    apiClient.approveWithdrawal({
-      requestId: String(requestId),
-      guardianWallet: currentMember.walletAddress,
-    });
+    // Gửi lên Backend ghi nhận vào database
+    try {
+      await apiClient.approveWithdrawal({
+        requestId: String(requestId),
+        guardianWallet: currentMember.walletAddress,
+      });
+      await refreshMembers();
+    } catch (e) {
+      console.warn('Lỗi approveWithdrawal API:', e);
+    }
 
     setNotifications((prev) => [
       {
         id: `notif-${Date.now()}`,
         title: 'Đa chữ ký: Đã ký duyệt thành công',
-        message: `${currentMember.name} đã ký duyệt yêu cầu giải ngân. Tiến trình đạt 2/3 chữ ký, tiền đã được chuyển an toàn.`,
+        message: `${currentMember.name} đã ký duyệt yêu cầu giải ngân. Tiến trình đạt chuẩn đa chữ ký bảo vệ an toàn.`,
         type: 'ALERT_SCAM',
         createdAt: 'Vừa xong',
         isRead: false,
@@ -624,14 +662,15 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   // 5. Nộp bài việc nhà
   const submitChoreProof = async (choreId: string | number, proofUrl: string): Promise<boolean> => {
-    setChores((prev) =>
-      prev.map((c) => (c.id === choreId ? { ...c, status: 'SUBMITTED', proofImageUrl: proofUrl } : c))
-    );
-
-    apiClient.submitChore({
-      choreId: String(choreId),
-      proofImageUrl: proofUrl,
-    });
+    try {
+      await apiClient.submitChore({
+        choreId: String(choreId),
+        proofImageUrl: proofUrl,
+      });
+      await refreshMembers();
+    } catch (e) {
+      console.warn('Lỗi submitChore API:', e);
+    }
 
     setNotifications((prev) => [
       {
@@ -651,7 +690,7 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // 6. Cha mẹ duyệt và thưởng việc nhà
   const verifyAndRewardChore = async (choreId: string | number): Promise<boolean> => {
     const targetChore = chores.find((c) => c.id === choreId);
-    if (!targetChore) return false;
+    const rewardAmt = targetChore?.rewardAmount || 5;
 
     const walletClient = getWalletClient();
     if (walletClient && connectedWalletAddress) {
@@ -669,29 +708,28 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     }
 
-    setChores((prev) =>
-      prev.map((c) => (c.id === choreId ? { ...c, status: 'REWARDED' } : c))
-    );
-    setKidsBalance((prev) => prev + targetChore.rewardAmount);
-    setKidsXp((prev) => prev + 150);
-
     // Trừ số dư hũ KidsSavings
-    setVaults((prev) => ({
+    updateAndPersistVaults((prev) => ({
       ...prev,
       kidsSavings: {
         ...prev.kidsSavings,
-        localBuffer: Math.max(0, prev.kidsSavings.localBuffer - targetChore.rewardAmount),
-        total: Math.max(0, prev.kidsSavings.total - targetChore.rewardAmount),
+        localBuffer: Math.max(0, prev.kidsSavings.localBuffer - rewardAmt),
+        total: Math.max(0, prev.kidsSavings.total - rewardAmt),
       },
     }));
 
-    apiClient.verifyChore({ choreId: String(choreId) });
+    try {
+      await apiClient.verifyChore({ choreId: String(choreId) });
+      await refreshMembers();
+    } catch (e) {
+      console.warn('Lỗi verifyChore API:', e);
+    }
 
     setNotifications((prev) => [
       {
         id: `notif-${Date.now()}`,
         title: 'Phát thưởng việc nhà thành công!',
-        message: `Bé nhận được +${targetChore.rewardAmount} USDC vào Heo Đất và +150 XP chăm chỉ.`,
+        message: `Bé nhận được +${rewardAmt} USDC vào Heo Đất và +150 XP chăm chỉ.`,
         type: 'TASK_COMPLETED',
         createdAt: 'Vừa xong',
         isRead: false,
@@ -707,17 +745,21 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     title: string;
     rewardAmount: number;
     childName?: string;
+    childId?: string;
   }): Promise<boolean> => {
-    const newChoreItem: ChoreItem = {
-      id: `chore-${Date.now()}`,
-      title: params.title,
-      rewardAmount: params.rewardAmount,
-      childName: params.childName || 'Bé Na',
-      childAvatar: 'https://images.unsplash.com/photo-1543332164-6e82f355badc?w=150',
-      status: 'TODO',
-      deadline: 'Hôm nay',
-    };
-    setChores((prev) => [newChoreItem, ...prev]);
+    if (!familyInfo?.id) return false;
+
+    try {
+      await apiClient.createChore({
+        familyId: familyInfo.id,
+        title: params.title,
+        rewardAmount: params.rewardAmount,
+        childId: params.childId,
+      });
+      await refreshMembers();
+    } catch (e) {
+      console.warn('Lỗi createChore API:', e);
+    }
 
     setNotifications((prev) => [
       {
@@ -758,13 +800,14 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     }
 
-    setVaults((prev) => {
-      const vKey =
-        vaultType === VaultType.RetirementShield
-          ? 'retirementShield'
-          : vaultType === VaultType.KidsSavings
-          ? 'kidsSavings'
-          : 'familyRosca';
+    const vKey =
+      vaultType === VaultType.RetirementShield
+        ? 'retirementShield'
+        : vaultType === VaultType.KidsSavings
+        ? 'kidsSavings'
+        : 'familyRosca';
+
+    updateAndPersistVaults((prev) => {
       const current = prev[vKey];
       const added = current.accruedYield > 0 ? current.accruedYield : 12.5;
       return {
@@ -808,7 +851,6 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         console.warn('Lỗi kết nối ví Core Wallet:', e);
       }
     }
-    // Fallback: kết nối ví theo role đang chọn
     setConnectedWalletAddress(currentMember.walletAddress);
     setIsWalletConnected(true);
   };
