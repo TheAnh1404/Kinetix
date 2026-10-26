@@ -5,7 +5,7 @@ import { useFamily } from "@/context/FamilyContext";
 import { VaultType } from "@/contracts/config";
 
 export const ElderlyView: React.FC = () => {
-  const { vaults, quickWithdraw, requestLargeWithdraw } = useFamily();
+  const { vaults, quickWithdraw, requestLargeWithdraw, currentMember, members } = useFamily();
   const [selectedPill, setSelectedPill] = useState<number>(20);
   const [largeAmount, setLargeAmount] = useState<string>("1000");
   const [largeReason, setLargeReason] = useState<string>(
@@ -24,6 +24,8 @@ export const ElderlyView: React.FC = () => {
   });
 
   const bufferBalance = vaults.retirementShield.localBuffer;
+  const adminOrGuardian = members.find((m) => m.role === "ADMIN" || m.role === "GUARDIAN");
+  const emergencyPhone = adminOrGuardian?.phoneNumber || "0908889999";
 
   const handleQuickWithdraw = async () => {
     if (bufferBalance < selectedPill) {
@@ -55,10 +57,16 @@ export const ElderlyView: React.FC = () => {
       largeReason
     );
     if (success) {
+      const guardianNames =
+        members
+          .filter((m) => m.role === "GUARDIAN" || m.role === "ADMIN")
+          .map((m) => m.name)
+          .join(", ") || "người bảo hộ";
+
       setNotification({
         show: true,
         title: "🛡️ ĐÃ KÍCH HOẠT BẢO VỆ CHỐNG LỪA ĐẢO AI (Multisig 2/3)!",
-        message: `Yêu cầu rút ${amt} USDC (Mã #${requestId || '001'} - ${largeReason}) đã được ghi danh vào Smart Contract và gửi khẩn cấp tới 3 người con (Bố Ba, Anh Cả, Cô Út). Cần 2/3 con ký duyệt mới giải ngân!`,
+        message: `Yêu cầu rút ${amt} USDC (Mã #${requestId || "001"} - ${largeReason}) đã được ghi danh vào Smart Contract và gửi khẩn cấp tới các con (${guardianNames}). Cần 2/3 con ký duyệt mới giải ngân!`,
         type: "warning",
       });
     }
@@ -102,8 +110,11 @@ export const ElderlyView: React.FC = () => {
             <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-inner bg-surface-container border-2 border-surface-container-highest">
               <img
                 className="w-full h-full object-cover"
-                alt="Ông Nội"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9RXFgUn83eP41jg2weE3YA8vd83fsVimUf5y0OcZS7SOQ3XPOzG_gbODV_xJIXeRQye9NHAh2TXP_28Oz-bPHhWTfscJFCZWXYRXq2gQAAtwAVTc1yseRsDx3GBa94HVhTHAal40UzoVwN7YY1IXQ5EmMOe0WhhEvzu4V7ZNBtixA0ZiaR61Ad1UJUADoRuNzug0ggIZW8eO5XEiktIZD-zCJ4THMAqG0i7Z1ivkCGPnUrjsBJg"
+                alt={currentMember?.name || "Ông Bà"}
+                src={
+                  currentMember?.avatar ||
+                  "https://lh3.googleusercontent.com/aida-public/AB6AXuB9RXFgUn83eP41jg2weE3YA8vd83fsVimUf5y0OcZS7SOQ3XPOzG_gbODV_xJIXeRQye9NHAh2TXP_28Oz-bPHhWTfscJFCZWXYRXq2gQAAtwAVTc1yseRsDx3GBa94HVhTHAal40UzoVwN7YY1IXQ5EmMOe0WhhEvzu4V7ZNBtixA0ZiaR61Ad1UJUADoRuNzug0ggIZW8eO5XEiktIZD-zCJ4THMAqG0i7Z1ivkCGPnUrjsBJg"
+                }
               />
             </div>
             <div className="absolute -bottom-1 -right-1 bg-surface-container-lowest rounded-full p-1 shadow-sm">
@@ -124,7 +135,7 @@ export const ElderlyView: React.FC = () => {
               </span>
             </div>
             <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
-              Chào Ông Nội (Nguyễn Văn An) ❤️
+              Chào {currentMember?.name || "Ông Nội"} ❤️
             </h1>
             <p className="font-title-md text-title-md text-on-surface-variant font-normal">
               Chúc Ông ngày mới an vui, mạnh khỏe và thảnh thơi.
@@ -135,7 +146,7 @@ export const ElderlyView: React.FC = () => {
         {/* Quick One-Tap Emergency Call Button */}
         <a
           className="w-full md:w-auto flex items-center justify-center gap-space-sm px-space-lg py-space-md bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-on-secondary rounded-2xl shadow-md transition-all active:scale-95 group"
-          href="tel:0908889999"
+          href={`tel:${emergencyPhone}`}
         >
           <span className="material-symbols-outlined text-[32px] group-hover:animate-bounce">
             phone_in_talk

@@ -13,15 +13,14 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({ isOpen, onCl
   const { createChore, members } = useFamily();
   const { language } = useLanguage();
 
+  const childMembers = members.filter((m) => m.role === "CHILD");
   const [title, setTitle] = useState("");
   const [rewardAmount, setRewardAmount] = useState<string>("5");
-  const [childName, setChildName] = useState("Bé Na");
+  const [childName, setChildName] = useState(childMembers[0]?.name || "Bé");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
   if (!isOpen) return null;
-
-  const childMembers = members.filter((m) => m.role === "CHILD");
 
   const quickSuggestions = [
     { vi: "Rửa bát & lau bàn ăn sạch sẽ", en: "Wash dishes & wipe dining table", reward: "5" },
@@ -36,10 +35,12 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({ isOpen, onCl
 
     setIsSubmitting(true);
     const amt = parseFloat(rewardAmount) || 5;
+    const targetChild = childMembers.find((c) => c.name === childName) || childMembers[0];
     const ok = await createChore({
       title: title.trim(),
       rewardAmount: amt,
-      childName,
+      childName: targetChild?.name || childName,
+      childId: targetChild?.id,
     });
     setIsSubmitting(false);
 

@@ -34,12 +34,16 @@ export const GuardianView: React.FC = () => {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [compoundingVault, setCompoundingVault] = useState<number | null>(null);
 
-  // Yêu cầu rút tiền đang chờ xử lý
+  // Yêu cầu rút tiền đang chờ xử lý hoặc vừa hoàn tất
   const activeRequest =
-    withdrawalRequests.find((r) => r.status === "PENDING") || withdrawalRequests[0];
+    withdrawalRequests.find((r) => r.status === "PENDING") ||
+    withdrawalRequests.find((r) => r.status === "EXECUTED") ||
+    withdrawalRequests[0];
   const isApproved =
-    activeRequest?.status === "EXECUTED" || (activeRequest?.approvalsCount ?? 0) >= 2;
-  const approvalsCount = isApproved ? 2 : (activeRequest?.approvalsCount ?? 1);
+    activeRequest?.status === "EXECUTED" || (activeRequest?.approvalsCount ?? 0) >= (activeRequest?.requiredApprovals ?? 2);
+  const approvalsCount = isApproved
+    ? (activeRequest?.requiredApprovals ?? 2)
+    : (activeRequest?.approvalsCount ?? 0);
 
   const handleApprove = async () => {
     if (!activeRequest) return;
@@ -181,228 +185,275 @@ export const GuardianView: React.FC = () => {
       {/* TAB CONTENT 1: OVERVIEW & MULTISIG APPROVALS */}
       {activeSubTab === "overview" && (
         <div className="flex flex-col gap-6">
-          {/* Critical Alert Multisig Panel */}
-          <div
-            className={`relative overflow-hidden rounded-2xl p-6 shadow-md transition-all duration-300 border ${
-              isApproved
-                ? "bg-emerald-50/60 border-emerald-300"
-                : "bg-secondary-fixed/30 border-secondary-container/50"
-            }`}
-          >
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-4">
-              <div className="flex items-start gap-4">
-                <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
-                    isApproved
-                      ? "bg-emerald-600 text-white"
-                      : "bg-secondary-container text-white animate-bounce"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[28px]">
-                    {isApproved ? "check_circle" : "notification_important"}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-extrabold ${
-                        isApproved
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-secondary-container text-white"
-                      }`}
-                    >
+          {/* Critical Alert Multisig Panel OR All Safe Card */}
+          {activeRequest ? (
+            <div
+              className={`relative overflow-hidden rounded-2xl p-6 shadow-md transition-all duration-300 border ${
+                isApproved
+                  ? "bg-emerald-50/60 border-emerald-300"
+                  : "bg-secondary-fixed/30 border-secondary-container/50"
+              }`}
+            >
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-4">
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
+                      isApproved
+                        ? "bg-emerald-600 text-white"
+                        : "bg-secondary-container text-white animate-bounce"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[28px]">
+                      {isApproved ? "check_circle" : "notification_important"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-extrabold ${
+                          isApproved
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-secondary-container text-white"
+                        }`}
+                      >
+                        {isApproved
+                          ? (language === "vi" ? "ĐÃ GIẢI NGÂN THÀNH CÔNG" : "DISBURSED SUCCESSFULLY")
+                          : (language === "vi" ? "YÊU CẦU KHẨN CẤP CHỜ DUYỆT" : "PENDING MULTISIG APPROVAL")}
+                      </span>
+                      <span className="text-xs text-on-surface-variant font-mono">
+                        {t("dash.multisig.timelock")}
+                      </span>
+                    </div>
+                    <h2 className="font-headline-md text-xl font-bold text-on-surface tracking-tight">
                       {isApproved
-                        ? (language === "vi" ? "ĐÃ GIẢI NGÂN THÀNH CÔNG" : "DISBURSED SUCCESSFULLY")
-                        : (language === "vi" ? "YÊU CẦU KHẨN CẤP CHỜ DUYỆT" : "PENDING MULTISIG APPROVAL")}
-                    </span>
-                    <span className="text-xs text-on-surface-variant font-mono">
-                      {t("dash.multisig.timelock")}
-                    </span>
+                        ? (language === "vi"
+                            ? `Lệnh rút ${activeRequest.amount.toLocaleString()} USDC của ${activeRequest.requesterName} đã hoàn tất on-chain`
+                            : `Withdrawal of ${activeRequest.amount.toLocaleString()} USDC by ${activeRequest.requesterName} executed on-chain`)
+                        : (language === "vi"
+                            ? `CẢNH BÁO KHẨN CẤP: ${activeRequest.requesterName} vừa tạo lệnh rút ${activeRequest.amount.toLocaleString()} USDC`
+                            : `EMERGENCY: ${activeRequest.requesterName} requested ${activeRequest.amount.toLocaleString()} USDC withdrawal`)}
+                    </h2>
+                    <p className="text-xs sm:text-sm text-on-surface-variant">
+                      {language === "vi" ? "Lý do khai báo: " : "Stated Reason: "}
+                      <span className="font-semibold text-on-surface">
+                        &quot;{activeRequest.reason}&quot;
+                      </span>
+                    </p>
                   </div>
-                  <h2 className="font-headline-md text-xl font-bold text-on-surface tracking-tight">
-                    {isApproved
-                      ? (language === "vi"
-                          ? "Lệnh rút 1,000 USDC của Ông Nội đã hoàn tất on-chain"
-                          : "Grandparent's 1,000 USDC withdrawal executed on-chain")
-                      : (language === "vi"
-                          ? "CẢNH BÁO KHẨN CẤP: Ông Nội vừa tạo lệnh rút 1,000 USDC"
-                          : "EMERGENCY: Grandfather requested 1,000 USDC withdrawal")}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-on-surface-variant">
-                    {language === "vi" ? "Lý do khai báo: " : "Stated Reason: "}
-                    <span className="font-semibold text-on-surface">
-                      &quot;Khám bệnh đột xuất tại Bệnh viện Tim TW&quot;
-                    </span>
-                  </p>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-2 bg-surface-container-lowest px-3.5 py-2 rounded-xl shrink-0 shadow-sm border border-surface-container">
-                <span className="material-symbols-outlined text-secondary text-[20px]">
-                  security
-                </span>
-                <span className="text-xs font-semibold text-on-surface">
-                  {language === "vi" ? "Bảo vệ 3 Lớp: Đang hoạt động" : "3-Tier Shield: Active"}
-                </span>
-              </div>
-            </div>
-
-            {/* Details strip */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-surface-container-lowest p-4 rounded-xl mb-4 border border-outline-variant/20">
-              <div className="flex flex-col">
-                <span className="text-[11px] uppercase font-bold text-on-surface-variant">
-                  {language === "vi" ? "THỜI GIAN KHỞI TẠO" : "INITIATED TIME"}
-                </span>
-                <span className="text-sm font-semibold text-on-surface">
-                  {language === "vi" ? "Hôm nay, 08:30 (Sáng)" : "Today, 08:30 AM"}
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[11px] uppercase font-bold text-on-surface-variant">
-                  {language === "vi" ? "ĐỊA CHỈ ĐÍCH (ALLOWLIST)" : "TARGET DESTINATION"}
-                </span>
-                <div className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[15px] text-emerald-600">
-                    check_circle
+                <div className="flex items-center gap-2 bg-surface-container-lowest px-3.5 py-2 rounded-xl shrink-0 shadow-sm border border-surface-container">
+                  <span className="material-symbols-outlined text-secondary text-[20px]">
+                    security
                   </span>
-                  <span className="text-sm font-mono font-semibold text-on-surface truncate">
-                    BV Tim TW (0x44a...92b - Allowlisted)
+                  <span className="text-xs font-semibold text-on-surface">
+                    {language === "vi" ? "Bảo vệ 3 Lớp: Đang hoạt động" : "3-Tier Shield: Active"}
                   </span>
                 </div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-[11px] uppercase font-bold text-on-surface-variant">
-                  {language === "vi" ? "ĐIỀU KIỆN GIẢI NGÂN L1" : "DISBURSEMENT RULE"}
-                </span>
-                <span className="text-sm font-semibold text-secondary">
-                  {language === "vi" ? "Cần tối thiểu 2/3 Guardian xác nhận" : "Requires >= 2/3 Guardians"}
-                </span>
-              </div>
-            </div>
 
-            {/* Multisig Signatures Progress */}
-            <div className="bg-surface-container-lowest p-4 rounded-xl mb-4 flex flex-col gap-3 border border-outline-variant/20">
-              <div className="flex items-center justify-between">
-                <span className="text-xs uppercase font-bold text-on-surface-variant">
-                  {t("dash.multisig.progress")} ({approvalsCount}/2)
-                </span>
-                <span className="text-xs font-bold text-on-surface font-mono">
-                  {isApproved ? "100% Complete" : "50% Complete"}
-                </span>
-              </div>
-              <div className="w-full h-2.5 rounded-full bg-surface-container-high overflow-hidden">
-                <div
-                  className={`h-full transition-all duration-700 ${
-                    isApproved ? "bg-emerald-500 w-full" : "bg-secondary-container w-1/2"
-                  }`}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                {/* Guardian 1 */}
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low border border-surface-container">
-                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
-                    AC
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-semibold text-on-surface truncate">
-                      Guardian 1 - Anh Cả
+              {/* Details strip */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-surface-container-lowest p-4 rounded-xl mb-4 border border-outline-variant/20">
+                <div className="flex flex-col">
+                  <span className="text-[11px] uppercase font-bold text-on-surface-variant">
+                    {language === "vi" ? "THỜI GIAN KHỞI TẠO" : "INITIATED TIME"}
+                  </span>
+                  <span className="text-sm font-semibold text-on-surface">
+                    {activeRequest.createdAt || (language === "vi" ? "Hôm nay, 08:30" : "Today, 08:30 AM")}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[11px] uppercase font-bold text-on-surface-variant">
+                    {language === "vi" ? "ĐỊA CHỈ ĐÍCH (ALLOWLIST)" : "TARGET DESTINATION"}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[15px] text-emerald-600">
+                      check_circle
                     </span>
-                    <span className="text-[10px] text-emerald-700 font-bold">
-                      {t("dash.multisig.signed")}
+                    <span className="text-sm font-mono font-semibold text-on-surface truncate">
+                      {activeRequest.requesterAddress
+                        ? `${activeRequest.requesterAddress.slice(0, 6)}...${activeRequest.requesterAddress.slice(-4)}`
+                        : "Ví gia đình"} ({activeRequest.vault})
                     </span>
                   </div>
                 </div>
+                <div className="flex flex-col">
+                  <span className="text-[11px] uppercase font-bold text-on-surface-variant">
+                    {language === "vi" ? "ĐIỀU KIỆN GIẢI NGÂN L1" : "DISBURSEMENT RULE"}
+                  </span>
+                  <span className="text-sm font-semibold text-secondary">
+                    {language === "vi"
+                      ? `Cần tối thiểu ${activeRequest.requiredApprovals}/3 Guardian xác nhận`
+                      : `Requires >= ${activeRequest.requiredApprovals}/3 Guardians`}
+                  </span>
+                </div>
+              </div>
 
-                {/* Guardian 2 (Current User) */}
-                <div
-                  className={`flex items-center gap-3 p-3 rounded-xl border ${
+              {/* Multisig Signatures Progress */}
+              <div className="bg-surface-container-lowest p-4 rounded-xl mb-4 flex flex-col gap-3 border border-outline-variant/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs uppercase font-bold text-on-surface-variant">
+                    {t("dash.multisig.progress")} ({approvalsCount}/{activeRequest.requiredApprovals})
+                  </span>
+                  <span className="text-xs font-bold text-on-surface font-mono">
+                    {isApproved ? "100% Complete" : `${Math.round((approvalsCount / activeRequest.requiredApprovals) * 100)}% Complete`}
+                  </span>
+                </div>
+                <div className="w-full h-2.5 rounded-full bg-surface-container-high overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-700 ${
+                      isApproved ? "bg-emerald-500 w-full" : "bg-secondary-container w-1/2"
+                    }`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                  {(activeRequest.guardianSignatures && activeRequest.guardianSignatures.length > 0
+                    ? activeRequest.guardianSignatures
+                    : members
+                        .filter((m) => m.role === "GUARDIAN" || m.role === "ADMIN")
+                        .map((g, idx) => ({
+                          guardianName: g.name,
+                          signed: idx < (activeRequest.approvalsCount ?? 0),
+                          signedAt: idx < (activeRequest.approvalsCount ?? 0) ? "Đã ký duyệt" : undefined,
+                        }))
+                  ).map((sig, idx) => {
+                    const isSigned = sig.signed;
+                    const isCurrentUser =
+                      sig.guardianName.includes(currentMember.name) ||
+                      sig.guardianName.includes("Bạn");
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-center gap-3 p-3 rounded-xl border ${
+                          isSigned
+                            ? "bg-emerald-50 border-emerald-300"
+                            : isCurrentUser
+                            ? "bg-secondary-fixed/40 border-secondary-container/60 shadow-sm"
+                            : "bg-surface-container-low opacity-75 border-surface-container"
+                        }`}
+                      >
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                            isSigned
+                              ? "bg-emerald-600 text-white"
+                              : isCurrentUser
+                              ? "bg-secondary-container text-white"
+                              : "bg-surface-container-high text-on-surface"
+                          }`}
+                        >
+                          {sig.guardianName.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-semibold text-on-surface truncate">
+                            {sig.guardianName} {isCurrentUser ? "(Bạn)" : ""}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold ${
+                              isSigned
+                                ? "text-emerald-700"
+                                : isCurrentUser
+                                ? "text-secondary animate-pulse"
+                                : "text-on-surface-variant font-medium"
+                            }`}
+                          >
+                            {isSigned
+                              ? t("dash.multisig.signed")
+                              : isCurrentUser
+                              ? t("dash.multisig.pending")
+                              : t("dash.multisig.waiting")}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Action Buttons Row */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setIsVideoModalOpen(true)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-container-lowest hover:bg-surface-container text-on-surface text-xs font-bold shadow-sm transition-colors border border-surface-container cursor-pointer"
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-secondary">
+                      videocam
+                    </span>
+                    <span>{t("dash.actions.videoCall")}</span>
+                  </button>
+                  <button
+                    onClick={handleReject}
+                    disabled={isApproved}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-container hover:bg-error-container hover:text-error text-on-surface-variant text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">block</span>
+                    <span>{t("dash.actions.reject")}</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={handleApprove}
+                  disabled={isApproved || isSigning}
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 cursor-pointer ${
                     isApproved
-                      ? "bg-emerald-50 border-emerald-300"
-                      : "bg-secondary-fixed/40 border-secondary-container/60 shadow-sm"
+                      ? "bg-emerald-600 text-white cursor-default"
+                      : "bg-secondary-container hover:bg-secondary text-white"
                   }`}
-                >
-                  <div className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-white text-xs font-bold">
-                    BB
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-semibold text-on-surface truncate">
-                      Guardian 2 - {currentMember.name} (Bạn)
-                    </span>
-                    <span
-                      className={`text-[10px] font-bold ${
-                        isApproved ? "text-emerald-700" : "text-secondary animate-pulse"
-                      }`}
-                    >
-                      {isApproved ? t("dash.multisig.signed") : t("dash.multisig.pending")}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Guardian 3 */}
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low opacity-75 border border-surface-container">
-                  <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface text-xs font-bold">
-                    CU
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-semibold text-on-surface truncate">
-                      Guardian 3 - Cô Út
-                    </span>
-                    <span className="text-[10px] text-on-surface-variant font-medium">
-                      {isApproved ? (language === "vi" ? "ĐỦ ĐIỀU KIỆN (Bỏ qua)" : "QUALIFIED") : t("dash.multisig.waiting")}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons Row */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setIsVideoModalOpen(true)}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-container-lowest hover:bg-surface-container text-on-surface text-xs font-bold shadow-sm transition-colors border border-surface-container cursor-pointer"
                   type="button"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-secondary">
-                    videocam
+                  <span className="material-symbols-outlined text-[19px]">
+                    {isApproved ? "done_all" : "verified"}
                   </span>
-                  <span>{t("dash.actions.videoCall")}</span>
-                </button>
-                <button
-                  onClick={handleReject}
-                  disabled={isApproved}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-container hover:bg-error-container hover:text-error text-on-surface-variant text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[18px]">block</span>
-                  <span>{t("dash.actions.reject")}</span>
+                  <span>
+                    {isApproved
+                      ? (language === "vi" ? "ĐÃ GIẢI NGÂN (2/2 CHỮ KÝ)" : "DISBURSED (2/2 SIGNATURES)")
+                      : isSigning
+                      ? (language === "vi" ? "Đang ký on-chain..." : "Signing on-chain...")
+                      : t("dash.actions.approve")}
+                  </span>
                 </button>
               </div>
-
-              <button
-                onClick={handleApprove}
-                disabled={isApproved || isSigning}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 cursor-pointer ${
-                  isApproved
-                    ? "bg-emerald-600 text-white cursor-default"
-                    : "bg-secondary-container hover:bg-secondary text-white"
-                }`}
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[19px]">
-                  {isApproved ? "done_all" : "verified"}
-                </span>
-                <span>
-                  {isApproved
-                    ? (language === "vi" ? "ĐÃ GIẢI NGÂN (2/2 CHỮ KÝ)" : "DISBURSED (2/2 SIGNATURES)")
-                    : isSigning
-                    ? (language === "vi" ? "Đang ký on-chain..." : "Signing on-chain...")
-                    : t("dash.actions.approve")}
-                </span>
-              </button>
             </div>
-          </div>
+          ) : (
+            <div className="relative overflow-hidden rounded-2xl p-6 shadow-sm border border-emerald-300 bg-emerald-50/50">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <span className="material-symbols-outlined text-[28px]">verified_user</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-extrabold bg-emerald-100 text-emerald-800">
+                        {language === "vi" ? "LÁ CHẮN BẢO VỆ 24/7" : "24/7 ACTIVE SHIELD"}
+                      </span>
+                      <span className="text-xs text-emerald-700 font-mono font-bold">
+                        Family L1 • 0 Gas
+                      </span>
+                    </div>
+                    <h2 className="font-headline-md text-xl font-bold text-on-surface tracking-tight">
+                      {language === "vi"
+                        ? "Tất Cả Tài Sản Gia Đình Đang Được Bảo Vệ Tuyệt Đối"
+                        : "All Family Assets Are Fully Protected"}
+                    </h2>
+                    <p className="text-xs sm:text-sm text-on-surface-variant max-w-2xl">
+                      {language === "vi"
+                        ? "Hiện không có yêu cầu rút tiền lớn (>50 USDC) nào đang chờ phê duyệt. Cơ chế Đa chữ ký phân tầng (Tiered Multisig 2/3) luôn bảo vệ tài sản người cao tuổi khỏi các cuộc gọi lừa đảo AI."
+                        : "No large pending withdrawal requests (>50 USDC). Tiered Multisig 2/3 is actively protecting family elderly members from scam attempts."}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 bg-white px-3.5 py-2 rounded-xl shrink-0 border border-emerald-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs font-bold text-emerald-800">
+                    {language === "vi" ? "3 Lớp Bảo Mật: Đang Bật" : "3-Tier Shield: Active"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quick Buffer Visualization */}
           <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/30 shadow-sm flex flex-col gap-4">
@@ -752,88 +803,112 @@ export const GuardianView: React.FC = () => {
               </button>
             </div>
 
-            {/* Chores Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {chores.map((chore) => (
-                <div
-                  key={chore.id}
-                  className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 flex flex-col justify-between gap-3 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <img
-                        src={chore.childAvatar || "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=150"}
-                        alt={chore.childName || "Bé Na"}
-                        className="w-7 h-7 rounded-full object-cover"
-                      />
-                      <span className="text-xs font-bold text-on-surface">
-                        {chore.childName || "Bé Na"}
-                      </span>
-                    </div>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        chore.status === "REWARDED"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : chore.status === "SUBMITTED"
-                          ? "bg-amber-100 text-amber-800 animate-pulse"
-                          : "bg-surface-container text-on-surface-variant"
-                      }`}
-                    >
-                      {chore.status === "REWARDED"
-                        ? t("dash.chores.rewarded")
-                        : chore.status === "SUBMITTED"
-                        ? t("dash.chores.submitted")
-                        : t("dash.chores.todo")}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h4 className="font-bold text-sm text-on-surface line-clamp-1">
-                      {chore.title}
-                    </h4>
-                    <span className="text-xs font-mono font-bold text-secondary">
-                      +{chore.rewardAmount} USDC
-                    </span>
-                  </div>
-
-                  {chore.proofImageUrl && (
-                    <div className="w-full h-24 rounded-xl overflow-hidden border border-outline-variant/30">
-                      <img
-                        src={chore.proofImageUrl}
-                        alt="Bằng chứng làm việc"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-
-                  <div className="pt-1 border-t border-surface-container flex items-center justify-between">
-                    <span className="text-[11px] text-on-surface-variant font-medium">
-                      {language === "vi" ? "Hạn: " : "Deadline: "}
-                      {chore.deadline || (language === "vi" ? "Hôm nay" : "Today")}
-                    </span>
-
-                    {chore.status === "SUBMITTED" ? (
-                      <button
-                        type="button"
-                        onClick={() => verifyAndRewardChore(chore.id)}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
-                      >
-                        {t("dash.chores.verifyBtn")}
-                      </button>
-                    ) : chore.status === "REWARDED" ? (
-                      <span className="text-xs text-emerald-700 font-bold flex items-center gap-0.5">
-                        <span className="material-symbols-outlined text-[15px]">done</span>
-                        {language === "vi" ? "Đã trao thưởng" : "Rewarded"}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-on-surface-variant italic">
-                        {language === "vi" ? "Bé đang làm" : "In progress"}
-                      </span>
-                    )}
-                  </div>
+            {/* Chores Cards Grid or Empty State */}
+            {chores.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center rounded-2xl bg-surface-container-low border border-dashed border-outline-variant/40">
+                <div className="w-12 h-12 rounded-full bg-secondary-container/10 flex items-center justify-center text-secondary mb-3">
+                  <span className="material-symbols-outlined text-[28px]">task_alt</span>
                 </div>
-              ))}
-            </div>
+                <h4 className="font-bold text-sm text-on-surface mb-1">
+                  {language === "vi" ? "Chưa có việc nhà nào được giao" : "No chores assigned yet"}
+                </h4>
+                <p className="text-xs text-on-surface-variant max-w-sm mb-4">
+                  {language === "vi"
+                    ? "Hãy tạo nhiệm vụ mới để con nhỏ rèn luyện thói quen tốt và nhận thưởng USDC vào Heo Đất."
+                    : "Create new tasks for children to build good habits and earn USDC rewards into their piggy bank."}
+                </p>
+                <button
+                  onClick={() => setIsChoreModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-secondary-container text-white text-xs font-bold flex items-center gap-2 hover:bg-secondary-container/90 transition-all cursor-pointer shadow-sm"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  {t("dash.chores.newBtn")}
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {chores.map((chore) => (
+                  <div
+                    key={chore.id}
+                    className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 flex flex-col justify-between gap-3 hover:shadow-sm transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={chore.childAvatar || "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=150"}
+                          alt={chore.childName || "Bé Na"}
+                          className="w-7 h-7 rounded-full object-cover"
+                        />
+                        <span className="text-xs font-bold text-on-surface">
+                          {chore.childName || "Bé Na"}
+                        </span>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          chore.status === "REWARDED"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : chore.status === "SUBMITTED"
+                            ? "bg-amber-100 text-amber-800 animate-pulse"
+                            : "bg-surface-container text-on-surface-variant"
+                        }`}
+                      >
+                        {chore.status === "REWARDED"
+                          ? t("dash.chores.rewarded")
+                          : chore.status === "SUBMITTED"
+                          ? t("dash.chores.submitted")
+                          : t("dash.chores.todo")}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="font-bold text-sm text-on-surface line-clamp-1">
+                        {chore.title}
+                      </h4>
+                      <span className="text-xs font-mono font-bold text-secondary">
+                        +{chore.rewardAmount} USDC
+                      </span>
+                    </div>
+
+                    {chore.proofImageUrl && (
+                      <div className="w-full h-24 rounded-xl overflow-hidden border border-outline-variant/30">
+                        <img
+                          src={chore.proofImageUrl}
+                          alt="Bằng chứng làm việc"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+
+                    <div className="pt-1 border-t border-surface-container flex items-center justify-between">
+                      <span className="text-[11px] text-on-surface-variant font-medium">
+                        {language === "vi" ? "Hạn: " : "Deadline: "}
+                        {chore.deadline || (language === "vi" ? "Hôm nay" : "Today")}
+                      </span>
+
+                      {chore.status === "SUBMITTED" ? (
+                        <button
+                          type="button"
+                          onClick={() => verifyAndRewardChore(chore.id)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+                        >
+                          {t("dash.chores.verifyBtn")}
+                        </button>
+                      ) : chore.status === "REWARDED" ? (
+                        <span className="text-xs text-emerald-700 font-bold flex items-center gap-0.5">
+                          <span className="material-symbols-outlined text-[15px]">done</span>
+                          {language === "vi" ? "Đã trao thưởng" : "Rewarded"}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-on-surface-variant italic">
+                          {language === "vi" ? "Bé đang làm" : "In progress"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -851,83 +926,126 @@ export const GuardianView: React.FC = () => {
               </p>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead>
-                  <tr className="border-b border-surface-container text-on-surface-variant text-[11px] uppercase font-bold tracking-wider">
-                    <th className="py-3 px-3 sm:px-4">{t("dash.audit.time")}</th>
-                    <th className="py-3 px-3 sm:px-4">{t("dash.audit.type")}</th>
-                    <th className="py-3 px-3 sm:px-4">{t("dash.audit.amount")}</th>
-                    <th className="py-3 px-3 sm:px-4">{t("dash.audit.executor")}</th>
-                    <th className="py-3 px-3 sm:px-4 text-right">{t("dash.audit.status")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-container">
-                  {[
-                    {
-                      time: "Hôm nay, 08:30",
-                      type: "Rút tiền lớn (Multisig 2/3)",
-                      amount: "-1,000.00 USDC",
-                      user: "Ông Nội (Báo Hiếu)",
-                      status: isApproved ? "Đã giải ngân" : "Chờ ký duyệt",
-                      statusColor: isApproved ? "text-emerald-700 bg-emerald-50" : "text-amber-800 bg-amber-50",
-                    },
-                    {
-                      time: "Hôm nay, 07:15",
-                      type: "Rút tiền nhỏ đi chợ (Fast Withdraw)",
-                      amount: "-20.00 USDC",
-                      user: "Bà Ngoại (Báo Hiếu)",
-                      status: "Thành công (0 Gas)",
-                      statusColor: "text-emerald-700 bg-emerald-50",
-                    },
-                    {
-                      time: "Hôm qua, 18:45",
-                      type: "Thưởng việc nhà (Chore-to-Earn)",
-                      amount: "+5.00 USDC",
-                      user: "Bé Na (Heo Đất)",
-                      status: "Thành công (0 Gas)",
-                      statusColor: "text-emerald-700 bg-emerald-50",
-                    },
-                    {
-                      time: "24/10/2026",
-                      type: "Nạp Quỹ Gia Đình (10/90 Bridge)",
-                      amount: "+2,000.00 USDC",
-                      user: "Bố Ba (Admin)",
-                      status: "Bridge ICM C-Chain",
-                      statusColor: "text-blue-700 bg-blue-50",
-                    },
-                    {
-                      time: "22/10/2026",
-                      type: "Tái đầu tư lãi kép (Compound Yield)",
-                      amount: "+45.20 USDC",
-                      user: "Smart Contract (Auto)",
-                      status: "+8.2% APY Đã nhập gốc",
-                      statusColor: "text-emerald-700 bg-emerald-50",
-                    },
-                  ].map((row, idx) => (
-                    <tr key={idx} className="hover:bg-surface-container-low/50 transition-colors">
-                      <td className="py-3.5 px-3 sm:px-4 text-on-surface-variant font-mono">
-                        {row.time}
-                      </td>
-                      <td className="py-3.5 px-3 sm:px-4 font-semibold text-on-surface">
-                        {row.type}
-                      </td>
-                      <td className={`py-3.5 px-3 sm:px-4 font-mono font-bold ${row.amount.startsWith("-") ? "text-error" : "text-emerald-700"}`}>
-                        {row.amount}
-                      </td>
-                      <td className="py-3.5 px-3 sm:px-4 text-on-surface-variant">
-                        {row.user}
-                      </td>
-                      <td className="py-3.5 px-3 sm:px-4 text-right">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${row.statusColor}`}>
-                          {row.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {/* Dynamic Audit Log Table from Real Database records or Clean Empty State */}
+            {(() => {
+              const auditRows = [
+                ...withdrawalRequests.map((w) => ({
+                  time: w.createdAt,
+                  type:
+                    w.amount > 50
+                      ? language === "vi"
+                        ? "Rút tiền lớn (Multisig 2/3)"
+                        : "Large Withdraw (Multisig 2/3)"
+                      : language === "vi"
+                      ? "Rút tiền nhanh (Fast Withdraw)"
+                      : "Fast Withdraw (0 Gas)",
+                  amount: `-${w.amount.toFixed(2)} USDC`,
+                  user: `${w.requesterName} (${w.vault})`,
+                  status:
+                    w.status === "EXECUTED"
+                      ? language === "vi"
+                        ? "Đã giải ngân"
+                        : "Disbursed"
+                      : language === "vi"
+                      ? `Chờ ký (${w.approvalsCount}/${w.requiredApprovals})`
+                      : `Pending (${w.approvalsCount}/${w.requiredApprovals})`,
+                  statusColor:
+                    w.status === "EXECUTED"
+                      ? "text-emerald-700 bg-emerald-50"
+                      : "text-amber-800 bg-amber-50",
+                  isNegative: true,
+                })),
+                ...chores.map((c) => ({
+                  time: c.deadline || (language === "vi" ? "Hôm nay" : "Today"),
+                  type:
+                    language === "vi"
+                      ? "Thưởng việc nhà (Chore-to-Earn)"
+                      : "Chore-to-Earn Reward",
+                  amount: `+${c.rewardAmount.toFixed(2)} USDC`,
+                  user: `${c.childName || "Bé"} (Heo Đất)`,
+                  status:
+                    c.status === "REWARDED"
+                      ? language === "vi"
+                        ? "Đã trao thưởng"
+                        : "Rewarded"
+                      : c.status === "SUBMITTED"
+                      ? language === "vi"
+                        ? "Chờ cha mẹ duyệt"
+                        : "Submitted"
+                      : language === "vi"
+                      ? "Đang làm"
+                      : "In progress",
+                  statusColor:
+                    c.status === "REWARDED"
+                      ? "text-emerald-700 bg-emerald-50"
+                      : "text-amber-800 bg-amber-50",
+                  isNegative: false,
+                })),
+              ];
+
+              if (auditRows.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center rounded-2xl bg-surface-container-low border border-dashed border-outline-variant/40">
+                    <div className="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant mb-3">
+                      <span className="material-symbols-outlined text-[28px]">receipt_long</span>
+                    </div>
+                    <h4 className="font-bold text-sm text-on-surface mb-1">
+                      {language === "vi" ? "Chưa có biến động số dư nào" : "No cash flow events yet"}
+                    </h4>
+                    <p className="text-xs text-on-surface-variant max-w-md">
+                      {language === "vi"
+                        ? "Mọi giao dịch nạp quỹ gia đình, rút tiền nhanh L1, đa chữ ký phê duyệt và thưởng việc nhà sẽ được ghi nhận và kiểm toán minh bạch tại đây."
+                        : "All deposits, fast withdrawals, multisig approvals and chore rewards will be audited transparently here."}
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead>
+                      <tr className="border-b border-surface-container text-on-surface-variant text-[11px] uppercase font-bold tracking-wider">
+                        <th className="py-3 px-3 sm:px-4">{t("dash.audit.time")}</th>
+                        <th className="py-3 px-3 sm:px-4">{t("dash.audit.type")}</th>
+                        <th className="py-3 px-3 sm:px-4">{t("dash.audit.amount")}</th>
+                        <th className="py-3 px-3 sm:px-4">{t("dash.audit.executor")}</th>
+                        <th className="py-3 px-3 sm:px-4 text-right">{t("dash.audit.status")}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-surface-container">
+                      {auditRows.map((row, idx) => (
+                        <tr key={idx} className="hover:bg-surface-container-low/50 transition-colors">
+                          <td className="py-3.5 px-3 sm:px-4 text-on-surface-variant font-mono">
+                            {row.time}
+                          </td>
+                          <td className="py-3.5 px-3 sm:px-4 font-semibold text-on-surface">
+                            {row.type}
+                          </td>
+                          <td
+                            className={`py-3.5 px-3 sm:px-4 font-mono font-bold ${
+                              row.isNegative ? "text-error" : "text-emerald-700"
+                            }`}
+                          >
+                            {row.amount}
+                          </td>
+                          <td className="py-3.5 px-3 sm:px-4 text-on-surface-variant">
+                            {row.user}
+                          </td>
+                          <td className="py-3.5 px-3 sm:px-4 text-right">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${row.statusColor}`}
+                            >
+                              {row.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

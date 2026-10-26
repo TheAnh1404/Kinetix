@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Member } from '@/types';
+import { CONTRACT_ADDRESSES } from '@/contracts/config';
 
 interface RoscaViewProps {
   currentMember: Member;
@@ -13,8 +14,10 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember }) => {
   const [payoutSuccess, setPayoutSuccess] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
 
+  const hubAddress = CONTRACT_ADDRESSES.familyHub;
+
   const handleCopyContract = () => {
-    navigator.clipboard?.writeText('0x48a72910BF200e623C82811419B912');
+    navigator.clipboard?.writeText(hubAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -56,7 +59,7 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember }) => {
           <span className="font-label-lg text-label-lg text-on-surface font-bold">100% USDC Bảo chứng</span>
           <div className="flex items-center gap-space-xs font-label-caps text-label-caps text-on-surface-variant pt-space-xs">
             <span className="material-symbols-outlined text-[14px]">code</span>
-            <span>Contract: 0x48a...9F1</span>
+            <span>Contract: {hubAddress.slice(0, 6)}...{hubAddress.slice(-4)}</span>
             <button
               onClick={handleCopyContract}
               className="text-secondary hover:underline cursor-pointer font-bold"

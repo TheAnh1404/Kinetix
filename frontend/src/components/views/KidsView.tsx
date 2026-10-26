@@ -4,8 +4,10 @@ import React, { useState } from "react";
 import { useFamily } from "@/context/FamilyContext";
 
 export const KidsView: React.FC = () => {
-  const { chores, kidsBalance, kidsXp, submitChoreProof, verifyAndRewardChore } = useFamily();
+  const { chores, kidsBalance, kidsXp, submitChoreProof, verifyAndRewardChore, currentMember } = useFamily();
   const [toast, setToast] = useState<string | null>(null);
+
+  const childDisplayName = currentMember?.name || "Bé";
 
   // Bé nộp việc nhà
   const handleSubmitTask = async (taskId: number | string) => {
@@ -15,7 +17,7 @@ export const KidsView: React.FC = () => {
     );
     if (success) {
       setToast(
-        "🎒 Bé Na đã nộp ảnh báo cáo việc nhà lên Smart Contract! Bố Mẹ sẽ nhận được thông báo để kiểm tra và duyệt thưởng."
+        `🎒 ${childDisplayName} đã nộp ảnh báo cáo việc nhà lên Smart Contract! Bố Mẹ sẽ nhận được thông báo để kiểm tra và duyệt thưởng.`
       );
     }
   };
@@ -25,7 +27,7 @@ export const KidsView: React.FC = () => {
     const success = await verifyAndRewardChore(taskId);
     if (success) {
       setToast(
-        `🎉 CHÚC MỪNG BÉ NA! Hợp đồng FamilyHub đã giải ngân ${rewardAmount} USDC thẳng vào heo đất với 0đ phí gas trên Family L1!`
+        `🎉 CHÚC MỪNG ${childDisplayName.toUpperCase()}! Hợp đồng FamilyHub đã giải ngân ${rewardAmount} USDC thẳng vào heo đất với 0đ phí gas trên Family L1!`
       );
     }
   };
@@ -54,8 +56,11 @@ export const KidsView: React.FC = () => {
           <div className="relative">
             <img
               className="w-20 h-20 md:w-24 md:h-24 rounded-2xl object-cover shadow-sm bg-surface-container border-2 border-surface-container-highest"
-              alt="Bé Na"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAc1UhNj0E3eKWwrEAv9WJ4KTtp_4pnR4-fyhwEHSKncOxXMGgdr5EdEkF7AMpuaguOYSWTwC-3Ovp1jhOZtflnABlKorh-7E9pPfvKLow6TvFQHGxmf0EgQh_J7eX2WyhgY_obtzgCtT892o3CCd1-TKpF3WABb42fGzxm4wVTK6S7fWG0bKJKRZGbEsWybndKRK3uK6Aix2ehMS1hOr8zRyDG3ZRA0ODbqcIHWiDv1p2ayRMtyQ"
+              alt={childDisplayName}
+              src={
+                currentMember?.avatar ||
+                "https://lh3.googleusercontent.com/aida-public/AB6AXuAc1UhNj0E3eKWwrEAv9WJ4KTtp_4pnR4-fyhwEHSKncOxXMGgdr5EdEkF7AMpuaguOYSWTwC-3Ovp1jhOZtflnABlKorh-7E9pPfvKLow6TvFQHGxmf0EgQh_J7eX2WyhgY_obtzgCtT892o3CCd1-TKpF3WABb42fGzxm4wVTK6S7fWG0bKJKRZGbEsWybndKRK3uK6Aix2ehMS1hOr8zRyDG3ZRA0ODbqcIHWiDv1p2ayRMtyQ"
+              }
             />
             <div className="absolute -bottom-2 -right-2 bg-secondary-container text-on-secondary-container rounded-full px-2 py-0.5 font-label-caps text-label-caps shadow flex items-center gap-1 font-bold">
               <span className="material-symbols-outlined text-[13px]">
@@ -67,7 +72,7 @@ export const KidsView: React.FC = () => {
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="font-headline-md text-headline-md text-on-surface truncate">
-                Bé Na (Lớp 6A - Trường Chu Văn An) 🌟
+                {childDisplayName} (Kinetix Kids Heo Đất) 🌟
               </h1>
               <span className="px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-caps text-label-caps font-bold">
                 L1 Family Explorer
@@ -268,94 +273,109 @@ export const KidsView: React.FC = () => {
                 </p>
               </div>
               <span className="px-3 py-1 rounded-full bg-surface-container text-xs font-bold text-on-surface">
-                {chores.filter((t) => t.status === "REWARDED").length}/{chores.length}{" "}
-                Hoàn thành
+                {chores.length > 0
+                  ? `${chores.filter((t) => t.status === "REWARDED").length}/${chores.length} Hoàn thành`
+                  : "0 Nhiệm vụ"}
               </span>
             </div>
 
-            {/* Tasks List */}
-            <div className="flex flex-col gap-3">
-              {chores.map((task) => (
-                <div
-                  key={task.id}
-                  className="p-4 rounded-xl border border-surface-container-high bg-surface-container-low/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all hover:bg-surface-container-low"
-                >
-                  <div className="flex items-start gap-3">
-                    <span
-                      className={`material-symbols-outlined text-[24px] mt-0.5 ${
-                        task.status === "REWARDED"
-                          ? "text-emerald-600"
-                          : task.status === "SUBMITTED"
-                          ? "text-amber-600"
-                          : "text-gray-400"
-                      }`}
-                    >
-                      {task.status === "REWARDED"
-                        ? "check_circle"
-                        : task.status === "SUBMITTED"
-                        ? "pending_actions"
-                        : "radio_button_unchecked"}
-                    </span>
-                    <div className="flex flex-col">
-                      <span className="font-title-md text-title-md font-semibold text-on-surface">
-                        {task.title}
-                      </span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="font-bold text-xs px-2 py-0.5 rounded bg-surface-container-high text-on-surface">
-                          +{task.rewardAmount.toFixed(1)} USDC
-                        </span>
-                        <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                            task.status === "REWARDED"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : task.status === "SUBMITTED"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {task.status === "REWARDED"
-                            ? "Đã nhận thưởng"
+            {/* Tasks List or Empty State */}
+            {chores.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 px-4 text-center rounded-xl border border-dashed border-surface-container-high bg-surface-container-low/30">
+                <div className="w-12 h-12 rounded-full bg-secondary-container/10 flex items-center justify-center text-secondary mb-2">
+                  <span className="material-symbols-outlined text-[26px]">task_alt</span>
+                </div>
+                <h4 className="font-bold text-sm text-on-surface mb-1">
+                  Chưa có nhiệm vụ việc nhà nào
+                </h4>
+                <p className="text-xs text-on-surface-variant max-w-xs">
+                  Bé hãy nhắc Bố Mẹ giao việc để cùng làm việc tốt và tích lũy tiền thưởng USDC vào Heo Đất nhé! 🌟
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {chores.map((task) => (
+                  <div
+                    key={task.id}
+                    className="p-4 rounded-xl border border-surface-container-high bg-surface-container-low/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all hover:bg-surface-container-low"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span
+                        className={`material-symbols-outlined text-[24px] mt-0.5 ${
+                          task.status === "REWARDED"
+                            ? "text-emerald-600"
                             : task.status === "SUBMITTED"
-                            ? "Chờ Bố Mẹ duyệt"
-                            : "Chưa nộp"}
+                            ? "text-amber-600"
+                            : "text-gray-400"
+                        }`}
+                      >
+                        {task.status === "REWARDED"
+                          ? "check_circle"
+                          : task.status === "SUBMITTED"
+                          ? "pending_actions"
+                          : "radio_button_unchecked"}
+                      </span>
+                      <div className="flex flex-col">
+                        <span className="font-title-md text-title-md font-semibold text-on-surface">
+                          {task.title}
                         </span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="font-bold text-xs px-2 py-0.5 rounded bg-surface-container-high text-on-surface">
+                            +{task.rewardAmount.toFixed(1)} USDC
+                          </span>
+                          <span
+                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              task.status === "REWARDED"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : task.status === "SUBMITTED"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-gray-100 text-gray-700"
+                            }`}
+                          >
+                            {task.status === "REWARDED"
+                              ? "Đã nhận thưởng"
+                              : task.status === "SUBMITTED"
+                              ? "Chờ Bố Mẹ duyệt"
+                              : "Chưa nộp"}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Actions depending on status */}
-                  <div className="flex items-center gap-2 self-end sm:self-center">
-                    {task.status === "TODO" && (
-                      <button
-                        onClick={() => handleSubmitTask(task.id)}
-                        className="px-3.5 py-1.5 rounded-xl bg-secondary-container hover:bg-secondary text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
-                      >
-                        Nộp Ảnh Báo Cáo
-                      </button>
-                    )}
-                    {task.status === "SUBMITTED" && (
-                      <button
-                        onClick={() => handleVerifyReward(task.id, task.rewardAmount)}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">
-                          verified
+                    {/* Actions depending on status */}
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      {task.status === "TODO" && (
+                        <button
+                          onClick={() => handleSubmitTask(task.id)}
+                          className="px-3.5 py-1.5 rounded-xl bg-secondary-container hover:bg-secondary text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+                        >
+                          Nộp Ảnh Báo Cáo
+                        </button>
+                      )}
+                      {task.status === "SUBMITTED" && (
+                        <button
+                          onClick={() => handleVerifyReward(task.id, task.rewardAmount)}
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">
+                            verified
+                          </span>
+                          <span>Bố Mẹ Duyệt Thưởng</span>
+                        </button>
+                      )}
+                      {task.status === "REWARDED" && (
+                        <span className="text-emerald-700 font-bold text-xs flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[16px]">
+                            check
+                          </span>
+                          Đã cộng vào Heo Đất (0 Gas)
                         </span>
-                        <span>Bố Mẹ Duyệt Thưởng</span>
-                      </button>
-                    )}
-                    {task.status === "REWARDED" && (
-                      <span className="text-emerald-700 font-bold text-xs flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[16px]">
-                          check
-                        </span>
-                        Đã cộng vào Heo Đất (0 Gas)
-                      </span>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             {/* Savings Goal Tracker */}
             <div className="mt-2 p-4 rounded-xl bg-surface-container-high/40 border border-surface-container-high flex flex-col gap-2">
