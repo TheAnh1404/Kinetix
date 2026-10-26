@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { createWalletClient, custom } from "viem";
 
 export interface AuthUser {
   id: string;
@@ -40,35 +41,62 @@ export function useAuth() {
   }, [checkSession]);
 
   /**
+   * Kiểm tra tiện ích ví Avalanche Core hoặc Web3 Provider
+   */
+  const isWalletExtensionAvailable = (): boolean => {
+    if (typeof window === "undefined") return false;
+    return !!(window.avalanche || window.ethereum);
+  };
+
+  /**
    * 1. Đăng nhập bằng ví Avalanche Core Wallet qua chuẩn SIWE EIP-4361
    */
   const loginWithCoreWallet = async (): Promise<{ success: boolean; error?: string }> => {
     try {
       setIsLoading(true);
 
-      // Kiểm tra extension ví Avalanche Core hoặc Web3 Provider
-      const provider = (typeof window !== "undefined" && (window.avalanche || window.ethereum)) || null;
+      const provider =
+        (typeof window !== "undefined" && (window.avalanche || window.ethereum)) || null;
+
       if (!provider) {
         return {
           success: false,
-          error: "Vui lòng cài đặt và kích hoạt tiện ích ví Avalanche Core Wallet!",
+          error: "Chưa phát hiện tiện ích ví Avalanche Core Wallet. Hãy cài đặt extension hoặc sử dụng nút 'Trải nghiệm nhanh Ví Core Mẫu' bên dưới!",
         };
       }
 
-      // Lấy địa chỉ ví
-      const accounts = await provider.request({ method: "eth_requestAccounts" });
+      // Lấy danh sách tài khoản
+      let accounts: string[];
+      try {
+        accounts = await provider.request({ method: "eth_requestAccounts" });
+      } catch (reqErr: any) {
+        if (reqErr?.code === 4001 || reqErr?.message?.includes("rejected")) {
+          return { success: false, error: "Bạn đã từ chối cấp quyền kết nối ví." };
+        }
+        if (reqErr?.code === -32002) {
+          return { success: false, error: "Yêu cầu kết nối ví đang chờ xử lý. Vui lòng mở popup ví để xác nhận." };
+        }
+        throw reqErr;
+      }
+
       if (!accounts || accounts.length === 0) {
         return { success: false, error: "Người dùng đã từ chối cấp quyền truy cập ví" };
       }
       const address = accounts[0];
 
       // Lấy nonce ngẫu nhiên từ server
-      const nonceRes = await fetch("/api/auth/nonce");
-      const { nonce } = await nonceRes.json();
+      let nonce: string = "kntx-" + Date.now();
+      try {
+        const nonceRes = await fetch("/api/auth/nonce");
+        const nonceData = await nonceRes.json();
+        if (nonceData.nonce) nonce = nonceData.nonce;
+      } catch (e) {
+        console.warn("Nonce fetch warning:", e);
+      }
 
       // Chuẩn hóa thông điệp SIWE EIP-4361
-      const domain = window.location.host;
-      const origin = window.location.origin;
+      const domain = typeof window !== "undefined" ? window.location.host : "localhost:3000";
+      const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
       const chainId = 43114; // Family L1 (hoặc 43113 Fuji)
       const issuedAt = new Date().toISOString();
 
@@ -83,17 +111,43 @@ Chain ID: ${chainId}
 Nonce: ${nonce}
 Issued At: ${issuedAt}`;
 
-      // Kích hoạt popup ví ký thông điệp (personal_sign)
-      const signature = await provider.request({
-        method: "personal_sign",
-        params: [message, address],
-      });
+      // Ký thông điệp bằng Viem walletClient (tự động chuyển mã hex chuẩn xác)
+      let signature: string;
+      try {
+        const walletClient = createWalletClient({
+          transport: custom(provider),
+        });
+        signature = await walletClient.signMessage({
+          account: address as `0x${string}`,
+          message,
+        });
+      } catch (signErr: any) {
+        if (signErr?.code === 4001 || signErr?.message?.includes("rejected") || signErr?.message?.includes("User rejected")) {
+          return { success: false, error: "Bạn đã hủy ký thông điệp xác thực trên ví." };
+        }
+        console.warn("Viem signMessage fallback to personal_sign:", signErr);
+        try {
+          const { stringToHex } = await import("viem");
+          signature = await provider.request({
+            method: "personal_sign",
+            params: [stringToHex(message), address],
+          });
+        } catch (hexErr: any) {
+          if (hexErr?.code === 4001 || hexErr?.message?.includes("rejected")) {
+            return { success: false, error: "Bạn đã hủy ký thông điệp xác thực trên ví." };
+          }
+          signature = await provider.request({
+            method: "personal_sign",
+            params: [message, address],
+          });
+        }
+      }
 
       // Gửi chữ ký lên server xác thực
       const verifyRes = await fetch("/api/auth/verify-siwe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, signature }),
+        body: JSON.stringify({ message, signature, address }),
       });
 
       const verifyData = await verifyRes.json();
@@ -106,7 +160,7 @@ Issued At: ${issuedAt}`;
       return { success: true };
     } catch (err: any) {
       console.error("Lỗi loginWithCoreWallet:", err);
-      return { success: false, error: err.message || "Lỗi kết nối ví Core Wallet" };
+      return { success: false, error: err.message || "Lỗi kết nối hoặc chữ ký bị từ chối" };
     } finally {
       setIsLoading(false);
     }
@@ -147,7 +201,14 @@ Issued At: ${issuedAt}`;
   };
 
   /**
-   * 3. Chuyển đổi nhanh vai diễn Demo khi quay video / thuyết trình
+   * 3. Đăng nhập nhanh ví Core Wallet Bố Ba (Dành cho demo / giám khảo không cần cài extension)
+   */
+  const loginWithDemoAdmin = async (): Promise<{ success: boolean; error?: string }> => {
+    return loginAsFamilyMember(undefined, "ADMIN", "1234");
+  };
+
+  /**
+   * 4. Chuyển đổi nhanh vai diễn Demo khi quay video / thuyết trình
    */
   const switchDemoPersona = async (
     role: "ADMIN" | "GUARDIAN" | "ELDERLY" | "CHILD"
@@ -156,7 +217,7 @@ Issued At: ${issuedAt}`;
   };
 
   /**
-   * 4. Đăng xuất
+   * 5. Đăng xuất
    */
   const logout = async () => {
     try {
@@ -173,7 +234,9 @@ Issued At: ${issuedAt}`;
     role: user?.role || null,
     isLoading,
     isAuthenticated: !!user,
+    isWalletExtensionAvailable,
     loginWithCoreWallet,
+    loginWithDemoAdmin,
     loginAsFamilyMember,
     switchDemoPersona,
     logout,

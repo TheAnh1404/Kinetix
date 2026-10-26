@@ -39,7 +39,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Phân tích SIWE Message
-    const { address, nonce } = parseSiweMessage(message);
+    const parsed = parseSiweMessage(message);
+    const address = (body.address || parsed.address);
+    const nonce = parsed.nonce;
     if (!address) {
       return NextResponse.json(
         { error: "Không tìm thấy địa chỉ ví hợp lệ trong SIWE message" },

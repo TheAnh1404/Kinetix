@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
 export const LoginView: React.FC = () => {
@@ -14,7 +14,19 @@ export const LoginView: React.FC = () => {
 
   const [pin, setPin] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const { loginWithCoreWallet, loginAsFamilyMember, isLoading } = useAuth();
+  const [hasWallet, setHasWallet] = useState<boolean>(true);
+
+  const {
+    loginWithCoreWallet,
+    loginWithDemoAdmin,
+    loginAsFamilyMember,
+    isWalletExtensionAvailable,
+    isLoading,
+  } = useAuth();
+
+  useEffect(() => {
+    setHasWallet(isWalletExtensionAvailable());
+  }, [isWalletExtensionAvailable]);
 
   const familyMembers = [
     {
@@ -36,6 +48,14 @@ export const LoginView: React.FC = () => {
   const handleWalletLogin = async () => {
     setErrorMsg(null);
     const res = await loginWithCoreWallet();
+    if (!res.success && res.error) {
+      setErrorMsg(res.error);
+    }
+  };
+
+  const handleDemoAdminLogin = async () => {
+    setErrorMsg(null);
+    const res = await loginWithDemoAdmin();
     if (!res.success && res.error) {
       setErrorMsg(res.error);
     }
@@ -141,7 +161,7 @@ export const LoginView: React.FC = () => {
 
         {/* TAB 1: BỐ MẸ (VÍ AVALANCHE CORE) */}
         {activeTab === "WALLET" && (
-          <div className="flex flex-col gap-5 py-2">
+          <div className="flex flex-col gap-4 py-2">
             <div className="p-4 bg-surface-container-low rounded-2xl flex flex-col gap-2 border border-outline-variant/20">
               <div className="flex items-center gap-2 text-secondary font-bold text-sm">
                 <span className="material-symbols-outlined text-[20px]">
@@ -156,10 +176,37 @@ export const LoginView: React.FC = () => {
               </p>
             </div>
 
+            {/* Thông báo hướng dẫn khi chưa có extension ví */}
+            {!hasWallet && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-800 rounded-xl text-xs flex items-start gap-2.5">
+                <span className="material-symbols-outlined text-[20px] text-amber-600 shrink-0 mt-0.5">
+                  info
+                </span>
+                <div className="flex-1 leading-relaxed">
+                  <p className="font-semibold text-amber-900">
+                    Chưa phát hiện tiện ích ví Avalanche Core
+                  </p>
+                  <p className="mt-0.5 text-amber-800/90">
+                    Bạn có thể cài đặt extension tại{" "}
+                    <a
+                      href="https://core.app/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline font-bold text-secondary hover:text-secondary-container"
+                    >
+                      core.app
+                    </a>{" "}
+                    hoặc chọn nút <strong>"Trải nghiệm nhanh Ví Core Mẫu"</strong> bên dưới để thử nghiệm đầy đủ quyền Admin.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Nút đăng nhập SIWE thật bằng ví Core Wallet */}
             <button
               onClick={handleWalletLogin}
               disabled={isLoading}
-              className="w-full py-4 px-6 bg-secondary-container hover:bg-secondary text-white font-headline-sm text-base rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3 cursor-pointer"
+              className="w-full py-4 px-6 bg-secondary-container hover:bg-secondary text-white font-headline-sm text-base rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3 cursor-pointer disabled:opacity-60"
               type="button"
             >
               {isLoading ? (
@@ -167,7 +214,7 @@ export const LoginView: React.FC = () => {
                   <span className="material-symbols-outlined animate-spin text-[22px]">
                     progress_activity
                   </span>
-                  <span>Đang mở ví ký duyệt...</span>
+                  <span>Đang kết nối &amp; ký duyệt ví...</span>
                 </>
               ) : (
                 <>
@@ -179,7 +226,28 @@ export const LoginView: React.FC = () => {
               )}
             </button>
 
-            <div className="flex items-center justify-center gap-2 text-xs text-on-surface-variant">
+            {/* Nút dự phòng cho giám khảo / người đánh giá hackathon */}
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-outline-variant/30"></div>
+              <span className="flex-shrink mx-3 text-[11px] uppercase font-bold text-on-surface-variant/70 tracking-wider">
+                Chế độ thử nghiệm Demo
+              </span>
+              <div className="flex-grow border-t border-outline-variant/30"></div>
+            </div>
+
+            <button
+              onClick={handleDemoAdminLogin}
+              disabled={isLoading}
+              className="w-full py-3 px-5 bg-surface-container hover:bg-surface-container-high border border-secondary/30 text-secondary font-bold text-sm rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:border-secondary"
+              type="button"
+            >
+              <span className="material-symbols-outlined text-[20px] text-amber-500">
+                bolt
+              </span>
+              <span>Trải nghiệm nhanh Ví Core Mẫu (Bố Ba - Admin)</span>
+            </button>
+
+            <div className="flex items-center justify-center gap-2 text-xs text-on-surface-variant mt-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Tương thích Avalanche Fuji Testnet &amp; Family L1</span>
             </div>
