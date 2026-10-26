@@ -4,27 +4,21 @@ import { FamilyService } from "@/lib/familyService";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { familyId, requesterId, amount, vault, reason, onchainRequestId } = body;
+    const { familyId, requesterId, amount, vault, vaultId, reason, onchainRequestId } = body;
 
-    if (!familyId || !requesterId || amount === undefined || !vault || !reason) {
+    if (!familyId || !requesterId || amount === undefined || !reason) {
       return NextResponse.json(
-        { error: "Missing required fields: familyId, requesterId, amount, vault, reason" },
+        { error: "Missing required fields: familyId, requesterId, amount, reason" },
         { status: 400 }
       );
-    }
-
-    let normalizedVault: "RetirementShield" | "KidsSavings" | "FamilyROSCA" = "RetirementShield";
-    if (vault === "KidsSavings" || vault === "Kids Savings") {
-      normalizedVault = "KidsSavings";
-    } else if (vault === "FamilyROSCA" || vault === "Family ROSCA") {
-      normalizedVault = "FamilyROSCA";
     }
 
     const result = await FamilyService.createWithdrawalRequest({
       familyId,
       requesterId,
       amount: Number(amount),
-      vault: normalizedVault,
+      vault: vault || "SHIELD",
+      vaultId: vaultId || undefined,
       reason,
       onchainRequestId: onchainRequestId ? Number(onchainRequestId) : undefined,
     });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { withdrawalRequests, users } from "@/db/schema";
+import { withdrawalRequests, users, vaults } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET(
@@ -17,6 +17,8 @@ export async function GET(
       .select({
         id: withdrawalRequests.id,
         familyId: withdrawalRequests.familyId,
+        vaultId: withdrawalRequests.vaultId,
+        vaultName: vaults.name,
         requesterId: withdrawalRequests.requesterId,
         requesterName: users.fullName,
         requesterAddress: users.walletAddress,
@@ -31,6 +33,7 @@ export async function GET(
       })
       .from(withdrawalRequests)
       .leftJoin(users, eq(withdrawalRequests.requesterId, users.id))
+      .leftJoin(vaults, eq(withdrawalRequests.vaultId, vaults.id))
       .where(eq(withdrawalRequests.familyId, familyId))
       .orderBy(desc(withdrawalRequests.createdAt));
 

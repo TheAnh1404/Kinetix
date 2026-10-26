@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     // Ký JWT Session Token
     const token = await signAuthToken({
       userId: targetUser.id,
-      familyId: targetUser.familyId,
+      familyId: targetUser.familyId || "",
       fullName: targetUser.fullName,
       role: targetUser.role,
       walletAddress: targetUser.walletAddress,

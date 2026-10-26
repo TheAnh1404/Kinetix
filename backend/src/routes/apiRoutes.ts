@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { FamilyService } from "../services/familyService";
 import { db } from "../db";
-import { families, users, notifications } from "../db/schema";
+import { families, workspaces, vaults, users, notifications } from "../db/schema";
 import { eq } from "drizzle-orm";
 
 export const apiRouter = Router();
@@ -214,3 +214,49 @@ apiRouter.patch("/notifications/:id/read", async (req: Request, res: Response) =
     return res.status(500).json({ error: error.message });
   }
 });
+
+/**
+ * GET /api/workspaces
+ */
+apiRouter.get("/workspaces", async (req: Request, res: Response) => {
+  try {
+    const list = await db.select().from(workspaces);
+    return res.status(200).json({ success: true, workspaces: list });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/workspaces/:id
+ */
+apiRouter.get("/workspaces/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const details = await FamilyService.getWorkspaceDetails(id);
+    if (!details) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
+    return res.status(200).json({ success: true, data: details });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/vaults
+ */
+apiRouter.get("/vaults", async (req: Request, res: Response) => {
+  try {
+    const { workspaceId } = req.query;
+    if (workspaceId && typeof workspaceId === "string") {
+      const list = await db.select().from(vaults).where(eq(vaults.workspaceId, workspaceId));
+      return res.status(200).json({ success: true, vaults: list });
+    }
+    const list = await db.select().from(vaults);
+    return res.status(200).json({ success: true, vaults: list });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+

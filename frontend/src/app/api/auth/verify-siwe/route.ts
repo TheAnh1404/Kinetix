@@ -123,15 +123,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Lấy thông tin gia đình của user
-    const [family] = await db
-      .select()
-      .from(families)
-      .where(eq(families.id, existingUser.familyId));
+    let family = null;
+    if (existingUser.familyId) {
+      const [f] = await db
+        .select()
+        .from(families)
+        .where(eq(families.id, existingUser.familyId));
+      family = f;
+    }
 
     // 6. Ký JWT Session Token
     const token = await signAuthToken({
       userId: existingUser.id,
-      familyId: existingUser.familyId,
+      familyId: existingUser.familyId || family?.id || "",
       fullName: existingUser.fullName,
       role: existingUser.role,
       walletAddress: existingUser.walletAddress,

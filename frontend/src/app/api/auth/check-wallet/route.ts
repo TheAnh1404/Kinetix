@@ -37,10 +37,14 @@ export async function GET(req: NextRequest) {
     }
 
     // Lấy thông tin gia đình của user
-    const [family] = await db
-      .select()
-      .from(families)
-      .where(eq(families.id, existingUser.familyId));
+    let family = null;
+    if (existingUser.familyId) {
+      const [f] = await db
+        .select()
+        .from(families)
+        .where(eq(families.id, existingUser.familyId));
+      family = f;
+    }
 
     return NextResponse.json({
       isRegistered: true,

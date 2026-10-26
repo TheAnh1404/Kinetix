@@ -12,7 +12,8 @@ import {
   notifications,
   chores,
   users,
-  families,
+  workspaces,
+  vaults,
 } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 import * as dotenv from "dotenv";
@@ -36,33 +37,82 @@ const publicClient = createPublicClient({
   transport: http(RPC_URL),
 });
 
-// Các sự kiện On-Chain từ FamilyHub.sol
+// Các sự kiện On-Chain từ FamilyHub.sol (Dynamic & Composable Multi-Space Vaults)
+const vaultCreatedEvent = parseAbiItem(
+  "event VaultCreated(uint256 indexed vaultId, string name, uint8 indexed ruleType, uint256 bufferRatioBps, uint256 fastWithdrawLimit, uint256 requiredApprovals)"
+);
+
+const depositToVaultEvent = parseAbiItem(
+  "event DepositToVault(uint256 indexed vaultId, address indexed depositor, uint256 totalAmount, uint256 toBuffer, uint256 toBridge)"
+);
+
+const fastWithdrawalExecutedEvent = parseAbiItem(
+  "event FastWithdrawalExecuted(uint256 indexed vaultId, address indexed recipient, uint256 amount)"
+);
+
 const withdrawalRequestedEvent = parseAbiItem(
-  "event WithdrawalRequested(uint256 indexed requestId, address indexed requester, uint8 indexed vaultType, uint256 amount, address recipient, string reason, uint256 deadline)"
+  "event WithdrawalRequested(uint256 indexed requestId, uint256 indexed vaultId, address indexed requester, uint256 amount, address recipient, string reason, uint256 deadline)"
 );
 
 const withdrawalApprovedEvent = parseAbiItem(
-  "event WithdrawalApproved(uint256 indexed requestId, address indexed guardian, uint256 currentApprovals)"
+  "event WithdrawalApproved(uint256 indexed requestId, uint256 indexed vaultId, address indexed guardian, uint256 currentApprovals)"
 );
 
 const withdrawalExecutedEvent = parseAbiItem(
-  "event WithdrawalExecuted(uint256 indexed requestId, address indexed recipient, uint256 amount, bool fullyFundedFromLocalBuffer)"
-);
-
-const fundsDepositedEvent = parseAbiItem(
-  "event FundsDeposited(uint8 indexed vaultType, address indexed depositor, uint256 totalAmount, uint256 toBuffer, uint256 toBridge)"
+  "event WithdrawalExecuted(uint256 indexed requestId, uint256 indexed vaultId, address indexed recipient, uint256 amount, bool fullyFundedFromLocalBuffer)"
 );
 
 const choreClaimedEvent = parseAbiItem(
-  "event ChoreClaimed(uint256 indexed taskId, address indexed kidAddress)"
+  "event ChoreClaimed(uint256 indexed taskId, uint256 indexed vaultId, address indexed kidAddress)"
 );
 
 const choreRewardedEvent = parseAbiItem(
-  "event ChoreRewarded(uint256 indexed taskId, address indexed kidAddress, uint256 rewardAmount)"
+  "event ChoreRewarded(uint256 indexed taskId, uint256 indexed vaultId, address indexed kidAddress, uint256 rewardAmount)"
 );
 
 /**
- * 1. Lắng nghe yêu cầu rút tiền lớn (WithdrawalRequested)
+ * 1. Lắng nghe nạp tiền vào Hũ Động (DepositToVault)
+ */
+function watchDepositToVault() {
+  console.log("👂 Đang lắng nghe sự kiện: DepositToVault...");
+  return publicClient.watchEvent({
+    address: HUB_ADDRESS,
+    event: depositToVaultEvent,
+    onLogs: async (logs) => {
+      for (const log of logs) {
+        const { vaultId, depositor, totalAmount, toBuffer, toBridge } = log.args;
+        if (vaultId === undefined || totalAmount === undefined) continue;
+
+        const onchainId = Number(vaultId);
+        const totalAvax = Number(formatEther(totalAmount));
+        const bufferAvax = Number(formatEther(toBuffer ?? 0n));
+        console.log(`\n💰 [EVENT] Nạp tiền vào Hũ ID #${onchainId}: ${totalAvax} AVAX (L1 Buffer: ${bufferAvax} AVAX)`);
+
+        // Cập nhật số dư trong database
+        const [matchingVault] = await db
+          .select()
+          .from(vaults)
+          .where(eq(vaults.onchainVaultId, onchainId));
+
+        if (matchingVault) {
+          const newTotal = (Number(matchingVault.cachedTotalBalance) + totalAvax).toFixed(6);
+          const newBuffer = (Number(matchingVault.cachedL1Buffer) + bufferAvax).toFixed(6);
+
+          await db
+            .update(vaults)
+            .set({
+              cachedTotalBalance: newTotal,
+              cachedL1Buffer: newBuffer,
+            })
+            .where(eq(vaults.id, matchingVault.id));
+        }
+      }
+    },
+  });
+}
+
+/**
+ * 2. Lắng nghe yêu cầu rút tiền lớn (WithdrawalRequested)
  */
 function watchWithdrawalRequests() {
   console.log("👂 Đang lắng nghe sự kiện: WithdrawalRequested...");
@@ -71,15 +121,15 @@ function watchWithdrawalRequests() {
     event: withdrawalRequestedEvent,
     onLogs: async (logs) => {
       for (const log of logs) {
-        const { requestId, requester, vaultType, amount, recipient, reason } = log.args;
+        const { requestId, vaultId, requester, amount, recipient, reason } = log.args;
         if (!requestId || !requester || amount === undefined) continue;
 
         const onchainReqId = Number(requestId);
+        const onchainVaultId = vaultId !== undefined ? Number(vaultId) : 1;
         const amountEther = Number(formatEther(amount));
-        console.log(`\n🚨 [EVENT] Phát hiện yêu cầu rút tiền on-chain ID #${onchainReqId}`);
-        console.log(`   Người rút: ${requester} -> ${amountEther} AVAX/USDC | Lý do: ${reason}`);
+        console.log(`\n🚨 [EVENT] Phát hiện yêu cầu rút tiền on-chain ID #${onchainReqId} (Hũ #${onchainVaultId})`);
+        console.log(`   Người rút: ${requester} -> ${amountEther} AVAX | Lý do: ${reason}`);
 
-        // Tìm người dùng trong database
         const matchingUsers = await db
           .select()
           .from(users)
@@ -89,10 +139,10 @@ function watchWithdrawalRequests() {
         let requesterId: string;
 
         if (matchingUsers.length > 0) {
-          targetFamilyId = matchingUsers[0].familyId;
+          targetFamilyId = matchingUsers[0].familyId || "";
           requesterId = matchingUsers[0].id;
         } else {
-          const defaultFam = await db.select().from(families).limit(1);
+          const defaultFam = await db.select().from(workspaces).limit(1);
           if (defaultFam.length === 0) continue;
           targetFamilyId = defaultFam[0].id;
 
@@ -108,35 +158,32 @@ function watchWithdrawalRequests() {
           requesterId = autoUser.id;
         }
 
-        // Kiểm tra xem đã có bản ghi chưa
+        const [matchingVault] = await db
+          .select()
+          .from(vaults)
+          .where(eq(vaults.onchainVaultId, onchainVaultId));
+
         const existing = await db
           .select()
           .from(withdrawalRequests)
           .where(eq(withdrawalRequests.onchainRequestId, onchainReqId));
 
-        const vaultNames: ("RetirementShield" | "KidsSavings" | "FamilyROSCA")[] = [
-          "RetirementShield",
-          "KidsSavings",
-          "FamilyROSCA",
-        ];
-        const vaultName = vaultNames[vaultType ?? 0] || "RetirementShield";
-
         if (existing.length === 0) {
           await db.insert(withdrawalRequests).values({
             familyId: targetFamilyId,
+            vaultId: matchingVault ? matchingVault.id : null,
             requesterId: requesterId,
             amount: amountEther.toFixed(6),
-            vault: vaultName,
+            vault: matchingVault ? matchingVault.name : "SHIELD",
             reason: reason || "Yêu cầu từ On-Chain",
             onchainRequestId: onchainReqId,
             approvalsCount: 0,
-            requiredApprovals: 2,
+            requiredApprovals: matchingVault ? matchingVault.requiredApprovals : 2,
             status: "PENDING",
             txHash: log.transactionHash,
           });
         }
 
-        // Tạo thông báo cảnh báo lừa đảo khẩn cấp gửi cho Guardians
         const guardians = await db
           .select()
           .from(users)
@@ -147,19 +194,18 @@ function watchWithdrawalRequests() {
             familyId: targetFamilyId,
             userId: g.id,
             title: "🚨 ON-CHAIN ALERT: CẢNH BÁO RÚT TIỀN LỚN!",
-            message: `Hợp đồng FamilyHub ghi nhận yêu cầu #${onchainReqId} rút ${amountEther} USDC từ ví ${requester}. Cần 2/3 chữ ký bảo hộ duyệt on-chain!`,
+            message: `Hợp đồng FamilyHub ghi nhận yêu cầu #${onchainReqId} rút ${amountEther} AVAX từ ví ${requester}. Cần xác nhận đa chữ ký để giải ngân!`,
             type: "ALERT_SCAM",
             isRead: false,
           });
         }
       }
     },
-    onError: (err) => console.error("Lỗi watchWithdrawalRequests:", err),
   });
 }
 
 /**
- * 2. Lắng nghe Guardian ký duyệt (WithdrawalApproved)
+ * 3. Lắng nghe Guardian ký duyệt (WithdrawalApproved)
  */
 function watchWithdrawalApproved() {
   console.log("👂 Đang lắng nghe sự kiện: WithdrawalApproved...");
@@ -172,25 +218,31 @@ function watchWithdrawalApproved() {
         if (!requestId || currentApprovals === undefined) continue;
 
         const onchainReqId = Number(requestId);
-        const approvals = Number(currentApprovals);
-        console.log(`\n✍️ [EVENT] Guardian ${guardian} ký duyệt yêu cầu #${onchainReqId} (${approvals}/2 chữ ký)`);
+        const count = Number(currentApprovals);
+        console.log(`\n✍️ [EVENT] Ký duyệt on-chain ID #${onchainReqId} bởi Guardian: ${guardian} (${count} chữ ký)`);
 
-        const isApproved = approvals >= 2;
-        await db
-          .update(withdrawalRequests)
-          .set({
-            approvalsCount: approvals,
-            status: isApproved ? "APPROVED" : "PENDING",
-          })
+        const [request] = await db
+          .select()
+          .from(withdrawalRequests)
           .where(eq(withdrawalRequests.onchainRequestId, onchainReqId));
+
+        if (request) {
+          const isApproved = count >= request.requiredApprovals;
+          await db
+            .update(withdrawalRequests)
+            .set({
+              approvalsCount: count,
+              status: isApproved ? "APPROVED" : "PENDING",
+            })
+            .where(eq(withdrawalRequests.id, request.id));
+        }
       }
     },
-    onError: (err) => console.error("Lỗi watchWithdrawalApproved:", err),
   });
 }
 
 /**
- * 3. Lắng nghe giải ngân thành công (WithdrawalExecuted)
+ * 4. Lắng nghe giải ngân thành công (WithdrawalExecuted)
  */
 function watchWithdrawalExecuted() {
   console.log("👂 Đang lắng nghe sự kiện: WithdrawalExecuted...");
@@ -199,100 +251,59 @@ function watchWithdrawalExecuted() {
     event: withdrawalExecutedEvent,
     onLogs: async (logs) => {
       for (const log of logs) {
-        const { requestId, recipient, amount, fullyFundedFromLocalBuffer } = log.args;
+        const { requestId, recipient, amount } = log.args;
         if (!requestId || amount === undefined) continue;
 
         const onchainReqId = Number(requestId);
-        const amountEther = formatEther(amount);
-        console.log(`\n💸 [EVENT] Giải ngân thành công yêu cầu #${onchainReqId}: ${amountEther} AVAX/USDC tới ${recipient}`);
-        console.log(`   Nguồn chi trả: ${fullyFundedFromLocalBuffer ? "100% Bộ đệm L1" : "Bộ đệm L1 + Cầu nối C-Chain"}`);
+        const amountEther = Number(formatEther(amount));
+        console.log(`\n🎉 [EVENT] Giải ngân thành công on-chain ID #${onchainReqId}: ${amountEther} AVAX tới ${recipient}`);
 
         await db
           .update(withdrawalRequests)
-          .set({
-            status: "EXECUTED",
-            txHash: log.transactionHash,
-          })
+          .set({ status: "EXECUTED" })
           .where(eq(withdrawalRequests.onchainRequestId, onchainReqId));
       }
     },
-    onError: (err) => console.error("Lỗi watchWithdrawalExecuted:", err),
   });
 }
 
 /**
- * 4. Lắng nghe nạp tiền và phân bổ đệm 10/90 (FundsDeposited)
+ * 5. Lắng nghe hoàn thành việc nhà (ChoreRewarded)
  */
-function watchFundsDeposited() {
-  console.log("👂 Đang lắng nghe sự kiện: FundsDeposited (10/90 Buffer)...");
+function watchChoreRewarded() {
+  console.log("👂 Đang lắng nghe sự kiện: ChoreRewarded...");
   return publicClient.watchEvent({
-    address: HUB_ADDRESS,
-    event: fundsDepositedEvent,
-    onLogs: async (logs) => {
-      for (const log of logs) {
-        const { vaultType, depositor, totalAmount, toBuffer, toBridge } = log.args;
-        if (totalAmount === undefined || toBuffer === undefined || toBridge === undefined) continue;
-
-        console.log(`\n💰 [EVENT] Nạp tiền vào Hũ #${vaultType} từ ${depositor}`);
-        console.log(`   Tổng nạp:   ${formatEther(totalAmount)} AVAX`);
-        console.log(`   - 10% L1:   ${formatEther(toBuffer)} AVAX (Chi tiêu tức thì)`);
-        console.log(`   - 90% C-Chain: ${formatEther(toBridge)} AVAX (Đẩy sang Vault sinh lời 8% APY)`);
-      }
-    },
-    onError: (err) => console.error("Lỗi watchFundsDeposited:", err),
-  });
-}
-
-/**
- * 5. Lắng nghe các sự kiện Chore-to-Earn
- */
-function watchChoreEvents() {
-  console.log("👂 Đang lắng nghe sự kiện: ChoreClaimed & ChoreRewarded...");
-
-  publicClient.watchEvent({
-    address: HUB_ADDRESS,
-    event: choreClaimedEvent,
-    onLogs: async (logs) => {
-      for (const log of logs) {
-        const { taskId, kidAddress } = log.args;
-        if (!taskId) continue;
-        console.log(`\n🎒 [EVENT] Bé ${kidAddress} báo cáo hoàn thành nhiệm vụ #${taskId}`);
-        await db
-          .update(chores)
-          .set({ status: "SUBMITTED" })
-          .where(eq(chores.onchainTaskId, Number(taskId)));
-      }
-    },
-  });
-
-  publicClient.watchEvent({
     address: HUB_ADDRESS,
     event: choreRewardedEvent,
     onLogs: async (logs) => {
       for (const log of logs) {
         const { taskId, kidAddress, rewardAmount } = log.args;
         if (!taskId || rewardAmount === undefined) continue;
-        console.log(`\n🎉 [EVENT] Trả thưởng nhiệm vụ #${taskId}: ${formatEther(rewardAmount)} USDC cho bé ${kidAddress}`);
+
+        const onchainTaskId = Number(taskId);
+        console.log(`\n🌟 [EVENT] Thưởng việc nhà on-chain Task #${onchainTaskId} cho ${kidAddress}`);
+
         await db
           .update(chores)
           .set({ status: "REWARDED" })
-          .where(eq(chores.onchainTaskId, Number(taskId)));
+          .where(eq(chores.onchainTaskId, onchainTaskId));
       }
     },
   });
 }
 
-// Khởi chạy toàn bộ worker
-export async function startWorker() {
-  console.log("⚡ Khởi động toàn bộ Blockchain Event Listeners...");
-  watchWithdrawalRequests();
-  watchWithdrawalApproved();
-  watchWithdrawalExecuted();
-  watchFundsDeposited();
-  watchChoreEvents();
-  console.log("🟢 Worker đã sẵn sàng và đang nhận sự kiện realtime!");
+async function startWorker() {
+  try {
+    watchDepositToVault();
+    watchWithdrawalRequests();
+    watchWithdrawalApproved();
+    watchWithdrawalExecuted();
+    watchChoreRewarded();
+    console.log("🚀 Kinetix Event Listener Worker đang chạy và sẵn sàng bắt sự kiện...");
+  } catch (error) {
+    console.error("❌ Lỗi khi khởi động Event Listener Worker:", error);
+    process.exit(1);
+  }
 }
 
-if (process.env.NODE_ENV !== "test") {
-  startWorker();
-}
+startWorker();

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { chores, users } from "@/db/schema";
+import { chores, users, vaults } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET(
@@ -17,10 +17,13 @@ export async function GET(
       .select({
         id: chores.id,
         familyId: chores.familyId,
+        vaultId: chores.vaultId,
+        vaultName: vaults.name,
         childId: chores.childId,
         childName: users.fullName,
         childAvatar: users.avatarUrl,
         title: chores.title,
+        description: chores.description,
         rewardAmount: chores.rewardAmount,
         status: chores.status,
         proofImageUrl: chores.proofImageUrl,
@@ -28,6 +31,7 @@ export async function GET(
       })
       .from(chores)
       .leftJoin(users, eq(chores.childId, users.id))
+      .leftJoin(vaults, eq(chores.vaultId, vaults.id))
       .where(eq(chores.familyId, familyId))
       .orderBy(desc(chores.createdAt));
 

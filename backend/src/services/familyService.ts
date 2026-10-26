@@ -1,12 +1,17 @@
 import { db } from "../db";
 import {
-  families,
+  workspaces,
   users,
+  workspaceMembers,
+  vaults,
+  vaultMembers,
   withdrawalRequests,
   chores,
   notifications,
   User,
-  Family,
+  Workspace,
+  WorkspaceMember,
+  Vault,
   WithdrawalRequest,
   Chore,
   Notification,
@@ -15,20 +20,21 @@ import { eq, and, desc, sql } from "drizzle-orm";
 
 /**
  * @title FamilyService
- * @notice Service xử lý toàn bộ logic nghiệp vụ backend của Kinetix
+ * @notice Service xử lý toàn bộ logic nghiệp vụ backend của Kinetix (Multi-Space & Dynamic Vaults)
  */
 export class FamilyService {
   /**
    * 1. Đồng bộ ví người dùng (Avalanche Core Wallet)
-   * Kiểm tra ví kết nối, nếu chưa có thì gán vào gia đình mặc định hoặc tạo mới
+   * Tìm kiếm hoặc tạo user và gán vào Workspace mặc định
    */
   static async syncWallet(walletAddress: string, preferredFullName?: string): Promise<{
     user: User;
-    family: Family;
+    family: Workspace;
+    workspaces: Workspace[];
   }> {
     const normalizedWallet = walletAddress.toLowerCase();
 
-    // Tìm kiếm user theo địa chỉ ví (không phân biệt hoa thường)
+    // 1. Tìm user theo địa chỉ ví (không phân biệt hoa thường)
     const existingUsers = await db
       .select()
       .from(users)
@@ -36,64 +42,222 @@ export class FamilyService {
 
     if (existingUsers.length > 0) {
       const user = existingUsers[0];
-      const [family] = await db
-        .select()
-        .from(families)
-        .where(eq(families.id, user.familyId));
 
-      return { user, family };
+      // Lấy danh sách workspaces mà user tham gia
+      const memberRows = await db
+        .select({
+          workspace: workspaces,
+        })
+        .from(workspaceMembers)
+        .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
+        .where(eq(workspaceMembers.userId, user.id));
+
+      let userWorkspaces = memberRows.map((r) => r.workspace);
+
+      // Nếu chưa có trong workspace_members, fallback kiểm tra user.familyId
+      if (userWorkspaces.length === 0 && user.familyId) {
+        const [defaultFam] = await db
+          .select()
+          .from(workspaces)
+          .where(eq(workspaces.id, user.familyId));
+        if (defaultFam) {
+          userWorkspaces = [defaultFam];
+        }
+      }
+
+      // Nếu vẫn chưa có workspace nào, lấy workspace đầu tiên trong hệ thống
+      let currentFamily = userWorkspaces[0];
+      if (!currentFamily) {
+        const [firstFam] = await db.select().from(workspaces).limit(1);
+        currentFamily = firstFam;
+        if (currentFamily) {
+          userWorkspaces = [currentFamily];
+          // Gán user vào workspace
+          await db.insert(workspaceMembers).values({
+            workspaceId: currentFamily.id,
+            userId: user.id,
+            role: user.role,
+          });
+        }
+      }
+
+      return { user, family: currentFamily, workspaces: userWorkspaces };
     }
 
-    // Nếu chưa có, tìm gia đình mặc định đầu tiên hoặc tạo gia đình mới
-    let targetFamily: Family;
-    const existingFamilies = await db.select().from(families).limit(1);
+    // 2. Nếu chưa có, tìm workspace mặc định hoặc tạo mới
+    let targetWorkspace: Workspace;
+    const existingWorkspaces = await db.select().from(workspaces).limit(1);
 
-    if (existingFamilies.length > 0) {
-      targetFamily = existingFamilies[0];
+    if (existingWorkspaces.length > 0) {
+      targetWorkspace = existingWorkspaces[0];
     } else {
-      const [newFam] = await db
-        .insert(families)
+      const [newWs] = await db
+        .insert(workspaces)
         .values({
-          name: "Gia đình Kinetix",
-          familyCode: `KNTX-${Math.floor(1000 + Math.random() * 9000)}`,
-          adminWallet: walletAddress,
+          name: "Đại Gia Đình Kinetix",
+          workspaceCode: `KNTX-${Math.floor(1000 + Math.random() * 9000)}`,
+          type: "FAMILY",
+          creatorWallet: walletAddress,
         })
         .returning();
-      targetFamily = newFam;
+      targetWorkspace = newWs;
     }
 
     // Tạo tài khoản user mới
     const [newUser] = await db
       .insert(users)
       .values({
-        familyId: targetFamily.id,
+        familyId: targetWorkspace.id,
         fullName: preferredFullName || `Thành viên (${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)})`,
-        role: "GUARDIAN", // Mặc định là Guardian nếu tự kết nối
+        role: "GUARDIAN",
+        defaultRole: "GUARDIAN",
         walletAddress: walletAddress,
         authMethod: "CORE_WALLET",
         isAllowlisted: true,
       })
       .returning();
 
-    return { user: newUser, family: targetFamily };
+    // Thêm vào workspace_members
+    await db.insert(workspaceMembers).values({
+      workspaceId: targetWorkspace.id,
+      userId: newUser.id,
+      role: "GUARDIAN",
+    });
+
+    return { user: newUser, family: targetWorkspace, workspaces: [targetWorkspace] };
   }
 
   /**
-   * 2. Khởi tạo yêu cầu rút tiền (Withdrawal Request)
-   * Tự động phân tầng: <= 50 USDC giải ngân nhanh, > 50 USDC kích hoạt cảnh báo lừa đảo & Multisig
+   * 2. Lấy danh sách Workspaces của một User
+   */
+  static async getWorkspacesByUser(userId: string): Promise<Workspace[]> {
+    const rows = await db
+      .select({
+        workspace: workspaces,
+      })
+      .from(workspaceMembers)
+      .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
+      .where(eq(workspaceMembers.userId, userId));
+
+    return rows.map((r) => r.workspace);
+  }
+
+  /**
+   * 3. Lấy thông tin chi tiết Workspace kèm danh sách Hũ Động và Thành viên
+   */
+  static async getWorkspaceDetails(workspaceId: string) {
+    const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId));
+    if (!ws) return null;
+
+    const memberRows = await db
+      .select({
+        user: users,
+        role: workspaceMembers.role,
+        joinedAt: workspaceMembers.joinedAt,
+      })
+      .from(workspaceMembers)
+      .innerJoin(users, eq(users.id, workspaceMembers.userId))
+      .where(eq(workspaceMembers.workspaceId, workspaceId));
+
+    const vaultList = await db
+      .select()
+      .from(vaults)
+      .where(eq(vaults.workspaceId, workspaceId));
+
+    return {
+      workspace: ws,
+      members: memberRows,
+      vaults: vaultList,
+    };
+  }
+
+  /**
+   * 4. Tạo Hũ tiền Động (Dynamic Vault)
+   */
+  static async createCustomVault(params: {
+    workspaceId: string;
+    onchainVaultId: number;
+    name: string;
+    description?: string;
+    ruleTemplate: "SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL";
+    bufferRatioBps?: number;
+    fastWithdrawLimit?: number;
+    requiredApprovals?: number;
+    creatorUserId?: string;
+    guardianUserIds?: string[];
+    beneficiaryUserIds?: string[];
+  }): Promise<Vault> {
+    const [newVault] = await db
+      .insert(vaults)
+      .values({
+        workspaceId: params.workspaceId,
+        onchainVaultId: params.onchainVaultId,
+        name: params.name,
+        description: params.description || "",
+        ruleTemplate: params.ruleTemplate,
+        bufferRatioBps: params.bufferRatioBps ?? 1000,
+        fastWithdrawLimit: (params.fastWithdrawLimit ?? 50).toString(),
+        requiredApprovals: params.requiredApprovals ?? 2,
+        cachedTotalBalance: "0",
+        cachedL1Buffer: "0",
+        cachedCChainYield: "0",
+        isActive: true,
+      })
+      .returning();
+
+    // Gán phân quyền guardians & beneficiaries
+    if (params.guardianUserIds && params.guardianUserIds.length > 0) {
+      for (const gId of params.guardianUserIds) {
+        await db.insert(vaultMembers).values({
+          vaultId: newVault.id,
+          userId: gId,
+          vaultRole: "GUARDIAN",
+        });
+      }
+    }
+
+    if (params.beneficiaryUserIds && params.beneficiaryUserIds.length > 0) {
+      for (const bId of params.beneficiaryUserIds) {
+        await db.insert(vaultMembers).values({
+          vaultId: newVault.id,
+          userId: bId,
+          vaultRole: "BENEFICIARY",
+        });
+      }
+    }
+
+    return newVault;
+  }
+
+  /**
+   * 5. Khởi tạo yêu cầu rút tiền (Withdrawal Request)
+   * Tự động phân tầng: <= fastWithdrawLimit giải ngân nhanh (0 gas, <1s), > limit kích hoạt Multisig
    */
   static async createWithdrawalRequest(params: {
     familyId: string;
     requesterId: string;
     amount: number;
-    vault: "RetirementShield" | "KidsSavings" | "FamilyROSCA";
+    vault?: string;
+    vaultId?: string;
     reason: string;
     onchainRequestId?: number;
   }): Promise<{
     request: WithdrawalRequest;
     isFastWithdraw: boolean;
   }> {
-    const isLargeWithdrawal = params.amount > 50;
+    let fastLimit = 50;
+    let requiredApprovals = 2;
+
+    // Nếu truyền vaultId, lấy thông số quy tắc trực tiếp từ Hũ Động
+    if (params.vaultId) {
+      const [v] = await db.select().from(vaults).where(eq(vaults.id, params.vaultId));
+      if (v) {
+        fastLimit = Number(v.fastWithdrawLimit);
+        requiredApprovals = v.requiredApprovals;
+      }
+    }
+
+    const isLargeWithdrawal = params.amount > fastLimit;
     const initialStatus = isLargeWithdrawal ? "PENDING" : "EXECUTED";
 
     // 1. Lưu bản ghi rút tiền
@@ -101,18 +265,19 @@ export class FamilyService {
       .insert(withdrawalRequests)
       .values({
         familyId: params.familyId,
+        vaultId: params.vaultId || null,
         requesterId: params.requesterId,
         amount: params.amount.toFixed(6),
-        vault: params.vault,
+        vault: params.vault || "SHIELD",
         reason: params.reason,
         onchainRequestId: params.onchainRequestId || null,
-        approvalsCount: isLargeWithdrawal ? 0 : 2,
-        requiredApprovals: 2,
+        approvalsCount: isLargeWithdrawal ? 0 : requiredApprovals,
+        requiredApprovals: requiredApprovals,
         status: initialStatus,
       })
       .returning();
 
-    // 2. Nếu là khoản rút lớn, tự động bắn cảnh báo khẩn cấp cho tất cả Guardians & Admin
+    // 2. Nếu là khoản rút lớn, tự động bắn cảnh báo khẩn cấp cho Guardians
     if (isLargeWithdrawal) {
       const guardians = await db
         .select()
@@ -136,7 +301,7 @@ export class FamilyService {
           familyId: params.familyId,
           userId: guardian.id,
           title: "🚨 CẢNH BÁO RÚT TIỀN LỚN!",
-          message: `Phát hiện lệnh rút ${params.amount} USDC từ ${requesterName} (Hũ ${params.vault}). Lý do: '${params.reason}'. Hãy kiểm tra và ký duyệt phòng chống lừa đảo!`,
+          message: `Phát hiện lệnh rút ${params.amount} AVAX từ ${requesterName} (Hũ ${params.vault || "Bảo vệ"}). Lý do: '${params.reason}'. Hãy kiểm tra và ký duyệt bảo vệ tài sản!`,
           type: "ALERT_SCAM",
           isRead: false,
         });
@@ -147,8 +312,7 @@ export class FamilyService {
   }
 
   /**
-   * 3. Guardian ký duyệt yêu cầu rút tiền lớn (Multisig Approval)
-   * Tăng số lượng phê duyệt, khi đủ >= 2 chữ ký thì cập nhật trạng thái APPROVED
+   * 6. Guardian ký duyệt yêu cầu rút tiền lớn (Multisig Approval)
    */
   static async approveWithdrawal(requestId: string, guardianWallet?: string): Promise<{
     request: WithdrawalRequest;
@@ -190,10 +354,10 @@ export class FamilyService {
       await db.insert(notifications).values({
         familyId: existing.familyId,
         userId: requester.id,
-        title: isApproved ? "✅ YÊU CẦU ĐÃ ĐƯỢC PHÊ DUYỆT ĐỦ 2/3" : "⏳ TIẾN TRÌNH KÝ DUYỆT MỚI",
+        title: isApproved ? "✅ YÊU CẦU ĐÃ ĐƯỢC PHÊ DUYỆT ĐỦ CHỮ KÝ" : "⏳ TIẾN TRÌNH KÝ DUYỆT MỚI",
         message: isApproved
-          ? `Yêu cầu rút ${existing.amount} USDC của bạn đã được các con phê duyệt đủ 2/3 chữ ký. Tiền đang được chuyển về ví!`
-          : `Yêu cầu rút ${existing.amount} USDC vừa nhận thêm 1 chữ ký bảo hộ (${nextApprovals}/${existing.requiredApprovals}).`,
+          ? `Yêu cầu rút ${existing.amount} AVAX của bạn đã được các con phê duyệt đủ ${existing.requiredApprovals} chữ ký. Tiền đang được giải ngân về ví!`
+          : `Yêu cầu rút ${existing.amount} AVAX vừa nhận thêm 1 chữ ký bảo hộ (${nextApprovals}/${existing.requiredApprovals}).`,
         type: "APPROVAL_NEEDED",
         isRead: false,
       });
@@ -203,7 +367,35 @@ export class FamilyService {
   }
 
   /**
-   * 4. Trẻ em nộp báo cáo hoàn thành việc nhà (Chore-to-Earn)
+   * 7. Tạo nhiệm vụ việc nhà mới (Chore-to-Earn gắn liền với Hũ MILESTONE)
+   */
+  static async createChore(params: {
+    familyId: string;
+    vaultId?: string;
+    childId: string;
+    title: string;
+    description?: string;
+    rewardAmount: number;
+    onchainTaskId?: number;
+  }): Promise<Chore> {
+    const [newChore] = await db
+      .insert(chores)
+      .values({
+        familyId: params.familyId,
+        vaultId: params.vaultId || null,
+        childId: params.childId,
+        title: params.title,
+        description: params.description || null,
+        rewardAmount: params.rewardAmount.toFixed(6),
+        onchainTaskId: params.onchainTaskId || null,
+        status: "TODO",
+      })
+      .returning();
+    return newChore;
+  }
+
+  /**
+   * 8. Trẻ em nộp báo cáo hoàn thành việc nhà (Chore-to-Earn)
    */
   static async submitChore(choreId: string, proofImageUrl?: string): Promise<Chore> {
     const [existing] = await db
@@ -224,7 +416,6 @@ export class FamilyService {
       .where(eq(chores.id, choreId))
       .returning();
 
-    // Thông báo cho Bố Mẹ (Admin) kiểm tra bài
     const admins = await db
       .select()
       .from(users)
@@ -245,7 +436,7 @@ export class FamilyService {
         familyId: existing.familyId,
         userId: admin.id,
         title: "🎒 BÉ NỘP BÁO CÁO VIỆC NHÀ",
-        message: `Bé ${child?.fullName || "Na"} vừa hoàn thành việc nhà '${existing.title}'. Hãy xác nhận để trả thưởng ${existing.rewardAmount} USDC!`,
+        message: `Bé ${child?.fullName || "Na"} vừa hoàn thành việc nhà '${existing.title}'. Hãy xác nhận để trả thưởng ${existing.rewardAmount} AVAX!`,
         type: "TASK_COMPLETED",
         isRead: false,
       });
@@ -255,7 +446,7 @@ export class FamilyService {
   }
 
   /**
-   * 5. Bố Mẹ xác nhận và chuyển thưởng Chore-to-Earn
+   * 8. Bố mẹ nghiệm thu và trả thưởng việc nhà
    */
   static async verifyAndRewardChore(choreId: string): Promise<Chore> {
     const [existing] = await db
@@ -275,13 +466,12 @@ export class FamilyService {
       .where(eq(chores.id, choreId))
       .returning();
 
-    // Bắn thông báo chúc mừng cho con nhỏ
     await db.insert(notifications).values({
       familyId: existing.familyId,
       userId: existing.childId,
-      title: "🎉 CHÚC MỪNG CON NHẬN THƯỞNG!",
-      message: `Bố mẹ đã xác nhận nhiệm vụ '${existing.title}'. Phần thưởng ${existing.rewardAmount} USDC đã được chuyển thẳng vào heo đất của con!`,
-      type: "YIELD_PAYOUT",
+      title: "🎉 NHẬN THƯỞNG VIỆC NHÀ THÀNH CÔNG!",
+      message: `Bố mẹ đã duyệt nhiệm vụ '${existing.title}'. Tiền thưởng ${existing.rewardAmount} AVAX đã được tích lũy vào ví của bạn!`,
+      type: "TASK_COMPLETED",
       isRead: false,
     });
 
@@ -289,10 +479,10 @@ export class FamilyService {
   }
 
   /**
-   * 6. Lấy danh sách thông báo của người dùng
+   * 9. Lấy danh sách thông báo theo User
    */
   static async getUserNotifications(userId: string): Promise<Notification[]> {
-    return db
+    return await db
       .select()
       .from(notifications)
       .where(eq(notifications.userId, userId))
@@ -300,24 +490,38 @@ export class FamilyService {
   }
 
   /**
-   * 7. Lấy danh sách nhiệm vụ Chore của gia đình
+   * 10. Lấy danh sách yêu cầu rút tiền của Không gian / Gia đình
    */
-  static async getFamilyChores(familyId: string): Promise<Chore[]> {
-    return db
+  static async getFamilyWithdrawals(familyId: string) {
+    return await db
+      .select({
+        id: withdrawalRequests.id,
+        familyId: withdrawalRequests.familyId,
+        vaultId: withdrawalRequests.vaultId,
+        requesterId: withdrawalRequests.requesterId,
+        amount: withdrawalRequests.amount,
+        vault: withdrawalRequests.vault,
+        reason: withdrawalRequests.reason,
+        onchainRequestId: withdrawalRequests.onchainRequestId,
+        approvalsCount: withdrawalRequests.approvalsCount,
+        requiredApprovals: withdrawalRequests.requiredApprovals,
+        status: withdrawalRequests.status,
+        txHash: withdrawalRequests.txHash,
+        createdAt: withdrawalRequests.createdAt,
+      })
+      .from(withdrawalRequests)
+      .where(eq(withdrawalRequests.familyId, familyId))
+      .orderBy(desc(withdrawalRequests.createdAt));
+  }
+
+  /**
+   * 11. Lấy danh sách nhiệm vụ Chore-to-Earn của Không gian / Gia đình
+   */
+  static async getFamilyChores(familyId: string) {
+    return await db
       .select()
       .from(chores)
       .where(eq(chores.familyId, familyId))
       .orderBy(desc(chores.createdAt));
-  }
-
-  /**
-   * 8. Lấy danh sách yêu cầu rút tiền của gia đình
-   */
-  static async getFamilyWithdrawals(familyId: string): Promise<WithdrawalRequest[]> {
-    return db
-      .select()
-      .from(withdrawalRequests)
-      .where(eq(withdrawalRequests.familyId, familyId))
-      .orderBy(desc(withdrawalRequests.createdAt));
   }
 }
