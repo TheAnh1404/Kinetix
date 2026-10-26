@@ -14,6 +14,8 @@ typechain-types/
 # Build outputs
 dist/
 build/
+.next/
+out/
 
 # Editor / IDE
 .vscode/
