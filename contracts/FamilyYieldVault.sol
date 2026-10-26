@@ -73,23 +73,11 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
         address indexed hub
     );
 
-    event PrincipalDeposited(
-        address indexed family,
-        uint256 amount,
-        uint256 timestamp
-    );
+    event PrincipalDeposited(address indexed family, uint256 amount, uint256 timestamp);
 
-    event YieldAccrued(
-        address indexed family,
-        uint256 newYield,
-        uint256 totalAccrued
-    );
+    event YieldAccrued(address indexed family, uint256 newYield, uint256 totalAccrued);
 
-    event FundsWithdrawn(
-        address indexed family,
-        address indexed recipient,
-        uint256 amount
-    );
+    event FundsWithdrawn(address indexed family, address indexed recipient, uint256 amount);
 
     // -------------------------------------------------------------
     // CONSTRUCTOR
@@ -161,7 +149,10 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
      * @notice Xem tổng tài sản của gia đình trên C-Chain (Vốn gốc + Lợi suất tích lũy)
      */
     function getTotalValueLocked(address family) external view returns (uint256) {
-        return principalBalances[family] + accruedYieldBalances[family] + calculateAccruedYield(family);
+        return
+            principalBalances[family] +
+            accruedYieldBalances[family] +
+            calculateAccruedYield(family);
     }
 
     // -------------------------------------------------------------
@@ -187,12 +178,10 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
         }
 
         // Giải mã thông điệp nhận từ Family L1
-        (
-            BridgeAction action,
-            uint8 vaultType,
-            uint256 amount,
-            address targetAddress
-        ) = abi.decode(message, (BridgeAction, uint8, uint256, address));
+        (BridgeAction action, uint8 vaultType, uint256 amount, address targetAddress) = abi.decode(
+            message,
+            (BridgeAction, uint8, uint256, address)
+        );
         vaultType; // Tránh warning unused variable
 
         if (action == BridgeAction.DEPOSIT) {
@@ -225,11 +214,7 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
     /**
      * @notice Xử lý giải ngân khi có lệnh rút vốn lớn hợp lệ từ FamilyHub
      */
-    function _handleWithdrawal(
-        address family,
-        address recipient,
-        uint256 amount
-    ) internal {
+    function _handleWithdrawal(address family, address recipient, uint256 amount) internal {
         if (amount == 0) revert ZeroAmount();
         if (recipient == address(0)) revert ZeroAddress();
 
@@ -254,7 +239,7 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
 
         // Thực hiện chuyển tiền nếu hợp đồng có đủ số dư thanh khoản trên C-Chain
         if (address(this).balance >= amount) {
-            (bool success, ) = payable(recipient).call{ value: amount }("");
+            (bool success, ) = payable(recipient).call{value: amount}("");
             if (!success) revert TransferFailed();
         }
 

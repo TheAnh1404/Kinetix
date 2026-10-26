@@ -25,8 +25,8 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
     /// @notice 3 Hũ tài chính của gia đình
     enum VaultType {
         RetirementShield, // Hũ 1: Báo hiếu & Hưu trí (ông bà)
-        KidsSavings,      // Hũ 2: Lì xì & Tiết kiệm con trẻ
-        FamilyROSCA       // Hũ 3: Quỹ tương trợ họ hàng
+        KidsSavings, // Hũ 2: Lì xì & Tiết kiệm con trẻ
+        FamilyROSCA // Hũ 3: Quỹ tương trợ họ hàng
     }
 
     /// @notice Loại hành động truyền qua cầu nối Teleporter
@@ -37,33 +37,33 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
 
     /// @notice Phiếu yêu cầu rút tiền lớn cần đa chữ ký
     struct WithdrawalRequest {
-        uint256 requestId;      // Mã định danh yêu cầu
-        address requester;      // Người yêu cầu rút tiền
-        VaultType vaultType;    // Hũ tài chính rút tiền
-        uint256 amount;         // Số tiền yêu cầu
-        address recipient;      // Địa chỉ ví nhận tiền
-        string reason;          // Mục đích rút tiền (hiển thị cho con cái kiểm tra)
+        uint256 requestId; // Mã định danh yêu cầu
+        address requester; // Người yêu cầu rút tiền
+        VaultType vaultType; // Hũ tài chính rút tiền
+        uint256 amount; // Số tiền yêu cầu
+        address recipient; // Địa chỉ ví nhận tiền
+        string reason; // Mục đích rút tiền (hiển thị cho con cái kiểm tra)
         uint256 approvalsCount; // Số lượng Guardians đã ký duyệt
-        uint256 deadline;       // Thời hạn hiệu lực của yêu cầu (ví dụ: 48 giờ)
-        bool executed;          // Trạng thái đã giải ngân hay chưa
+        uint256 deadline; // Thời hạn hiệu lực của yêu cầu (ví dụ: 48 giờ)
+        bool executed; // Trạng thái đã giải ngân hay chưa
     }
 
     /// @notice Nhiệm vụ việc nhà trong chương trình Chore-to-Earn
     struct Task {
-        uint256 taskId;         // Mã định danh nhiệm vụ
-        string title;           // Tên việc nhà (dọn phòng, rửa bát, đạt điểm 10)
-        uint256 rewardAmount;   // Số tiền thưởng khi hoàn thành
-        address kidAddress;     // Địa chỉ ví của con
-        bool isCompleted;       // Con đã báo cáo hoàn thành hay chưa
-        bool isRewarded;        // Bố mẹ đã duyệt và chuyển thưởng hay chưa
+        uint256 taskId; // Mã định danh nhiệm vụ
+        string title; // Tên việc nhà (dọn phòng, rửa bát, đạt điểm 10)
+        uint256 rewardAmount; // Số tiền thưởng khi hoàn thành
+        address kidAddress; // Địa chỉ ví của con
+        bool isCompleted; // Con đã báo cáo hoàn thành hay chưa
+        bool isRewarded; // Bố mẹ đã duyệt và chuyển thưởng hay chưa
     }
 
     /// @notice Phiếu yêu cầu khôi phục ví xã hội khi mất máy
     struct RecoveryRequest {
-        address oldWallet;      // Ví cũ của người thân (bị mất máy)
-        address newWallet;      // Ví mới cần cấp quyền thay thế
+        address oldWallet; // Ví cũ của người thân (bị mất máy)
+        address newWallet; // Ví mới cần cấp quyền thay thế
         uint256 approvalsCount; // Số lượng Guardians đã xác nhận
-        bool executed;          // Đã thực thi đổi ví chưa
+        bool executed; // Đã thực thi đổi ví chưa
     }
 
     // -------------------------------------------------------------
@@ -182,12 +182,25 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
         bool fullyFundedFromLocalBuffer
     );
 
-    event ChoreCreated(uint256 indexed taskId, string title, uint256 rewardAmount, address indexed kidAddress);
+    event ChoreCreated(
+        uint256 indexed taskId,
+        string title,
+        uint256 rewardAmount,
+        address indexed kidAddress
+    );
     event ChoreClaimed(uint256 indexed taskId, address indexed kidAddress);
     event ChoreRewarded(uint256 indexed taskId, address indexed kidAddress, uint256 rewardAmount);
 
-    event WalletRecoveryProposed(bytes32 indexed recoveryId, address indexed oldWallet, address indexed newWallet);
-    event WalletRecoveryApproved(bytes32 indexed recoveryId, address indexed guardian, uint256 approvalsCount);
+    event WalletRecoveryProposed(
+        bytes32 indexed recoveryId,
+        address indexed oldWallet,
+        address indexed newWallet
+    );
+    event WalletRecoveryApproved(
+        bytes32 indexed recoveryId,
+        address indexed guardian,
+        uint256 approvalsCount
+    );
     event WalletRecovered(address indexed oldWallet, address indexed newWallet);
 
     // -------------------------------------------------------------
@@ -380,7 +393,7 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
             TeleporterMessageInput memory messageInput = TeleporterMessageInput({
                 destinationBlockchainID: cChainBlockchainId,
                 destinationAddress: yieldVaultAddress,
-                feeInfo: TeleporterFeeInfo({ feeTokenAddress: address(0), amount: 0 }),
+                feeInfo: TeleporterFeeInfo({feeTokenAddress: address(0), amount: 0}),
                 requiredGasLimit: 250000,
                 allowedRelayerAddresses: new address[](0),
                 message: payload
@@ -422,7 +435,7 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
         // Cập nhật số dư trước khi chuyển tiền (Mô hình Checks-Effects-Interactions)
         localBufferBalances[vaultType] -= amount;
 
-        (bool success, ) = recipient.call{ value: amount }("");
+        (bool success, ) = recipient.call{value: amount}("");
         require(success, "L1 Fast Transfer Failed");
 
         emit FastWithdrawalExecuted(vaultType, recipient, amount);
@@ -511,7 +524,7 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
             localBufferBalances[req.vaultType] -= req.amount;
             fullyFunded = true;
 
-            (bool success, ) = payable(req.recipient).call{ value: req.amount }("");
+            (bool success, ) = payable(req.recipient).call{value: req.amount}("");
             require(success, "L1 Buffer Payout Failed");
         } else {
             // Trường hợp 2: Bộ đệm không đủ, chi trả toàn bộ phần có sẵn + yêu cầu rút từ C-Chain
@@ -520,7 +533,7 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
 
             if (partialFromLocal > 0) {
                 localBufferBalances[req.vaultType] = 0;
-                (bool successLocal, ) = payable(req.recipient).call{ value: partialFromLocal }("");
+                (bool successLocal, ) = payable(req.recipient).call{value: partialFromLocal}("");
                 require(successLocal, "L1 Partial Buffer Payout Failed");
             }
 
@@ -542,7 +555,7 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
                 TeleporterMessageInput memory messageInput = TeleporterMessageInput({
                     destinationBlockchainID: cChainBlockchainId,
                     destinationAddress: yieldVaultAddress,
-                    feeInfo: TeleporterFeeInfo({ feeTokenAddress: address(0), amount: 0 }),
+                    feeInfo: TeleporterFeeInfo({feeTokenAddress: address(0), amount: 0}),
                     requiredGasLimit: 250000,
                     allowedRelayerAddresses: new address[](0),
                     message: payload
@@ -629,7 +642,7 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
         task.isRewarded = true;
         localBufferBalances[VaultType.KidsSavings] -= task.rewardAmount;
 
-        (bool success, ) = payable(task.kidAddress).call{ value: task.rewardAmount }("");
+        (bool success, ) = payable(task.kidAddress).call{value: task.rewardAmount}("");
         require(success, "Chore Reward Transfer Failed");
 
         emit ChoreRewarded(taskId, task.kidAddress, task.rewardAmount);
@@ -667,11 +680,9 @@ contract FamilyHub is ReentrancyGuard, ITeleporterReceiver {
     /**
      * @notice Lấy thông tin tổng quan số dư 3 hũ tài chính
      */
-    function getVaultOverview(VaultType vaultType)
-        external
-        view
-        returns (uint256 localBuffer, uint256 remoteYield, uint256 total)
-    {
+    function getVaultOverview(
+        VaultType vaultType
+    ) external view returns (uint256 localBuffer, uint256 remoteYield, uint256 total) {
         localBuffer = localBufferBalances[vaultType];
         remoteYield = remoteYieldBalances[vaultType];
         total = localBuffer + remoteYield;

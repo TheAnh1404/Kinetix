@@ -38,11 +38,13 @@ contract MockTeleporterMessenger is ITeleporterMessenger {
         if (messageInput.destinationAddress != address(0)) {
             // Giả lập ID chuỗi nguồn
             bytes32 originChainId = keccak256(abi.encodePacked(block.chainid));
-            try ITeleporterReceiver(messageInput.destinationAddress).receiveTeleporterMessage(
-                originChainId,
-                msg.sender,
-                messageInput.message
-            ) {
+            try
+                ITeleporterReceiver(messageInput.destinationAddress).receiveTeleporterMessage(
+                    originChainId,
+                    msg.sender,
+                    messageInput.message
+                )
+            {
                 // Phân phối thành công
             } catch {
                 // Trong môi trường test nếu không gọi trực tiếp được thì bỏ qua (async bridge mock)
@@ -61,6 +63,10 @@ contract MockTeleporterMessenger is ITeleporterMessenger {
         address originSender,
         bytes calldata message
     ) external {
-        ITeleporterReceiver(receiver).receiveTeleporterMessage(originChainId, originSender, message);
+        ITeleporterReceiver(receiver).receiveTeleporterMessage(
+            originChainId,
+            originSender,
+            message
+        );
     }
 }

@@ -39,7 +39,9 @@ interface ITeleporterMessenger {
      * @param messageInput Thông tin cấu hình và dữ liệu thông điệp
      * @return messageID Mã định danh của thông điệp vừa gửi
      */
-    function sendCrossChainMessage(TeleporterMessageInput calldata messageInput) external returns (uint256);
+    function sendCrossChainMessage(
+        TeleporterMessageInput calldata messageInput
+    ) external returns (uint256);
 }
 
 /**
