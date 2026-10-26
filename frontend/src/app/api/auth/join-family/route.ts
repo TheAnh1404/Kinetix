@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyMessage } from "viem";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { users, families } from "@/db/schema";
+import { users, families, workspaceMembers } from "@/db/schema";
 import { signAuthToken, SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "@/lib/jwt";
 
 export const dynamic = "force-dynamic";
@@ -102,6 +102,13 @@ export async function POST(req: NextRequest) {
         isAllowlisted: true,
       })
       .returning();
+
+    // Thêm vào bảng workspace_members
+    await db.insert(workspaceMembers).values({
+      workspaceId: targetFamily.id,
+      userId: newUser.id,
+      role: "GUARDIAN",
+    });
 
     // 5. Cấp JWT Session
     const token = await signAuthToken({

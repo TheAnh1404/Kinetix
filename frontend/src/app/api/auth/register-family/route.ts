@@ -3,7 +3,7 @@ import { verifyMessage } from "viem";
 import { sql } from "drizzle-orm";
 import crypto from "crypto";
 import { db } from "@/db";
-import { users, families } from "@/db/schema";
+import { users, families, workspaceMembers, vaults } from "@/db/schema";
 import { signAuthToken, SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "@/lib/jwt";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ function parseSiweAddress(message: string): string | undefined {
 
 /**
  * POST /api/auth/register-family
- * Đăng ký Gia đình mới kèm tài khoản Quản trị viên (Admin) qua xác thực SIWE
+ * Đăng ký Không gian / Gia đình mới kèm tài khoản Quản trị viên (Admin) và khởi tạo Hũ Động
  */
 export async function POST(req: NextRequest) {
   try {
@@ -92,7 +92,6 @@ export async function POST(req: NextRequest) {
 
     // 4. Sinh mã gia đình duy nhất
     let familyCode = generateFamilyCode();
-    // Đảm bảo không trùng mã gia đình
     let codeExists = true;
     for (let attempts = 0; attempts < 5 && codeExists; attempts++) {
       const found = await db
@@ -106,7 +105,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 5. Lưu Gia đình mới vào cơ sở dữ liệu
+    // 5. Lưu Gia đình / Không gian mới vào cơ sở dữ liệu
     const [family] = await db
       .insert(families)
       .values({
@@ -134,7 +133,60 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    // 7. Ký JWT Session Token
+    // 7. Thêm Admin vào bảng workspace_members
+    await db.insert(workspaceMembers).values({
+      workspaceId: family.id,
+      userId: adminUser.id,
+      role: "ADMIN",
+    });
+
+    // 8. Tự động khởi tạo 3 Hũ Động tiêu chuẩn cho Không gian mới
+    await db.insert(vaults).values([
+      {
+        workspaceId: family.id,
+        onchainVaultId: 0,
+        name: "Hũ Báo Hiếu & Dưỡng Già Ông Bà",
+        description: "Bộ quy tắc SHIELD: Rút nhỏ <= 50 USDC giải ngân tức thì 0 gas từ đệm L1; rút lớn cần 2/3 Guardians duyệt.",
+        ruleTemplate: "SHIELD",
+        bufferRatioBps: 1000,
+        fastWithdrawLimit: "50",
+        requiredApprovals: 2,
+        cachedTotalBalance: "1200",
+        cachedL1Buffer: "120",
+        cachedCChainYield: "1080",
+        isActive: true,
+      },
+      {
+        workspaceId: family.id,
+        onchainVaultId: 1,
+        name: "Hũ Tiết Kiệm Khởi Nghiệp Trẻ Nhỏ",
+        description: "Bộ quy tắc MILESTONE: Quỹ việc nhà Chore-to-Earn, vốn sinh lời 8% APY trên C-Chain.",
+        ruleTemplate: "MILESTONE",
+        bufferRatioBps: 2000,
+        fastWithdrawLimit: "20",
+        requiredApprovals: 2,
+        cachedTotalBalance: "450",
+        cachedL1Buffer: "90",
+        cachedCChainYield: "360",
+        isActive: true,
+      },
+      {
+        workspaceId: family.id,
+        onchainVaultId: 2,
+        name: "Hũ Tương Trợ Dòng Họ",
+        description: "Bộ quy tắc ROSCA: Góp vốn xoay vòng 4 kỳ, vốn nhàn rỗi sinh lời DeFi 8% APY trên C-Chain.",
+        ruleTemplate: "ROSCA",
+        bufferRatioBps: 0,
+        fastWithdrawLimit: "1000",
+        requiredApprovals: 3,
+        cachedTotalBalance: "3000",
+        cachedL1Buffer: "0",
+        cachedCChainYield: "3000",
+        isActive: true,
+      },
+    ]);
+
+    // 9. Ký JWT Session Token
     const token = await signAuthToken({
       userId: adminUser.id,
       familyId: family.id,
@@ -144,10 +196,10 @@ export async function POST(req: NextRequest) {
       avatarUrl: adminUser.avatarUrl,
     });
 
-    // 8. Thiết lập HTTP-Only Cookie an toàn
+    // 10. Thiết lập HTTP-Only Cookie an toàn
     const response = NextResponse.json({
       success: true,
-      message: `Khởi tạo gia đình '${family.name}' thành công!`,
+      message: `Khởi tạo không gian '${family.name}' thành công!`,
       family: {
         id: family.id,
         name: family.name,

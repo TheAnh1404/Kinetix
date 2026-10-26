@@ -149,7 +149,7 @@ export class FamilyService {
     const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId));
     if (!ws) return null;
 
-    const memberRows = await db
+    let memberRows = await db
       .select({
         user: users,
         role: workspaceMembers.role,
@@ -159,10 +159,87 @@ export class FamilyService {
       .innerJoin(users, eq(users.id, workspaceMembers.userId))
       .where(eq(workspaceMembers.workspaceId, workspaceId));
 
-    const vaultList = await db
+    // Tự động liên kết thành viên nếu workspace_members chưa có bản ghi
+    if (memberRows.length === 0) {
+      const familyUsers = await db
+        .select()
+        .from(users)
+        .where(eq(users.familyId, workspaceId));
+
+      for (const u of familyUsers) {
+        try {
+          await db.insert(workspaceMembers).values({
+            workspaceId,
+            userId: u.id,
+            role: u.role || "ADMIN",
+          });
+        } catch (e) {}
+      }
+
+      memberRows = familyUsers.map((u) => ({
+        user: u,
+        role: u.role,
+        joinedAt: u.createdAt,
+      }));
+    }
+
+    let vaultList = await db
       .select()
       .from(vaults)
       .where(eq(vaults.workspaceId, workspaceId));
+
+    // Tự động khởi tạo 3 Hũ Động tiêu chuẩn nếu chưa có
+    if (vaultList.length === 0) {
+      try {
+        vaultList = await db
+          .insert(vaults)
+          .values([
+            {
+              workspaceId,
+              onchainVaultId: 0,
+              name: "Hũ Báo Hiếu & Dưỡng Già Ông Bà",
+              description: "Bộ quy tắc SHIELD: Rút nhanh <= 50 USDC giải ngân tức thì 0 gas từ đệm L1.",
+              ruleTemplate: "SHIELD",
+              bufferRatioBps: 1000,
+              fastWithdrawLimit: "50",
+              requiredApprovals: 2,
+              cachedTotalBalance: "1200",
+              cachedL1Buffer: "120",
+              cachedCChainYield: "1080",
+              isActive: true,
+            },
+            {
+              workspaceId,
+              onchainVaultId: 1,
+              name: "Hũ Tiết Kiệm Khởi Nghiệp Trẻ Nhỏ",
+              description: "Bộ quy tắc MILESTONE: Quỹ việc nhà Chore-to-Earn, vốn sinh lời 8% APY trên C-Chain.",
+              ruleTemplate: "MILESTONE",
+              bufferRatioBps: 2000,
+              fastWithdrawLimit: "20",
+              requiredApprovals: 2,
+              cachedTotalBalance: "450",
+              cachedL1Buffer: "90",
+              cachedCChainYield: "360",
+              isActive: true,
+            },
+            {
+              workspaceId,
+              onchainVaultId: 2,
+              name: "Hũ Tương Trợ Dòng Họ",
+              description: "Bộ quy tắc ROSCA: Góp vốn xoay vòng 4 kỳ, vốn nhàn rỗi sinh lời DeFi 8% APY trên C-Chain.",
+              ruleTemplate: "ROSCA",
+              bufferRatioBps: 0,
+              fastWithdrawLimit: "1000",
+              requiredApprovals: 3,
+              cachedTotalBalance: "3000",
+              cachedL1Buffer: "0",
+              cachedCChainYield: "3000",
+              isActive: true,
+            },
+          ])
+          .returning();
+      } catch (seedErr) {}
+    }
 
     return {
       workspace: ws,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { workspaces, workspaceMembers, users } from "@/db/schema";
+import { workspaces, workspaceMembers, users, vaults } from "@/db/schema";
 import { verifyAuthToken, SESSION_COOKIE_NAME } from "@/lib/jwt";
 import { eq } from "drizzle-orm";
 
@@ -91,6 +91,52 @@ export async function POST(req: NextRequest) {
         role: "ADMIN",
       });
     }
+
+    // Tự động khởi tạo 3 Hũ Động tiêu chuẩn cho Workspace mới
+    await db.insert(vaults).values([
+      {
+        workspaceId: newWs.id,
+        onchainVaultId: 0,
+        name: "Hũ Báo Hiếu & Dưỡng Già",
+        description: "Bộ quy tắc SHIELD: Rút nhanh <= 50 USDC giải ngân tức thì 0 gas từ đệm L1.",
+        ruleTemplate: "SHIELD",
+        bufferRatioBps: 1000,
+        fastWithdrawLimit: "50",
+        requiredApprovals: 2,
+        cachedTotalBalance: "1000",
+        cachedL1Buffer: "100",
+        cachedCChainYield: "900",
+        isActive: true,
+      },
+      {
+        workspaceId: newWs.id,
+        onchainVaultId: 1,
+        name: "Hũ Nhiệm Vụ & Cột Mốc",
+        description: "Bộ quy tắc MILESTONE: Quỹ việc nhà và cột mốc, vốn sinh lời 8% APY trên C-Chain.",
+        ruleTemplate: "MILESTONE",
+        bufferRatioBps: 2000,
+        fastWithdrawLimit: "20",
+        requiredApprovals: 2,
+        cachedTotalBalance: "500",
+        cachedL1Buffer: "100",
+        cachedCChainYield: "400",
+        isActive: true,
+      },
+      {
+        workspaceId: newWs.id,
+        onchainVaultId: 2,
+        name: "Hũ Góp Vốn Xoay Vòng",
+        description: "Bộ quy tắc ROSCA: Góp vốn định kỳ, vốn nhàn rỗi sinh lời DeFi 8% APY trên C-Chain.",
+        ruleTemplate: "ROSCA",
+        bufferRatioBps: 0,
+        fastWithdrawLimit: "1000",
+        requiredApprovals: 3,
+        cachedTotalBalance: "2000",
+        cachedL1Buffer: "0",
+        cachedCChainYield: "2000",
+        isActive: true,
+      },
+    ]);
 
     return NextResponse.json({
       success: true,
