@@ -10,7 +10,7 @@ import {
   bigint,
   pgEnum,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, InferSelectModel, InferInsertModel } from "drizzle-orm";
 
 // =================================================================
 // 1. ENUMS
@@ -153,3 +153,23 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   chores: many(chores),
   notifications: many(notifications),
 }));
+
+// =================================================================
+// 4. TYPE INFERENCES
+// =================================================================
+
+export type Family = InferSelectModel<typeof families>;
+export type NewFamily = InferInsertModel<typeof families>;
+
+export type User = InferSelectModel<typeof users>;
+export type NewUser = InferInsertModel<typeof users>;
+
+export type WithdrawalRequest = InferSelectModel<typeof withdrawalRequests>;
+export type NewWithdrawalRequest = InferInsertModel<typeof withdrawalRequests>;
+
+export type Chore = InferSelectModel<typeof chores>;
+export type NewChore = InferInsertModel<typeof chores>;
+
+export type Notification = InferSelectModel<typeof notifications>;
+export type NewNotification = InferInsertModel<typeof notifications>;
+

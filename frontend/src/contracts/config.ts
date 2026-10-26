@@ -50,9 +50,10 @@ export const CONTRACT_ADDRESSES = {
     '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512') as `0x${string}`,
 };
 
-// URL Backend API
+// URL Backend API (Ưu tiên gọi trực tiếp qua Next.js API /api để tránh 404 và đồng bộ 100% dữ liệu)
 export const BACKEND_API_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001/api';
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  (typeof window !== 'undefined' ? '/api' : 'http://localhost:3000/api');
 
 // Enum Vault Type khớp với Smart Contract & Backend Schema
 export enum VaultType {

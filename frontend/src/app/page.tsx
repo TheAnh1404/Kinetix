@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ActiveTab, DemoMember } from '@/types';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -12,13 +13,51 @@ import { RoscaView } from '@/components/views/RoscaView';
 import { FamilyProvider, useFamily } from '@/context/FamilyContext';
 import { VaultType } from '@/contracts/config';
 
+const VALID_TABS: ActiveTab[] = [
+  'trang-chu',
+  'kinetix-shield',
+  'quan-tri-cha-me',
+  'kinetix-kids',
+  'quy-rosca',
+];
+
 function FamilyAppContent() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('trang-chu');
+  const searchParams = useSearchParams();
+  const tabQuery = searchParams.get('tab') as ActiveTab | null;
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    if (tabQuery && VALID_TABS.includes(tabQuery)) {
+      return tabQuery;
+    }
+    return 'trang-chu';
+  });
+
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState<string>('500');
   const [selectedVault, setSelectedVault] = useState<string>('Retirement Shield');
   const [isDepositing, setIsDepositing] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState(false);
+
+  // Đồng bộ activeTab khi query param trên URL thay đổi
+  useEffect(() => {
+    if (tabQuery && VALID_TABS.includes(tabQuery) && tabQuery !== activeTab) {
+      setActiveTab(tabQuery);
+    }
+  }, [tabQuery]);
+
+  // Cập nhật tab và đồng bộ URL mà không làm reload trang
+  const handleTabChange = (tab: ActiveTab) => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (tab === 'trang-chu') {
+        url.searchParams.delete('tab');
+      } else {
+        url.searchParams.set('tab', tab);
+      }
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
 
   const {
     currentMember,
@@ -33,11 +72,11 @@ function FamilyAppContent() {
     setCurrentMember(member);
     // Tự động chuyển view tương ứng nếu vai trò đặc thù
     if (member.role === 'ELDERLY') {
-      setActiveTab('kinetix-shield');
+      handleTabChange('kinetix-shield');
     } else if (member.role === 'CHILD') {
-      setActiveTab('kinetix-kids');
+      handleTabChange('kinetix-kids');
     } else if (member.role === 'ADMIN') {
-      setActiveTab('quan-tri-cha-me');
+      handleTabChange('quan-tri-cha-me');
     }
   };
 
@@ -70,7 +109,7 @@ function FamilyAppContent() {
       {/* Header Điều Hướng Kinetix */}
       <Header
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         currentMember={currentMember}
         onMemberChange={handleSelectMember}
         isWalletConnected={isWalletConnected}
@@ -87,7 +126,7 @@ function FamilyAppContent() {
       <main className="w-full pt-20 flex-1">
         {activeTab === 'trang-chu' && (
           <HomeView
-            onNavigate={setActiveTab}
+            onNavigate={handleTabChange}
             onOpenDeposit={() => setIsDepositModalOpen(true)}
           />
         )}
@@ -239,7 +278,15 @@ function FamilyAppContent() {
 export default function Home() {
   return (
     <FamilyProvider>
-      <FamilyAppContent />
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex items-center justify-center bg-surface text-on-surface">
+            <div className="w-8 h-8 border-4 border-secondary border-t-transparent rounded-full animate-spin" />
+          </div>
+        }
+      >
+        <FamilyAppContent />
+      </Suspense>
     </FamilyProvider>
   );
 }

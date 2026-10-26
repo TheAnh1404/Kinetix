@@ -330,10 +330,10 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setIsLiveWeb3(false);
       }
 
-      // 2. Kiểm tra Backend
+      // 2. Kiểm tra Backend & API
       try {
-        const res = await apiClient.getFamily('test');
-        if (res) {
+        const res = await fetch('/api/health');
+        if (res.ok) {
           setIsLiveBackend(true);
         }
       } catch (e) {
