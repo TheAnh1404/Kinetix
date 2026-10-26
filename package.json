@@ -1,31 +1,54 @@
 {
-  "name": "kinetix-contracts",
+  "name": "kinetix",
   "version": "1.0.0",
   "description": "The Multi-Generational Family Finance OS on Avalanche",
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:fuji": "hardhat run scripts/deploy.ts --network fuji",
-    "deploy:familyL1": "hardhat run scripts/deploy.ts --network familyL1"
+    "deploy:familyL1": "hardhat run scripts/deploy.ts --network familyL1",
+    "db:generate": "drizzle-kit generate --config=backend/drizzle.config.ts",
+    "db:push": "drizzle-kit push --config=backend/drizzle.config.ts",
+    "db:migrate": "tsx backend/src/db/migrate.ts",
+    "db:seed": "tsx backend/src/db/seed.ts",
+    "db:studio": "drizzle-kit studio --config=backend/drizzle.config.ts",
+    "server:start": "tsx backend/src/server.ts",
+    "worker:listen": "tsx backend/src/workers/eventListener.ts"
   },
   "keywords": [
     "avalanche",
     "hackathon",
     "teleporter",
     "multisig",
-    "solidity"
+    "solidity",
+    "drizzle",
+    "neon",
+    "viem"
   ],
   "author": "Kinetix Solo Builder",
   "license": "MIT",
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.30.10",
+    "express": "^4.19.2",
+    "viem": "^2.9.23",
+    "ws": "^8.17.0"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@openzeppelin/contracts": "^5.0.2",
     "@types/chai": "^4.3.16",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
     "@types/mocha": "^10.0.6",
     "@types/node": "^20.12.7",
-    "dotenv": "^16.4.5",
+    "@types/ws": "^8.5.10",
+    "drizzle-kit": "^0.21.4",
     "hardhat": "^2.22.3",
     "ts-node": "^10.9.2",
+    "tsx": "^4.10.5",
     "typescript": "^5.4.5"
   }
 }
