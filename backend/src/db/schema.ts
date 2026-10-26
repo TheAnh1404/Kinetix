@@ -81,9 +81,20 @@ export const users = pgTable("users", {
   role: userRoleEnum("role").notNull(),
   walletAddress: varchar("wallet_address", { length: 42 }).notNull().unique(),
   authMethod: authTypeEnum("auth_method").default("CORE_WALLET").notNull(),
+  pinCode: varchar("pin_code", { length: 6 }),
+  avatarUrl: text("avatar_url"),
   phoneNumber: text("phone_number"),
   isAllowlisted: boolean("is_allowlisted").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/**
+ * @notice Bảng lưu mã nonce ngẫu nhiên dùng trong xác thực SIWE EIP-4361 chống Replay Attack
+ */
+export const authNonces = pgTable("auth_nonces", {
+  nonce: text("nonce").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
 
 /**
