@@ -55,7 +55,16 @@ Kinetix/
 ├── .agents/                      # AI Agent workspace rules and workflows
 │   ├── rules/                    # Architecture & coding standards
 │   └── skills/                   # Phased execution runbooks
-├── contracts/
+├── backend/                      # Complete Web3 Backend & Database Service
+│   ├── drizzle/                  # Drizzle ORM PostgreSQL migrations
+│   ├── src/
+│   │   ├── db/                   # Neon Serverless connection, schema, seed
+│   │   ├── routes/               # Express REST API routes
+│   │   ├── services/             # Family finance business logic
+│   │   ├── workers/              # Viem Blockchain event listener worker
+│   │   └── server.ts             # Express server entry point
+│   └── drizzle.config.ts         # Drizzle Kit configuration
+├── contracts/                    # Smart Contracts (Solidity v0.8.20)
 │   ├── interfaces/
 │   │   └── ITeleporterMessenger.sol  # Avalanche Teleporter (ICM) interfaces
 │   ├── mocks/
@@ -65,7 +74,8 @@ Kinetix/
 ├── scripts/
 │   └── deploy.ts                 # Multi-network deployment script
 ├── test/
-│   └── Kinetix.test.ts           # 100% test coverage suite (14/14 passing)
+│   ├── Kinetix.test.ts           # Smart contract test suite (14/14 passing)
+│   └── backend.test.ts           # Backend integration test suite (6/6 passing)
 ├── hardhat.config.ts             # Hardhat network configuration (Fuji & Family L1)
 └── README.md
 ```
