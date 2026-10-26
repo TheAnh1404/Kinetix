@@ -11,6 +11,7 @@ import { KidsView } from '@/components/views/KidsView';
 import { RoscaView } from '@/components/views/RoscaView';
 import { FamilyProvider, useFamily } from '@/context/FamilyContext';
 import { VaultType } from '@/contracts/config';
+import { DemoPersonaBar } from '@/components/auth/DemoPersonaBar';
 
 function FamilyAppContent() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('trang-chu');
@@ -82,6 +83,9 @@ function FamilyAppContent() {
           }
         }}
       />
+
+      {/* Floating Demo Persona Quick Switcher */}
+      <DemoPersonaBar />
 
       {/* Main Content Render Theo Tab */}
       <main className="w-full pt-20 flex-1">

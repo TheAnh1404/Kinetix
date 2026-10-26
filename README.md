@@ -113,8 +113,8 @@ cp .env.example .env
 npx hardhat compile
 ```
 
-### 4. Run Unit Tests (20/20 Pass)
-Chạy toàn bộ 20 bài kiểm thử đơn vị cho cả Smart Contracts (14/14) và Backend Services (6/6):
+### 4. Run Unit Tests (25/25 Pass)
+Chạy toàn bộ 25 bài kiểm thử đơn vị cho Smart Contracts (14/14), Backend Services (6/6), và Full-Stack Auth SIWE (5/5):
 ```bash
 npx hardhat test
 ```
@@ -137,6 +137,10 @@ npm install
 npm run dev
 ```
 Truy cập ứng dụng tại `http://localhost:3000` để trải nghiệm hệ thống Fullstack kết nối trực tiếp Smart Contracts và Neon Database:
+- **Đăng Nhập Đa Thế Hệ (`/login`):**
+  + **Bố Mẹ / Quản Trị:** Ký ví Avalanche Core Wallet EIP-4361 SIWE không cần mật khẩu, chống replay attack qua nonce bảng `auth_nonces`.
+  + **Ông Bà / Trẻ Nhỏ:** Đăng nhập 1-chạm hoặc mã PIN 4 số to rõ (mặc định: `1234`), phiên lưu trong HTTP-Only cookie `kinetix_session` (7 ngày).
+  + **Demo Quick Switcher:** Thanh điều khiển nổi cho phép ban giám khảo và người quay phim chuyển đổi 1-click giữa 4 nhân vật mẫu (Bố Ba, Cô Út, Ông Nội, Bé Na).
 - **Trang Chủ:** Bức tranh tổng tài sản gia đình, bộ đệm thanh khoản 10/90, nạp tiền vào quỹ qua smart contract `depositToVault`.
 - **Kinetix Shield (Chế Độ Ông Bà):** Rút tiền nhanh $\le 50$ USDC trong 1 chạm (<1s, 0 gas) và tạo yêu cầu rút tiền lớn $>50$ USDC bảo vệ chống lừa đảo AI.
 - **Quản Trị Cha Mẹ:** Bảng điều khiển bảo hộ với tính năng phê duyệt đa chữ ký 2/3 (Multisig) on-chain qua `approveWithdrawal`.

@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { ActiveTab, DemoMember } from "../types";
 import { RoleSwitcherModal } from "./RoleSwitcherModal";
 import { useFamily } from "@/context/FamilyContext";
+import { useAuth } from "@/hooks/useAuth";
 
 interface HeaderProps {
   activeTab: ActiveTab;
@@ -27,6 +29,8 @@ export const Header: React.FC<HeaderProps> = ({
 
   const { notifications, unreadNotificationCount, markNotificationRead, isLiveWeb3 } =
     useFamily();
+
+  const { isAuthenticated, logout } = useAuth();
 
   const navItems: { id: ActiveTab; label: string }[] = [
     { id: "trang-chu", label: "Trang Chủ" },
@@ -213,6 +217,27 @@ export const Header: React.FC<HeaderProps> = ({
                 className="w-full h-full object-cover"
               />
             </div>
+
+            {/* Auth Link: Login or Logout */}
+            {isAuthenticated ? (
+              <button
+                onClick={logout}
+                title="Đăng xuất"
+                className="w-8 h-8 rounded-lg bg-surface-container hover:bg-error-container hover:text-error flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">logout</span>
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                title="Đăng nhập"
+                className="px-2.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-xs font-bold text-on-surface flex items-center gap-1 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">login</span>
+                <span className="hidden sm:inline">Auth</span>
+              </Link>
+            )}
           </div>
         </div>
       </header>
