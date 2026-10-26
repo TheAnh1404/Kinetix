@@ -57,7 +57,16 @@ interface FamilyContextType {
   // Members & Auth
   currentMember: DemoMember;
   members: DemoMember[];
+  familyInfo: { id: string; name: string; familyCode: string } | null;
   setCurrentMember: (member: DemoMember) => void;
+  refreshMembers: () => Promise<void>;
+  addMemberToFamily: (memberData: {
+    fullName: string;
+    role: 'ADMIN' | 'GUARDIAN' | 'ELDERLY' | 'CHILD';
+    phoneNumber?: string;
+    pinCode?: string;
+    walletAddress?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
   isWalletConnected: boolean;
   connectedWalletAddress: string | null;
   connectWallet: () => Promise<void>;
@@ -104,7 +113,8 @@ const FamilyContext = createContext<FamilyContextType | undefined>(undefined);
 
 export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentMember, setCurrentMember] = useState<DemoMember>(DEMO_MEMBERS[0]);
-  const [members] = useState<DemoMember[]>(DEMO_MEMBERS);
+  const [members, setMembers] = useState<DemoMember[]>(DEMO_MEMBERS);
+  const [familyInfo, setFamilyInfo] = useState<{ id: string; name: string; familyCode: string } | null>(null);
   const [isWalletConnected, setIsWalletConnected] = useState<boolean>(true);
   const [connectedWalletAddress, setConnectedWalletAddress] = useState<string | null>(
     DEMO_MEMBERS[0].walletAddress
@@ -213,7 +223,101 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     },
   ]);
 
-  // Kiểm tra kết nối Web3 & Backend khi load
+  // Đồng bộ phiên đăng nhập & nạp danh sách thành viên thực tế từ Neon PostgreSQL
+  const refreshMembers = async () => {
+    try {
+      const meRes = await fetch('/api/auth/me', { cache: 'no-store' });
+      const meData = await meRes.json();
+      if (meData.success && meData.user && meData.family) {
+        setFamilyInfo({
+          id: meData.family.id,
+          name: meData.family.name,
+          familyCode: meData.family.familyCode,
+        });
+
+        // Nạp danh sách thành viên trong gia đình từ PostgreSQL
+        const membersRes = await fetch(`/api/families/${meData.family.id}/members`, {
+          cache: 'no-store',
+        });
+        const membersData = await membersRes.json();
+        if (membersData.success && Array.isArray(membersData.members) && membersData.members.length > 0) {
+          const mappedMembers: DemoMember[] = membersData.members.map((u: any) => ({
+            id: u.id,
+            name: u.fullName,
+            role: u.role,
+            title:
+              u.role === 'ADMIN'
+                ? 'Người quản trị gia đình • Ví Core'
+                : u.role === 'GUARDIAN'
+                ? 'Người bảo hộ • Ký duyệt 2/3'
+                : u.role === 'ELDERLY'
+                ? 'Thế hệ 1 • Thụ hưởng Kinetix Shield'
+                : 'Thế hệ 3 • Kinetix Kids Heo Đất',
+            walletAddress: u.walletAddress,
+            address: u.walletAddress,
+            avatar:
+              u.avatarUrl ||
+              (u.role === 'ELDERLY'
+                ? 'https://lh3.googleusercontent.com/aida-public/AB6AXuB9RXFgUn83eP41jg2weE3YA8vd83fsVimUf5y0OcZS7SOQ3XPOzG_gbODV_xJIXeRQye9NHAh2TXP_28Oz-bPHhWTfscJFCZWXYRXq2gQAAtwAVTc1yseRsDx3GBa94HVhTHAal40UzoVwN7YY1IXQ5EmMOe0WhhEvzu4V7ZNBtixA0ZiaR61Ad1UJUADoRuNzug0ggIZW8eO5XEiktIZD-zCJ4THMAqG0i7Z1ivkCGPnUrjsBJg'
+                : u.role === 'CHILD'
+                ? 'https://lh3.googleusercontent.com/aida-public/AB6AXuAc1UhNj0E3eKWwrEAv9WJ4KTtp_4pnR4-fyhwEHSKncOxXMGgdr5EdEkF7AMpuaguOYSWTwC-3Ovp1jhOZtflnABlKorh-7E9pPfvKLow6TvFQHGxmf0EgQh_J7eX2WyhgY_obtzgCtT892o3CCd1-TKpF3WABb42fGzxm4wVTK6S7fWG0bKJKRZGbEsWybndKRK3uK6Aix2ehMS1hOr8zRyDG3ZRA0ODbqcIHWiDv1p2ayRMtyQ'
+                : 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150'),
+            defaultTab:
+              u.role === 'ELDERLY'
+                ? 'kinetix-shield'
+                : u.role === 'CHILD'
+                ? 'kinetix-kids'
+                : 'quan-tri-cha-me',
+            phoneNumber: u.phoneNumber,
+          }));
+
+          setMembers(mappedMembers);
+
+          // Gán currentMember khớp với người đang đăng nhập
+          const currentLoggedIn = mappedMembers.find((m) => m.id === meData.user.id);
+          if (currentLoggedIn) {
+            setCurrentMember(currentLoggedIn);
+            setConnectedWalletAddress(currentLoggedIn.walletAddress);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Lỗi nạp danh sách thành viên thực tế:', err);
+    }
+  };
+
+  // Thêm thành viên mới vào gia đình lưu trực tiếp vào PostgreSQL
+  const addMemberToFamily = async (memberData: {
+    fullName: string;
+    role: 'ADMIN' | 'GUARDIAN' | 'ELDERLY' | 'CHILD';
+    phoneNumber?: string;
+    pinCode?: string;
+    walletAddress?: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    if (!familyInfo?.id) {
+      return { success: false, error: 'Không tìm thấy ID gia đình' };
+    }
+
+    try {
+      const res = await fetch(`/api/families/${familyInfo.id}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(memberData),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Thêm thành viên thất bại' };
+      }
+
+      await refreshMembers();
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Lỗi thêm thành viên' };
+    }
+  };
+
+  // Kiểm tra kết nối Web3 & Backend & nạp dữ liệu gia đình khi load
   useEffect(() => {
     async function checkConnectivity() {
       // 1. Kiểm tra Web3 L1 RPC
@@ -235,6 +339,9 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       } catch (e) {
         setIsLiveBackend(false);
       }
+
+      // 3. Nạp dữ liệu thành viên từ DB
+      await refreshMembers();
     }
     checkConnectivity();
   }, []);
@@ -629,7 +736,10 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       value={{
         currentMember,
         members,
+        familyInfo,
         setCurrentMember,
+        refreshMembers,
+        addMemberToFamily,
         isWalletConnected,
         connectedWalletAddress,
         connectWallet,

@@ -11,14 +11,23 @@ export interface AuthUser {
   role: "ADMIN" | "GUARDIAN" | "ELDERLY" | "CHILD";
   walletAddress: string;
   avatarUrl?: string | null;
+  phoneNumber?: string | null;
+}
+
+export interface AuthFamily {
+  id: string;
+  name: string;
+  familyCode: string;
+  adminWallet: string;
 }
 
 export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [family, setFamily] = useState<AuthFamily | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const router = useRouter();
 
-  // Kiểm tra phiên đăng nhập hiện tại từ server
+  // 1. Kiểm tra phiên đăng nhập hiện tại từ server (/api/auth/me)
   const checkSession = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -26,11 +35,16 @@ export function useAuth() {
       const data = await res.json();
       if (data.success && data.user) {
         setUser(data.user);
+        if (data.family) {
+          setFamily(data.family);
+        }
       } else {
         setUser(null);
+        setFamily(null);
       }
     } catch (err) {
       setUser(null);
+      setFamily(null);
     } finally {
       setIsLoading(false);
     }
@@ -49,9 +63,230 @@ export function useAuth() {
   };
 
   /**
-   * 1. Đăng nhập bằng ví Avalanche Core Wallet qua chuẩn SIWE EIP-4361
+   * 2. Lấy nonce ngẫu nhiên từ server
    */
-  const loginWithCoreWallet = async (): Promise<{ success: boolean; error?: string }> => {
+  const getNonce = async (): Promise<string> => {
+    try {
+      const res = await fetch("/api/auth/nonce");
+      const data = await res.json();
+      if (data.nonce) return data.nonce;
+    } catch (e) {
+      console.warn("Nonce warning:", e);
+    }
+    return "kntx-" + Date.now();
+  };
+
+  /**
+   * 3. Kiểm tra địa chỉ ví đã đăng ký trong hệ thống chưa
+   */
+  const checkWalletRegistration = async (
+    address: string
+  ): Promise<{ isRegistered: boolean; user?: any; family?: any }> => {
+    try {
+      const res = await fetch(`/api/auth/check-wallet?address=${encodeURIComponent(address)}`);
+      const data = await res.json();
+      return {
+        isRegistered: !!data.isRegistered,
+        user: data.user,
+        family: data.family,
+      };
+    } catch (err) {
+      return { isRegistered: false };
+    }
+  };
+
+  /**
+   * 4. Helper ký thông điệp SIWE EIP-4361
+   */
+  const signSiweMessage = async (
+    provider: any,
+    address: string,
+    statement: string = "Sign in to Kinetix - The Multi-Generational Family Finance OS on Avalanche"
+  ): Promise<{ message: string; signature: string }> => {
+    const nonce = await getNonce();
+    const domain = typeof window !== "undefined" ? window.location.host : "localhost:3000";
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+    const chainId = 43114; // Family L1 (hoặc 43113 Fuji)
+    const issuedAt = new Date().toISOString();
+
+    const message = `${domain} wants you to sign in with your Ethereum account:
+${address}
+
+${statement}
+
+URI: ${origin}
+Version: 1
+Chain ID: ${chainId}
+Nonce: ${nonce}
+Issued At: ${issuedAt}`;
+
+    let signature: string;
+    try {
+      const walletClient = createWalletClient({
+        transport: custom(provider),
+      });
+      signature = await walletClient.signMessage({
+        account: address as `0x${string}`,
+        message,
+      });
+    } catch (signErr: any) {
+      if (
+        signErr?.code === 4001 ||
+        signErr?.message?.includes("rejected") ||
+        signErr?.message?.includes("User rejected")
+      ) {
+        throw new Error("Bạn đã hủy ký thông điệp xác thực trên ví.");
+      }
+      // Fallback personal_sign
+      const { stringToHex } = await import("viem");
+      signature = await provider.request({
+        method: "personal_sign",
+        params: [stringToHex(message), address],
+      });
+    }
+
+    return { message, signature };
+  };
+
+  /**
+   * 5. Đăng ký Gia đình mới (Register New Family)
+   */
+  const registerFamily = async (params: {
+    familyName: string;
+    adminName: string;
+    phoneNumber?: string;
+    pinCode?: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setIsLoading(true);
+      const provider =
+        (typeof window !== "undefined" && (window.avalanche || window.ethereum)) || null;
+
+      if (!provider) {
+        return {
+          success: false,
+          error: "Vui lòng cài đặt tiện ích ví Avalanche Core để tạo gia đình mới.",
+        };
+      }
+
+      const accounts: string[] = await provider.request({ method: "eth_requestAccounts" });
+      if (!accounts || accounts.length === 0) {
+        return { success: false, error: "Người dùng từ chối cấp quyền truy cập ví." };
+      }
+      const address = accounts[0];
+
+      // Ký SIWE
+      const { message, signature } = await signSiweMessage(
+        provider,
+        address,
+        `Create and Register Family '${params.familyName}' on Kinetix OS`
+      );
+
+      // Gửi lên backend
+      const res = await fetch("/api/auth/register-family", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          familyName: params.familyName,
+          adminName: params.adminName,
+          phoneNumber: params.phoneNumber,
+          pinCode: params.pinCode,
+          walletAddress: address,
+          message,
+          signature,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || "Đăng ký gia đình thất bại." };
+      }
+
+      setUser(data.user);
+      setFamily(data.family);
+      router.push("/?tab=quan-tri-cha-me");
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || "Lỗi xử lý đăng ký gia đình." };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * 6. Tham gia Gia đình bằng Family Code (Join Family)
+   */
+  const joinFamily = async (params: {
+    familyCode: string;
+    memberName: string;
+    phoneNumber?: string;
+    pinCode?: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setIsLoading(true);
+      const provider =
+        (typeof window !== "undefined" && (window.avalanche || window.ethereum)) || null;
+
+      if (!provider) {
+        return {
+          success: false,
+          error: "Vui lòng cài đặt tiện ích ví Avalanche Core để tham gia gia đình.",
+        };
+      }
+
+      const accounts: string[] = await provider.request({ method: "eth_requestAccounts" });
+      if (!accounts || accounts.length === 0) {
+        return { success: false, error: "Người dùng từ chối cấp quyền truy cập ví." };
+      }
+      const address = accounts[0];
+
+      // Ký SIWE
+      const { message, signature } = await signSiweMessage(
+        provider,
+        address,
+        `Join Family with code '${params.familyCode}' on Kinetix OS`
+      );
+
+      // Gửi lên backend
+      const res = await fetch("/api/auth/join-family", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          familyCode: params.familyCode,
+          memberName: params.memberName,
+          phoneNumber: params.phoneNumber,
+          pinCode: params.pinCode,
+          walletAddress: address,
+          message,
+          signature,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || "Tham gia gia đình thất bại." };
+      }
+
+      setUser(data.user);
+      setFamily(data.family);
+      router.push("/?tab=quan-tri-cha-me");
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || "Lỗi xử lý tham gia gia đình." };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * 7. Đăng nhập bằng Ví Avalanche Core (SIWE Login)
+   */
+  const loginWithCoreWallet = async (): Promise<{
+    success: boolean;
+    error?: string;
+    isUnregistered?: boolean;
+    unregisteredAddress?: string;
+  }> => {
     try {
       setIsLoading(true);
 
@@ -61,11 +296,10 @@ export function useAuth() {
       if (!provider) {
         return {
           success: false,
-          error: "Chưa phát hiện tiện ích ví Avalanche Core Wallet. Hãy cài đặt extension hoặc sử dụng nút 'Trải nghiệm nhanh Ví Core Mẫu' bên dưới!",
+          error: "Chưa phát hiện tiện ích ví Avalanche Core Wallet. Vui lòng cài đặt tại core.app để tiếp tục.",
         };
       }
 
-      // Lấy danh sách tài khoản
       let accounts: string[];
       try {
         accounts = await provider.request({ method: "eth_requestAccounts" });
@@ -74,76 +308,23 @@ export function useAuth() {
           return { success: false, error: "Bạn đã từ chối cấp quyền kết nối ví." };
         }
         if (reqErr?.code === -32002) {
-          return { success: false, error: "Yêu cầu kết nối ví đang chờ xử lý. Vui lòng mở popup ví để xác nhận." };
+          return {
+            success: false,
+            error: "Yêu cầu kết nối ví đang chờ xử lý. Vui lòng mở popup ví để xác nhận.",
+          };
         }
         throw reqErr;
       }
 
       if (!accounts || accounts.length === 0) {
-        return { success: false, error: "Người dùng đã từ chối cấp quyền truy cập ví" };
+        return { success: false, error: "Không tìm thấy địa chỉ tài khoản nào từ ví." };
       }
       const address = accounts[0];
 
-      // Lấy nonce ngẫu nhiên từ server
-      let nonce: string = "kntx-" + Date.now();
-      try {
-        const nonceRes = await fetch("/api/auth/nonce");
-        const nonceData = await nonceRes.json();
-        if (nonceData.nonce) nonce = nonceData.nonce;
-      } catch (e) {
-        console.warn("Nonce fetch warning:", e);
-      }
+      // Ký thông điệp SIWE
+      const { message, signature } = await signSiweMessage(provider, address);
 
-      // Chuẩn hóa thông điệp SIWE EIP-4361
-      const domain = typeof window !== "undefined" ? window.location.host : "localhost:3000";
-      const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-      const chainId = 43114; // Family L1 (hoặc 43113 Fuji)
-      const issuedAt = new Date().toISOString();
-
-      const message = `${domain} wants you to sign in with your Ethereum account:
-${address}
-
-Sign in to Kinetix - The Multi-Generational Family Finance OS on Avalanche
-
-URI: ${origin}
-Version: 1
-Chain ID: ${chainId}
-Nonce: ${nonce}
-Issued At: ${issuedAt}`;
-
-      // Ký thông điệp bằng Viem walletClient (tự động chuyển mã hex chuẩn xác)
-      let signature: string;
-      try {
-        const walletClient = createWalletClient({
-          transport: custom(provider),
-        });
-        signature = await walletClient.signMessage({
-          account: address as `0x${string}`,
-          message,
-        });
-      } catch (signErr: any) {
-        if (signErr?.code === 4001 || signErr?.message?.includes("rejected") || signErr?.message?.includes("User rejected")) {
-          return { success: false, error: "Bạn đã hủy ký thông điệp xác thực trên ví." };
-        }
-        console.warn("Viem signMessage fallback to personal_sign:", signErr);
-        try {
-          const { stringToHex } = await import("viem");
-          signature = await provider.request({
-            method: "personal_sign",
-            params: [stringToHex(message), address],
-          });
-        } catch (hexErr: any) {
-          if (hexErr?.code === 4001 || hexErr?.message?.includes("rejected")) {
-            return { success: false, error: "Bạn đã hủy ký thông điệp xác thực trên ví." };
-          }
-          signature = await provider.request({
-            method: "personal_sign",
-            params: [message, address],
-          });
-        }
-      }
-
-      // Gửi chữ ký lên server xác thực
+      // Gửi lên server xác thực
       const verifyRes = await fetch("/api/auth/verify-siwe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,78 +332,90 @@ Issued At: ${issuedAt}`;
       });
 
       const verifyData = await verifyRes.json();
+
+      // Nếu ví chưa đăng ký
       if (!verifyRes.ok) {
-        return { success: false, error: verifyData.error || "Xác thực chữ ký thất bại" };
+        if (verifyData.code === "WALLET_NOT_REGISTERED") {
+          return {
+            success: false,
+            isUnregistered: true,
+            unregisteredAddress: address,
+            error: verifyData.error,
+          };
+        }
+        return {
+          success: false,
+          error: verifyData.error || "Xác thực chữ ký ví thất bại.",
+        };
       }
 
       setUser(verifyData.user);
-      router.push("/?tab=quan-tri-cha-me");
+      if (verifyData.family) {
+        setFamily(verifyData.family);
+      }
+
+      if (verifyData.redirectUrl) {
+        router.push(verifyData.redirectUrl);
+      } else {
+        router.push("/?tab=quan-tri-cha-me");
+      }
       return { success: true };
     } catch (err: any) {
       console.error("Lỗi loginWithCoreWallet:", err);
-      return { success: false, error: err.message || "Lỗi kết nối hoặc chữ ký bị từ chối" };
+      return { success: false, error: err.message || "Lỗi kết nối ví." };
     } finally {
       setIsLoading(false);
     }
   };
 
   /**
-   * 2. Đăng nhập nhanh cho Ông Bà / Trẻ Nhỏ (mã PIN hoặc 1-chạm)
+   * 8. Đăng nhập Thành viên Gia đình (Credentials: Family Code + Tên/SĐT + PIN)
    */
-  const loginAsFamilyMember = async (
-    userId?: string,
-    role?: string,
-    pinCode?: string
-  ): Promise<{ success: boolean; error?: string }> => {
+  const loginAsMember = async (params: {
+    familyCode: string;
+    identifier: string;
+    pinCode: string;
+  }): Promise<{ success: boolean; error?: string }> => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/auth/family-login", {
+      const res = await fetch("/api/auth/member-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, role, pinCode }),
+        body: JSON.stringify(params),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        return { success: false, error: data.error || "Đăng nhập gia đình thất bại" };
+        return {
+          success: false,
+          error: data.error || "Đăng nhập thành viên gia đình thất bại.",
+        };
       }
 
       setUser(data.user);
+      if (data.family) {
+        setFamily(data.family);
+      }
+
       if (data.redirectUrl) {
         router.push(data.redirectUrl);
       }
       return { success: true };
     } catch (err: any) {
-      console.error("Lỗi loginAsFamilyMember:", err);
-      return { success: false, error: err.message || "Lỗi xử lý đăng nhập" };
+      return { success: false, error: err.message || "Lỗi xử lý đăng nhập thành viên." };
     } finally {
       setIsLoading(false);
     }
   };
 
   /**
-   * 3. Đăng nhập nhanh ví Core Wallet Bố Ba (Dành cho demo / giám khảo không cần cài extension)
-   */
-  const loginWithDemoAdmin = async (): Promise<{ success: boolean; error?: string }> => {
-    return loginAsFamilyMember(undefined, "ADMIN", "1234");
-  };
-
-  /**
-   * 4. Chuyển đổi nhanh vai diễn Demo khi quay video / thuyết trình
-   */
-  const switchDemoPersona = async (
-    role: "ADMIN" | "GUARDIAN" | "ELDERLY" | "CHILD"
-  ) => {
-    await loginAsFamilyMember(undefined, role, "1234");
-  };
-
-  /**
-   * 5. Đăng xuất
+   * 9. Đăng xuất
    */
   const logout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       setUser(null);
+      setFamily(null);
       router.push("/login");
     } catch (err) {
       console.error("Lỗi đăng xuất:", err);
@@ -231,14 +424,16 @@ Issued At: ${issuedAt}`;
 
   return {
     user,
+    family,
     role: user?.role || null,
     isLoading,
     isAuthenticated: !!user,
     isWalletExtensionAvailable,
+    checkWalletRegistration,
+    registerFamily,
+    joinFamily,
     loginWithCoreWallet,
-    loginWithDemoAdmin,
-    loginAsFamilyMember,
-    switchDemoPersona,
+    loginAsMember,
     logout,
     checkSession,
   };

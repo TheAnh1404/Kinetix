@@ -9,7 +9,7 @@ export type NavTab = ActiveTab;
 
 export type RoleType = "ADMIN" | "GUARDIAN" | "ELDERLY" | "CHILD";
 
-export interface DemoMember {
+export interface FamilyMember {
   id: string;
   name: string;
   role: RoleType;
@@ -18,9 +18,11 @@ export interface DemoMember {
   address: string;
   avatar: string;
   defaultTab: ActiveTab;
+  phoneNumber?: string | null;
 }
 
-export type Member = DemoMember;
+export type DemoMember = FamilyMember;
+export type Member = FamilyMember;
 
 export const DEMO_MEMBERS: DemoMember[] = [
   {
