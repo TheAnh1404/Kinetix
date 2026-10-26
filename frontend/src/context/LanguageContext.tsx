@@ -144,6 +144,73 @@ const translations: Record<Language, Record<string, string>> = {
     "auth.join.phone": "Số Điện Thoại",
     "auth.join.pin": "Mã PIN Cá Nhân (4-6 số)",
     "auth.join.btn": "Ký Ví Core & Gia Nhập Gia Đình",
+
+    // Dashboard Executive & KPIs
+    "dash.title": "Quản Trị Quỹ Gia Đình",
+    "dash.subtitle": "Bảng Quản Trị Trung Tâm & Đa Chữ Ký (Multisig Guardian 2/3) • Avalanche Family L1",
+    "dash.kpi.totalWealth": "Tổng Tài Sản Gia Đình",
+    "dash.kpi.totalWealthSub": "+8.2% Lợi suất APY cộng dồn",
+    "dash.kpi.bufferL1": "Đệm Thanh Khoản 10% (L1)",
+    "dash.kpi.bufferL1Sub": "Khả dụng rút tức thì, 0 gas fee",
+    "dash.kpi.yieldCChain": "Vốn DeFi Sinh Lời 90%",
+    "dash.kpi.yieldCChainSub": "Staked Fuji C-Chain (~8.0% APY)",
+    "dash.kpi.securityScore": "Chỉ Số An Toàn Anti-Scam",
+    "dash.kpi.securityScoreSub": "Bảo vệ 3 tầng • 2/3 Guardians",
+    
+    // Dashboard Tabs
+    "dash.tab.overview": "Tổng Quan & Ký Duyệt",
+    "dash.tab.vaults": "3 Hũ Tài Chính & Lợi Suất",
+    "dash.tab.members": "Thành Viên & Phân Quyền",
+    "dash.tab.chores": "Việc Nhà & Trả Thưởng",
+    "dash.tab.audit": "Nhật Ký Dòng Tiền",
+
+    // Dashboard Actions & Modals
+    "dash.actions.deposit": "Nạp Quỹ Gia Đình",
+    "dash.actions.addMember": "Thêm Thành Viên",
+    "dash.actions.createChore": "Giao Việc Nhà",
+    "dash.actions.videoCall": "Gọi Video Xác Minh",
+    "dash.actions.approve": "Ký Phê Duyệt & Giải Ngân",
+    "dash.actions.reject": "Từ Chối (Nghi Vấn Scam)",
+    "dash.actions.compound": "Tái Đầu Tư Lợi Nhuận",
+    "dash.actions.copyCode": "Mã Mời Gia Đình",
+    
+    // Multisig & Approvals
+    "dash.multisig.title": "CẢNH BÁO KHẨN CẤP: Yêu Cầu Rút Tiền Lớn Chờ Duyệt",
+    "dash.multisig.approvedTitle": "Yêu Cầu Rút Tiền Đã Được Phê Duyệt Thành Công",
+    "dash.multisig.timelock": "Khóa Teleporter Time-lock: 47:58 còn lại",
+    "dash.multisig.progress": "Tiến trình ký Multisig",
+    "dash.multisig.signed": "ĐÃ KÝ DUYỆT ✅",
+    "dash.multisig.pending": "CHỜ BẠN DUYỆT ⏳",
+    "dash.multisig.waiting": "CHỜ KÝ ⏳",
+    
+    // Members Management
+    "dash.members.title": "Danh Sách Thành Viên & Ma Trận Phân Quyền",
+    "dash.members.desc": "Đồng bộ thời gian thực từ cơ sở dữ liệu gia đình Neon Serverless PostgreSQL",
+    "dash.members.name": "Họ và Tên",
+    "dash.members.role": "Vai Trò",
+    "dash.members.wallet": "Địa Chỉ Ví / Mã Định Danh",
+    "dash.members.allowlist": "Trạng Thái L1",
+    "dash.members.actions": "Thao Tác",
+    "dash.members.addTitle": "Thêm Thành Viên Gia Đình Mới",
+    "dash.members.addDesc": "Cấp quyền truy cập hệ thống gia đình an toàn không lộ mã khóa",
+    
+    // Chores
+    "dash.chores.title": "Quản Trị Việc Nhà & Thưởng Con Trẻ (Chore-to-Earn)",
+    "dash.chores.desc": "Khích lệ con học tài chính, làm việc nhà nhận thưởng minh bạch qua Smart Contract",
+    "dash.chores.newBtn": "Giao Việc Mới Cho Con",
+    "dash.chores.todo": "Chờ Con Làm",
+    "dash.chores.submitted": "Đã Nộp (Chờ Duyệt)",
+    "dash.chores.rewarded": "Đã Trả Thưởng",
+    "dash.chores.verifyBtn": "Duyệt & Giải Ngân Thưởng",
+    
+    // Audit Log
+    "dash.audit.title": "Nhật Ký Dòng Tiền & Kiểm Toán An Ninh",
+    "dash.audit.desc": "Mọi biến động số dư và lệnh rút được ghi lại minh bạch trên chuỗi Avalanche",
+    "dash.audit.time": "Thời Gian",
+    "dash.audit.type": "Hoạt Động",
+    "dash.audit.amount": "Số Tiền",
+    "dash.audit.executor": "Thực Hiện",
+    "dash.audit.status": "Trạng Thái",
   },
   en: {
     // Brand & Meta
@@ -277,6 +344,73 @@ const translations: Record<Language, Record<string, string>> = {
     "auth.join.phone": "Phone Number",
     "auth.join.pin": "Personal Security PIN (4-6 digits)",
     "auth.join.btn": "Sign Wallet & Join Family",
+
+    // Dashboard Executive & KPIs
+    "dash.title": "Family Finance Hub",
+    "dash.subtitle": "Executive Command Center & Multisig (2/3 Guardians) • Avalanche Family L1",
+    "dash.kpi.totalWealth": "Total Family Wealth",
+    "dash.kpi.totalWealthSub": "+8.2% APY Compounded Yield",
+    "dash.kpi.bufferL1": "10% Liquid Buffer (L1)",
+    "dash.kpi.bufferL1Sub": "Instant daily spend, 0 gas fee",
+    "dash.kpi.yieldCChain": "90% DeFi Yield Engine",
+    "dash.kpi.yieldCChainSub": "Staked on Fuji C-Chain (~8.0% APY)",
+    "dash.kpi.securityScore": "Anti-Scam Protection Score",
+    "dash.kpi.securityScoreSub": "3-Tier Shield • 2/3 Multisig",
+    
+    // Dashboard Tabs
+    "dash.tab.overview": "Overview & Approvals",
+    "dash.tab.vaults": "3 Financial Vaults",
+    "dash.tab.members": "Members & Permissions",
+    "dash.tab.chores": "Chore-to-Earn Tasks",
+    "dash.tab.audit": "Audit & Activity Log",
+
+    // Dashboard Actions & Modals
+    "dash.actions.deposit": "Deposit Funds",
+    "dash.actions.addMember": "Add Member",
+    "dash.actions.createChore": "Assign Chore",
+    "dash.actions.videoCall": "Encrypted Video Call",
+    "dash.actions.approve": "Approve & Disburse",
+    "dash.actions.reject": "Reject (Scam Suspect)",
+    "dash.actions.compound": "Reinvest Yield",
+    "dash.actions.copyCode": "Family Invite Code",
+    
+    // Multisig & Approvals
+    "dash.multisig.title": "EMERGENCY ALERT: Pending Large Withdrawal Request",
+    "dash.multisig.approvedTitle": "Withdrawal Request Approved & Disbursed",
+    "dash.multisig.timelock": "Teleporter Time-lock: 47:58 remaining",
+    "dash.multisig.progress": "Multisig signing progress",
+    "dash.multisig.signed": "SIGNED ✅",
+    "dash.multisig.pending": "AWAITING YOU ⏳",
+    "dash.multisig.waiting": "WAITING ⏳",
+    
+    // Members Management
+    "dash.members.title": "Family Members Directory & Permissions",
+    "dash.members.desc": "Real-time sync from Neon Serverless PostgreSQL database",
+    "dash.members.name": "Full Name",
+    "dash.members.role": "Role",
+    "dash.members.wallet": "Wallet / Identifier",
+    "dash.members.allowlist": "L1 Status",
+    "dash.members.actions": "Actions",
+    "dash.members.addTitle": "Add New Family Member",
+    "dash.members.addDesc": "Grant secure, seedless access to your family finance network",
+    
+    // Chores
+    "dash.chores.title": "Chore-to-Earn Management & Rewards",
+    "dash.chores.desc": "Foster financial literacy with transparent smart contract tasks",
+    "dash.chores.newBtn": "Assign New Task",
+    "dash.chores.todo": "Pending Task",
+    "dash.chores.submitted": "Submitted (Review)",
+    "dash.chores.rewarded": "Rewarded",
+    "dash.chores.verifyBtn": "Verify & Disburse Reward",
+    
+    // Audit Log
+    "dash.audit.title": "Audit Trail & Cash Flow History",
+    "dash.audit.desc": "All balance adjustments and withdrawals verified on Avalanche L1",
+    "dash.audit.time": "Time",
+    "dash.audit.type": "Activity",
+    "dash.audit.amount": "Amount",
+    "dash.audit.executor": "Initiator",
+    "dash.audit.status": "Status",
   },
 };
 

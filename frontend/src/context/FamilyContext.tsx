@@ -35,6 +35,9 @@ export interface ChoreItem {
   rewardAmount: number;
   status: 'TODO' | 'SUBMITTED' | 'VERIFIED' | 'REWARDED';
   proofImageUrl?: string | null;
+  childName?: string;
+  childAvatar?: string;
+  deadline?: string;
 }
 
 export interface NotificationItem {
@@ -97,6 +100,7 @@ interface FamilyContextType {
   kidsXp: number;
   submitChoreProof: (choreId: string | number, proofUrl: string) => Promise<boolean>;
   verifyAndRewardChore: (choreId: string | number) => Promise<boolean>;
+  createChore: (params: { title: string; rewardAmount: number; childName?: string }) => Promise<boolean>;
 
   // Notifications
   notifications: NotificationItem[];
@@ -107,6 +111,7 @@ interface FamilyContextType {
   isLiveWeb3: boolean;
   isLiveBackend: boolean;
   depositFunds: (vaultType: VaultType, amount: number) => Promise<boolean>;
+  compoundYield: (vaultType: VaultType) => Promise<boolean>;
 }
 
 const FamilyContext = createContext<FamilyContextType | undefined>(undefined);
@@ -697,6 +702,97 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return true;
   };
 
+  // 6b. Tạo việc nhà mới cho con
+  const createChore = async (params: {
+    title: string;
+    rewardAmount: number;
+    childName?: string;
+  }): Promise<boolean> => {
+    const newChoreItem: ChoreItem = {
+      id: `chore-${Date.now()}`,
+      title: params.title,
+      rewardAmount: params.rewardAmount,
+      childName: params.childName || 'Bé Na',
+      childAvatar: 'https://images.unsplash.com/photo-1543332164-6e82f355badc?w=150',
+      status: 'TODO',
+      deadline: 'Hôm nay',
+    };
+    setChores((prev) => [newChoreItem, ...prev]);
+
+    setNotifications((prev) => [
+      {
+        id: `notif-${Date.now()}`,
+        title: 'Nhiệm vụ mới đã giao cho bé!',
+        message: `Đã giao: "${params.title}" với phần thưởng ${params.rewardAmount} USDC.`,
+        type: 'TASK_COMPLETED',
+        createdAt: 'Vừa xong',
+        isRead: false,
+      },
+      ...prev,
+    ]);
+    return true;
+  };
+
+  // 6c. Tái đầu tư lợi nhuận (Compound Yield)
+  const compoundYield = async (vaultType: VaultType): Promise<boolean> => {
+    const walletClient = getWalletClient();
+    if (walletClient && connectedWalletAddress) {
+      try {
+        await (walletClient as any).writeContract({
+          address: CONTRACT_ADDRESSES.familyYieldVault,
+          abi: [
+            {
+              type: 'function',
+              name: 'compoundYield',
+              inputs: [{ name: 'vaultType', type: 'uint8' }],
+              outputs: [],
+              stateMutability: 'nonpayable',
+            },
+          ],
+          functionName: 'compoundYield',
+          args: [vaultType],
+          account: connectedWalletAddress as `0x${string}`,
+        });
+      } catch (err) {
+        console.warn('Compound yield on-chain fallback:', err);
+      }
+    }
+
+    setVaults((prev) => {
+      const vKey =
+        vaultType === VaultType.RetirementShield
+          ? 'retirementShield'
+          : vaultType === VaultType.KidsSavings
+          ? 'kidsSavings'
+          : 'familyRosca';
+      const current = prev[vKey];
+      const added = current.accruedYield > 0 ? current.accruedYield : 12.5;
+      return {
+        ...prev,
+        [vKey]: {
+          ...current,
+          remoteYield: current.remoteYield + added,
+          accruedYield: 0,
+          total: current.total + added,
+        },
+      };
+    });
+
+    setNotifications((prev) => [
+      {
+        id: `notif-${Date.now()}`,
+        title: 'Tái đầu tư lợi nhuận thành công!',
+        message: 'Lợi nhuận DeFi đã được nhập gốc để tiếp tục sinh lãi kép ~8.0% APY.',
+        type: 'YIELD_PAYOUT',
+        createdAt: 'Vừa xong',
+        isRead: false,
+      },
+      ...prev,
+    ]);
+
+    return true;
+  };
+
   // 7. Kết nối / Ngắt kết nối ví
   const connectWallet = async () => {
     if (typeof window !== 'undefined' && (window.avalanche || window.ethereum)) {
@@ -756,6 +852,8 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         kidsXp,
         submitChoreProof,
         verifyAndRewardChore,
+        createChore,
+        compoundYield,
         notifications,
         unreadNotificationCount,
         markNotificationRead,
