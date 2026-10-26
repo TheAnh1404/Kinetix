@@ -78,3 +78,30 @@ export const DEMO_MEMBERS: DemoMember[] = [
 ];
 
 export const INITIAL_MEMBERS = DEMO_MEMBERS;
+
+export interface WorkspaceItem {
+  id: string;
+  name: string;
+  type: "FAMILY" | "SIBLINGS" | "FRIENDS" | "COMMUNITY";
+  workspaceCode?: string;
+  creatorWallet: string;
+  l1HubAddress?: string;
+  cchainVaultAddress?: string;
+  userRole?: RoleType;
+}
+
+export interface DynamicVaultItem {
+  id: string;
+  workspaceId: string;
+  onchainVaultId: number;
+  name: string;
+  description?: string;
+  ruleTemplate: "SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL";
+  bufferRatioBps: number;
+  fastWithdrawLimit: number;
+  requiredApprovals: number;
+  cachedTotalBalance: number;
+  cachedL1Buffer: number;
+  cachedCChainYield: number;
+  isActive: boolean;
+}

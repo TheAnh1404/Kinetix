@@ -5,23 +5,26 @@ import { useFamily } from "@/context/FamilyContext";
 import { useLanguage } from "@/context/LanguageContext";
 
 export const FamilyStatsCards: React.FC = () => {
-  const { vaults, totalFamilyWealth } = useFamily();
+  const { vaults, totalFamilyWealth, dynamicVaults } = useFamily();
   const { t } = useLanguage();
 
-  const bufferTotal =
-    vaults.retirementShield.localBuffer +
-    vaults.kidsSavings.localBuffer +
-    vaults.familyRosca.localBuffer;
+  const bufferTotal = dynamicVaults.length > 0
+    ? dynamicVaults.reduce((sum, v) => sum + v.cachedL1Buffer, 0)
+    : vaults.retirementShield.localBuffer +
+      vaults.kidsSavings.localBuffer +
+      vaults.familyRosca.localBuffer;
 
-  const yieldTotal =
-    vaults.retirementShield.remoteYield +
-    vaults.kidsSavings.remoteYield +
-    vaults.familyRosca.remoteYield;
+  const yieldTotal = dynamicVaults.length > 0
+    ? dynamicVaults.reduce((sum, v) => sum + Math.max(0, v.cachedTotalBalance - v.cachedL1Buffer), 0)
+    : vaults.retirementShield.remoteYield +
+      vaults.kidsSavings.remoteYield +
+      vaults.familyRosca.remoteYield;
 
-  const accruedTotal =
-    vaults.retirementShield.accruedYield +
-    vaults.kidsSavings.accruedYield +
-    vaults.familyRosca.accruedYield;
+  const accruedTotal = dynamicVaults.length > 0
+    ? dynamicVaults.reduce((sum, v) => sum + v.cachedCChainYield, 0)
+    : vaults.retirementShield.accruedYield +
+      vaults.kidsSavings.accruedYield +
+      vaults.familyRosca.accruedYield;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">

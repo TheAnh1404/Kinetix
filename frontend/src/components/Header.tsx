@@ -6,6 +6,7 @@ import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/context/LanguageContext";
 import { RoleSwitcherModal } from "./RoleSwitcherModal";
+import { WorkspaceSwitcher } from "./workspaces/WorkspaceSwitcher";
 import { ActiveTab, DemoMember } from "../types";
 
 interface HeaderProps {
@@ -133,9 +134,12 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </button>
 
-            {/* If Authenticated: Show Family Code + User Profile + Dashboard CTA */}
+            {/* If Authenticated: Show Workspace Switcher + Family Code + User Profile + Dashboard CTA */}
             {isAuthenticated ? (
               <div className="flex items-center gap-2 sm:gap-3">
+                {/* Workspace Switcher */}
+                <WorkspaceSwitcher />
+
                 {/* Family Code Badge */}
                 {familyInfo?.familyCode && (
                   <button

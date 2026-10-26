@@ -7,6 +7,8 @@ import { FamilyStatsCards } from "@/components/dashboard/FamilyStatsCards";
 import { MemberManagementModal } from "@/components/dashboard/MemberManagementModal";
 import { CreateChoreModal } from "@/components/dashboard/CreateChoreModal";
 import { VideoCallModal } from "@/components/dashboard/VideoCallModal";
+import { CreateVaultModal } from "@/components/vaults/CreateVaultModal";
+import { DynamicVaultItem } from "@/types";
 import { VaultType } from "@/contracts/config";
 
 type DashboardSubTab = "overview" | "vaults" | "members" | "chores" | "audit";
@@ -16,6 +18,8 @@ export const GuardianView: React.FC = () => {
     withdrawalRequests,
     approveWithdrawal,
     vaults,
+    dynamicVaults,
+    depositToVault,
     currentMember,
     members,
     familyInfo,
@@ -32,6 +36,10 @@ export const GuardianView: React.FC = () => {
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [isChoreModalOpen, setIsChoreModalOpen] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [isCreateVaultOpen, setIsCreateVaultOpen] = useState(false);
+  const [depositModalVault, setDepositModalVault] = useState<DynamicVaultItem | null>(null);
+  const [depositAmount, setDepositAmount] = useState<number>(20);
+  const [isDepositing, setIsDepositing] = useState(false);
   const [compoundingVault, setCompoundingVault] = useState<number | null>(null);
 
   // Yêu cầu rút tiền đang chờ xử lý hoặc vừa hoàn tất
@@ -136,6 +144,15 @@ export const GuardianView: React.FC = () => {
           >
             <span className="material-symbols-outlined text-[17px] text-amber-600">assignment_add</span>
             <span>{t("dash.actions.createChore")}</span>
+          </button>
+
+          <button
+            onClick={() => setIsCreateVaultOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-secondary-container hover:bg-secondary text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            type="button"
+          >
+            <span className="material-symbols-outlined text-[17px]">savings</span>
+            <span>Tạo Hũ Mới</span>
           </button>
 
           <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-surface-container-low rounded-xl border border-secondary/20">
@@ -521,157 +538,281 @@ export const GuardianView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB CONTENT 2: 3 FINANCIAL VAULTS */}
+      {/* TAB CONTENT 2: FINANCIAL VAULTS */}
       {activeSubTab === "vaults" && (
         <div className="flex flex-col gap-6">
           <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="font-headline-sm text-lg font-bold text-on-surface">
-                  {t("dash.tab.vaults")}
+                  {t("dash.tab.vaults")} ({dynamicVaults.length || 3})
                 </h3>
                 <p className="text-xs sm:text-sm text-on-surface-variant">
                   {language === "vi"
-                    ? "Quản trị phân bổ dòng tiền 3 thế hệ và điều chuyển thanh khoản liên chuỗi"
-                    : "Manage 3-generation asset pots and cross-chain liquidity rebalancing"}
+                    ? "Kiến trúc Hũ tiền động (Dynamic & Composable Multi-Space Vaults) trên Avalanche"
+                    : "Dynamic & Composable Multi-Space Vaults on Avalanche"}
                 </p>
               </div>
-              <span className="px-3.5 py-1.5 rounded-full bg-surface-container text-xs font-bold text-on-surface font-mono">
-                {language === "vi" ? "Tổng Quỹ: " : "Total: "}${(vaults.retirementShield.total + vaults.kidsSavings.total + vaults.familyRosca.total).toLocaleString()} USDC
-              </span>
-            </div>
-
-            {/* 3 Vaults Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Vault 1: Retirement Shield */}
-              <div className="p-5 rounded-2xl bg-surface-container-low border border-outline-variant/30 flex flex-col justify-between gap-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-xl bg-secondary/15 flex items-center justify-center text-secondary">
-                      <span className="material-symbols-outlined text-[20px]">elderly</span>
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-sm text-on-surface">Hũ Báo Hiếu</h4>
-                      <span className="text-[10px] text-on-surface-variant uppercase font-mono">Retirement Shield</span>
-                    </div>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
-                    8.0% APY
-                  </span>
-                </div>
-
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-on-surface-variant">Đệm L1 (10%):</span>
-                    <span className="font-mono font-bold text-on-surface">{vaults.retirementShield.localBuffer.toFixed(2)} USDC</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-on-surface-variant">C-Chain (90%):</span>
-                    <span className="font-mono font-bold text-emerald-700">{vaults.retirementShield.remoteYield.toFixed(2)} USDC</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-1 border-t border-surface-container">
-                    <span className="font-bold text-on-surface">Tổng số dư:</span>
-                    <span className="font-mono font-extrabold text-sm text-on-surface">{vaults.retirementShield.total.toFixed(2)} USDC</span>
-                  </div>
-                </div>
-
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => handleCompound(VaultType.RetirementShield)}
-                  disabled={compoundingVault === VaultType.RetirementShield}
-                  className="w-full py-2 rounded-xl bg-surface-container hover:bg-surface-container-high border border-outline-variant/30 text-xs font-bold text-on-surface transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  onClick={() => setIsCreateVaultOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
                 >
-                  <span className="material-symbols-outlined text-[16px] text-secondary">auto_mode</span>
-                  <span>{compoundingVault === VaultType.RetirementShield ? "Đang gộp lãi..." : t("dash.actions.compound")}</span>
+                  <span className="material-symbols-outlined text-[17px]">add_circle</span>
+                  <span>Tạo Hũ Mới</span>
                 </button>
-              </div>
-
-              {/* Vault 2: Kids Savings */}
-              <div className="p-5 rounded-2xl bg-surface-container-low border border-outline-variant/30 flex flex-col justify-between gap-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                      <span className="material-symbols-outlined text-[20px]">savings</span>
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-sm text-on-surface">Heo Đất Con Trẻ</h4>
-                      <span className="text-[10px] text-on-surface-variant uppercase font-mono">Kids Savings</span>
-                    </div>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
-                    8.0% APY
-                  </span>
-                </div>
-
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-on-surface-variant">Đệm L1 (10%):</span>
-                    <span className="font-mono font-bold text-on-surface">{vaults.kidsSavings.localBuffer.toFixed(2)} USDC</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-on-surface-variant">C-Chain (90%):</span>
-                    <span className="font-mono font-bold text-emerald-700">{vaults.kidsSavings.remoteYield.toFixed(2)} USDC</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-1 border-t border-surface-container">
-                    <span className="font-bold text-on-surface">Tổng số dư:</span>
-                    <span className="font-mono font-extrabold text-sm text-on-surface">{vaults.kidsSavings.total.toFixed(2)} USDC</span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleCompound(VaultType.KidsSavings)}
-                  disabled={compoundingVault === VaultType.KidsSavings}
-                  className="w-full py-2 rounded-xl bg-surface-container hover:bg-surface-container-high border border-outline-variant/30 text-xs font-bold text-on-surface transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px] text-secondary">auto_mode</span>
-                  <span>{compoundingVault === VaultType.KidsSavings ? "Đang gộp lãi..." : t("dash.actions.compound")}</span>
-                </button>
-              </div>
-
-              {/* Vault 3: Family ROSCA */}
-              <div className="p-5 rounded-2xl bg-surface-container-low border border-outline-variant/30 flex flex-col justify-between gap-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-xl bg-tertiary/15 flex items-center justify-center text-tertiary">
-                      <span className="material-symbols-outlined text-[20px]">groups</span>
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-sm text-on-surface">Quỹ Tương Trợ Họ</h4>
-                      <span className="text-[10px] text-on-surface-variant uppercase font-mono">Family ROSCA</span>
-                    </div>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">
-                    Kỳ 3/4
-                  </span>
-                </div>
-
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-on-surface-variant">Đệm L1 (10%):</span>
-                    <span className="font-mono font-bold text-on-surface">{vaults.familyRosca.localBuffer.toFixed(2)} USDC</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-on-surface-variant">C-Chain (90%):</span>
-                    <span className="font-mono font-bold text-emerald-700">{vaults.familyRosca.remoteYield.toFixed(2)} USDC</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-1 border-t border-surface-container">
-                    <span className="font-bold text-on-surface">Tổng số dư:</span>
-                    <span className="font-mono font-extrabold text-sm text-on-surface">{vaults.familyRosca.total.toFixed(2)} USDC</span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleCompound(VaultType.FamilyROSCA)}
-                  disabled={compoundingVault === VaultType.FamilyROSCA}
-                  className="w-full py-2 rounded-xl bg-surface-container hover:bg-surface-container-high border border-outline-variant/30 text-xs font-bold text-on-surface transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px] text-secondary">auto_mode</span>
-                  <span>{compoundingVault === VaultType.FamilyROSCA ? "Đang gộp lãi..." : t("dash.actions.compound")}</span>
-                </button>
+                <span className="px-3.5 py-2 rounded-xl bg-surface-container text-xs font-bold text-on-surface font-mono">
+                  {dynamicVaults.length > 0
+                    ? `${dynamicVaults.reduce((sum, v) => sum + v.cachedTotalBalance, 0).toLocaleString()} AVAX`
+                    : `$${(vaults.retirementShield.total + vaults.kidsSavings.total + vaults.familyRosca.total).toLocaleString()} USDC`}
+                </span>
               </div>
             </div>
+
+            {/* Dynamic Vaults Grid */}
+            {dynamicVaults.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {dynamicVaults.map((v) => {
+                  const bufferPct = v.bufferRatioBps / 100;
+                  const yieldPct = 100 - bufferPct;
+                  const getIcon = () => {
+                    switch (v.ruleTemplate) {
+                      case "SHIELD": return "shield";
+                      case "MILESTONE": return "military_tech";
+                      case "ROSCA": return "cached";
+                      case "SHARED_GOAL": return "flag";
+                      default: return "savings";
+                    }
+                  };
+                  const getColorClass = () => {
+                    switch (v.ruleTemplate) {
+                      case "SHIELD": return "text-error bg-error/10";
+                      case "MILESTONE": return "text-amber-600 bg-amber-500/10";
+                      case "ROSCA": return "text-emerald-700 bg-emerald-500/10";
+                      case "SHARED_GOAL": return "text-indigo-600 bg-indigo-500/10";
+                      default: return "text-primary bg-primary/10";
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={v.id}
+                      className="p-5 rounded-2xl bg-surface-container-low border border-outline-variant/30 flex flex-col justify-between gap-4 hover:border-primary/40 transition-all shadow-sm group"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${getColorClass()}`}>
+                            <span className="material-symbols-outlined text-[22px]">{getIcon()}</span>
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm text-on-surface leading-tight line-clamp-1">{v.name}</h4>
+                            <span className="text-[10px] text-on-surface-variant font-mono font-semibold">
+                              Hũ #{v.onchainVaultId} • {v.ruleTemplate}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold shrink-0">
+                          8.0% APY
+                        </span>
+                      </div>
+
+                      {/* Buffer Ratio Mini Visualizer */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px] font-semibold text-on-surface-variant">
+                          <span>Đệm L1: {bufferPct}%</span>
+                          <span>C-Chain: {yieldPct}%</span>
+                        </div>
+                        <div className="h-2 w-full bg-surface-container rounded-full overflow-hidden flex">
+                          <div style={{ width: `${bufferPct}%` }} className="bg-primary h-full" />
+                          <div style={{ width: `${yieldPct}%` }} className="bg-secondary-container h-full" />
+                        </div>
+                      </div>
+
+                      {/* Balance Details */}
+                      <div className="space-y-1.5 text-xs bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/15">
+                        <div className="flex items-center justify-between">
+                          <span className="text-on-surface-variant">Đệm L1 (tức thì 0 gas):</span>
+                          <span className="font-mono font-bold text-primary">{v.cachedL1Buffer.toFixed(2)} AVAX</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-on-surface-variant">C-Chain (8% APY):</span>
+                          <span className="font-mono font-bold text-secondary-container">
+                            {Math.max(0, v.cachedTotalBalance - v.cachedL1Buffer).toFixed(2)} AVAX
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-on-surface-variant">Lãi dồn tích:</span>
+                          <span className="font-mono font-bold text-emerald-700">+{v.cachedCChainYield.toFixed(2)} AVAX</span>
+                        </div>
+                        <div className="flex items-center justify-between pt-1 border-t border-surface-container">
+                          <span className="font-bold text-on-surface">Tổng số dư:</span>
+                          <span className="font-mono font-extrabold text-sm text-on-surface">{v.cachedTotalBalance.toFixed(2)} AVAX</span>
+                        </div>
+                      </div>
+
+                      {/* Quick Limits Info */}
+                      <div className="flex items-center justify-between text-[10px] text-on-surface-variant px-1">
+                        <span>Rút nhanh: ≤{v.fastWithdrawLimit} AVAX</span>
+                        <span>Đa chữ ký: {v.requiredApprovals} Guardians</span>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setDepositModalVault(v)}
+                          className="py-2 px-3 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-sm active:scale-95"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">add_card</span>
+                          <span>Nạp Quỹ</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCompound(v.onchainVaultId as any)}
+                          className="py-2 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[15px] text-secondary">auto_mode</span>
+                          <span>Gộp Lãi</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Fallback 3 Vaults Cards Grid */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Vault 1: Retirement Shield */}
+                <div className="p-5 rounded-2xl bg-surface-container-low border border-outline-variant/30 flex flex-col justify-between gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-xl bg-secondary/15 flex items-center justify-center text-secondary">
+                        <span className="material-symbols-outlined text-[20px]">elderly</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-on-surface">Hũ Báo Hiếu</h4>
+                        <span className="text-[10px] text-on-surface-variant uppercase font-mono">Retirement Shield</span>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
+                      8.0% APY
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-on-surface-variant">Đệm L1 (10%):</span>
+                      <span className="font-mono font-bold text-on-surface">{vaults.retirementShield.localBuffer.toFixed(2)} USDC</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-on-surface-variant">C-Chain (90%):</span>
+                      <span className="font-mono font-bold text-emerald-700">{vaults.retirementShield.remoteYield.toFixed(2)} USDC</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-surface-container">
+                      <span className="font-bold text-on-surface">Tổng số dư:</span>
+                      <span className="font-mono font-extrabold text-sm text-on-surface">{vaults.retirementShield.total.toFixed(2)} USDC</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCompound(VaultType.RetirementShield)}
+                    disabled={compoundingVault === VaultType.RetirementShield}
+                    className="w-full py-2 rounded-xl bg-surface-container hover:bg-surface-container-high border border-outline-variant/30 text-xs font-bold text-on-surface transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-secondary">auto_mode</span>
+                    <span>{compoundingVault === VaultType.RetirementShield ? "Đang gộp lãi..." : t("dash.actions.compound")}</span>
+                  </button>
+                </div>
+
+                {/* Vault 2: Kids Savings */}
+                <div className="p-5 rounded-2xl bg-surface-container-low border border-outline-variant/30 flex flex-col justify-between gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <span className="material-symbols-outlined text-[20px]">savings</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-on-surface">Heo Đất Con Trẻ</h4>
+                        <span className="text-[10px] text-on-surface-variant uppercase font-mono">Kids Savings</span>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
+                      8.0% APY
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-on-surface-variant">Đệm L1 (10%):</span>
+                      <span className="font-mono font-bold text-on-surface">{vaults.kidsSavings.localBuffer.toFixed(2)} USDC</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-on-surface-variant">C-Chain (90%):</span>
+                      <span className="font-mono font-bold text-emerald-700">{vaults.kidsSavings.remoteYield.toFixed(2)} USDC</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-surface-container">
+                      <span className="font-bold text-on-surface">Tổng số dư:</span>
+                      <span className="font-mono font-extrabold text-sm text-on-surface">{vaults.kidsSavings.total.toFixed(2)} USDC</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCompound(VaultType.KidsSavings)}
+                    disabled={compoundingVault === VaultType.KidsSavings}
+                    className="w-full py-2 rounded-xl bg-surface-container hover:bg-surface-container-high border border-outline-variant/30 text-xs font-bold text-on-surface transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-secondary">auto_mode</span>
+                    <span>{compoundingVault === VaultType.KidsSavings ? "Đang gộp lãi..." : t("dash.actions.compound")}</span>
+                  </button>
+                </div>
+
+                {/* Vault 3: Family ROSCA */}
+                <div className="p-5 rounded-2xl bg-surface-container-low border border-outline-variant/30 flex flex-col justify-between gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-xl bg-tertiary/15 flex items-center justify-center text-tertiary">
+                        <span className="material-symbols-outlined text-[20px]">groups</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-on-surface">Quỹ Tương Trợ Họ</h4>
+                        <span className="text-[10px] text-on-surface-variant uppercase font-mono">Family ROSCA</span>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">
+                      Kỳ 3/4
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-on-surface-variant">Đệm L1 (10%):</span>
+                      <span className="font-mono font-bold text-on-surface">{vaults.familyRosca.localBuffer.toFixed(2)} USDC</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-on-surface-variant">C-Chain (90%):</span>
+                      <span className="font-mono font-bold text-emerald-700">{vaults.familyRosca.remoteYield.toFixed(2)} USDC</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-surface-container">
+                      <span className="font-bold text-on-surface">Tổng số dư:</span>
+                      <span className="font-mono font-extrabold text-sm text-on-surface">{vaults.familyRosca.total.toFixed(2)} USDC</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCompound(VaultType.FamilyROSCA)}
+                    disabled={compoundingVault === VaultType.FamilyROSCA}
+                    className="w-full py-2 rounded-xl bg-surface-container hover:bg-surface-container-high border border-outline-variant/30 text-xs font-bold text-on-surface transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-secondary">auto_mode</span>
+                    <span>{compoundingVault === VaultType.FamilyROSCA ? "Đang gộp lãi..." : t("dash.actions.compound")}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1051,6 +1192,102 @@ export const GuardianView: React.FC = () => {
       )}
 
       {/* MODALS */}
+      <CreateVaultModal
+        isOpen={isCreateVaultOpen}
+        onClose={() => setIsCreateVaultOpen(false)}
+      />
+
+      {/* Deposit to Vault Modal */}
+      {depositModalVault && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-surface-container-lowest rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-outline-variant/30 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-surface-container">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[22px]">add_card</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-on-surface">Nạp Tiền Vào Hũ</h3>
+                  <p className="text-xs text-on-surface-variant font-mono">{depositModalVault.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDepositModalVault(null)}
+                className="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">
+                  Số Lượng Nạp (AVAX)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    max="10000"
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(Number(e.target.value))}
+                    className="w-full px-4 py-2.5 rounded-xl bg-surface-container-low border border-outline-variant/30 text-sm font-mono font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <span className="absolute right-3.5 top-2.5 text-xs font-bold text-primary">AVAX</span>
+                </div>
+              </div>
+
+              {/* Dynamic Split Breakdown */}
+              <div className="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant/20 space-y-2 text-xs">
+                <div className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
+                  Cơ Chế Phân Bổ Tự Động (Teleporter ICTT)
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-on-surface-variant">
+                    Đệm L1 ({depositModalVault.bufferRatioBps / 100}%):
+                  </span>
+                  <span className="font-mono font-bold text-primary">
+                    {((depositAmount * depositModalVault.bufferRatioBps) / 10000).toFixed(2)} AVAX
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-on-surface-variant">
+                    Fuji C-Chain ({100 - depositModalVault.bufferRatioBps / 100}% @ 8% APY):
+                  </span>
+                  <span className="font-mono font-bold text-secondary-container">
+                    {((depositAmount * (10000 - depositModalVault.bufferRatioBps)) / 10000).toFixed(2)} AVAX
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDepositModalVault(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-xs font-bold text-on-surface transition-all cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  disabled={isDepositing || depositAmount <= 0}
+                  onClick={async () => {
+                    setIsDepositing(true);
+                    await depositToVault(depositModalVault.onchainVaultId, depositAmount);
+                    setIsDepositing(false);
+                    setDepositModalVault(null);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-xs font-bold text-white shadow-md transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isDepositing ? "Đang nạp..." : "Xác nhận nạp"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <MemberManagementModal
         isOpen={isMemberModalOpen}
         onClose={() => setIsMemberModalOpen(false)}
