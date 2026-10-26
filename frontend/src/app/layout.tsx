@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { LanguageProvider } from "@/context/LanguageContext";
 
 export const metadata: Metadata = {
   title: "Kinetix - Family Finance OS on Avalanche",
@@ -27,7 +28,7 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-surface text-on-surface min-h-screen flex flex-col font-body-md text-body-md">
-        {children}
+        <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>
   );
