@@ -9,6 +9,7 @@ import { WorkspaceSwitcher } from '@/components/workspaces/WorkspaceSwitcher';
 import { RoleSwitcherModal } from '@/components/RoleSwitcherModal';
 import { DepositVaultModal } from '@/components/vaults/DepositVaultModal';
 import { CreateVaultModal } from '@/components/vaults/CreateVaultModal';
+import { SettingsModal } from '@/components/settings/SettingsModal';
 import { MobileNavBar } from '@/components/navigation/MobileNavBar';
 import { ActiveTab, DemoMember } from '@/types';
 import { SNOWTRACE_TESTNET_URL, CONTRACT_ADDRESSES } from '@/contracts/config';
@@ -42,6 +43,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [isCreateVaultOpen, setIsCreateVaultOpen] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
@@ -288,6 +290,16 @@ export const AppShell: React.FC<AppShellProps> = ({
               </button>
             )}
 
+            {/* Settings Gear Button */}
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
+              title="Cài đặt ứng dụng & Quản lý tài khoản"
+            >
+              <span className="material-symbols-outlined text-[19px]">settings</span>
+            </button>
+
             {/* Logout */}
             <button
               onClick={logout}
@@ -372,6 +384,11 @@ export const AppShell: React.FC<AppShellProps> = ({
       <CreateVaultModal
         isOpen={isCreateVaultOpen}
         onClose={() => setIsCreateVaultOpen(false)}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
 
       {currentMember && (
