@@ -40,15 +40,24 @@ export const publicClientFuji: PublicClient = createPublicClient({
 /**
  * Lấy Wallet Client kết nối từ ví người dùng (Core Wallet / MetaMask)
  */
-export function getWalletClient(): WalletClient | null {
+export function getWalletClient(targetChain?: any): WalletClient | null {
   if (typeof window === 'undefined') return null;
 
   // Ưu tiên Core Wallet (window.avalanche hoặc window.ethereum)
   const provider = window.avalanche || window.ethereum;
   if (!provider) return null;
 
+  // Tự động điều chỉnh chain khớp với mạng của ví nếu không truyền targetChain
+  let chain = targetChain || avalancheFamilyL1;
+  if (!targetChain && provider.chainId) {
+    const currentId = parseInt(provider.chainId, 16);
+    if (currentId === 43113) {
+      chain = avalancheFuji;
+    }
+  }
+
   return createWalletClient({
-    chain: avalancheFamilyL1,
+    chain,
     transport: custom(provider),
   });
 }

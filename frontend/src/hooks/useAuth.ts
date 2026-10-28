@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createWalletClient, custom } from "viem";
+import { switchNetwork } from "@/lib/web3/client";
 
 export interface AuthUser {
   id: string;
@@ -106,7 +107,30 @@ export function useAuth() {
     const nonce = await getNonce();
     const domain = typeof window !== "undefined" ? window.location.host : "localhost:3000";
     const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-    const chainId = 43114; // Family L1 (hoặc 43113 Fuji)
+
+    // 1. Tự động phát hiện Chain ID hiện tại của ví Core Wallet để tránh lỗi "Unsupported network"
+    let chainId = 43113; // Mặc định Avalanche Fuji Testnet
+    try {
+      const chainIdHex = await provider.request({ method: "eth_chainId" });
+      if (chainIdHex) {
+        const detectedChainId = parseInt(chainIdHex, 16);
+        // Nếu ví đang ở Fuji (43113) hoặc Avalanche Mainnet / Family L1 (43114 / 99999)
+        if (detectedChainId === 43113 || detectedChainId === 43114 || detectedChainId === 99999) {
+          chainId = detectedChainId;
+        } else {
+          // Nếu ví đang ở mạng khác (Ethereum, Polygon...), tự động yêu cầu chuyển sang Avalanche Fuji
+          const switched = await switchNetwork(43113);
+          if (switched) {
+            chainId = 43113;
+          } else {
+            chainId = detectedChainId;
+          }
+        }
+      }
+    } catch (chainErr) {
+      console.warn("Lỗi kiểm tra hoặc chuyển mạng ví:", chainErr);
+    }
+
     const issuedAt = new Date().toISOString();
 
     const message = `${domain} wants you to sign in with your Ethereum account:
