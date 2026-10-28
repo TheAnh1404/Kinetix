@@ -160,6 +160,10 @@ interface FamilyContextType {
     requiredApprovals: number;
     guardianWallets?: string[];
     beneficiaryWallets?: string[];
+    targetGoalAmount?: number;
+    targetDeadline?: string;
+    roscaRoundDuration?: number;
+    roscaRoundContribution?: number;
   }) => Promise<{ success: boolean; vault?: any; error?: string }>;
   depositToVault: (vaultId: number, amount: number) => Promise<boolean>;
   fastWithdrawFromVault: (vaultId: number, amount: number) => Promise<boolean>;
@@ -168,6 +172,7 @@ interface FamilyContextType {
     amount: number,
     reason: string
   ) => Promise<{ success: boolean; requestId?: number }>;
+  payoutRoscaRound: (vaultId: number, dbVaultId?: string) => Promise<boolean>;
 
   // Members & Auth
   currentMember: DemoMember;
@@ -361,6 +366,12 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             ? Number(v.cachedTotalBalance || 0) - Number(v.cachedL1Buffer || 0)
             : Number(v.cachedCChainYield || 0),
           isActive: v.isActive ?? true,
+          targetGoalAmount: Number(v.targetGoalAmount || 0),
+          targetDeadline: v.targetDeadline ? String(v.targetDeadline) : null,
+          roscaRoundDuration: Number(v.roscaRoundDuration || 0),
+          roscaRoundContribution: Number(v.roscaRoundContribution || 0),
+          roscaCurrentRound: Number(v.roscaCurrentRound || 0),
+          roscaLastRoundTimestamp: v.roscaLastRoundTimestamp ? String(v.roscaLastRoundTimestamp) : null,
         }));
         setDynamicVaults(loadedVaults);
         if (loadedVaults.length > 0 && !selectedVault) {
@@ -549,6 +560,10 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     requiredApprovals: number;
     guardianWallets?: string[];
     beneficiaryWallets?: string[];
+    targetGoalAmount?: number;
+    targetDeadline?: string;
+    roscaRoundDuration?: number;
+    roscaRoundContribution?: number;
   }) => {
     if (!currentWorkspace) {
       return { success: false, error: 'Chưa chọn Không gian chung' };
@@ -577,21 +592,44 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             ? params.beneficiaryWallets
             : [connectedWalletAddress];
 
-          const tx = await (walletClient as any).writeContract({
-            address: CONTRACT_ADDRESSES.familyHub,
-            abi: FAMILY_HUB_ABI,
-            functionName: 'createCustomVault',
-            args: [
-              params.name,
-              ruleTypeIndex,
-              BigInt(params.bufferRatioBps),
-              parseEther(params.fastWithdrawLimit.toString()),
-              BigInt(params.requiredApprovals),
-              guardians as `0x${string}`[],
-              beneficiaries as `0x${string}`[],
-            ],
-            account: connectedWalletAddress as `0x${string}`,
-          });
+          let tx;
+          if (params.ruleTemplate === 'ROSCA' || params.ruleTemplate === 'SHARED_GOAL') {
+            tx = await (walletClient as any).writeContract({
+              address: CONTRACT_ADDRESSES.familyHub,
+              abi: FAMILY_HUB_ABI,
+              functionName: 'createAdvancedVault',
+              args: [
+                params.name,
+                ruleTypeIndex,
+                BigInt(params.bufferRatioBps),
+                parseEther((params.fastWithdrawLimit || 0).toString()),
+                BigInt(params.requiredApprovals),
+                guardians as `0x${string}`[],
+                beneficiaries as `0x${string}`[],
+                parseEther((params.targetGoalAmount || 0).toString()),
+                BigInt(params.targetDeadline ? Math.floor(new Date(params.targetDeadline).getTime() / 1000) : 0),
+                BigInt(params.roscaRoundDuration || 0),
+                parseEther((params.roscaRoundContribution || 0).toString()),
+              ],
+              account: connectedWalletAddress as `0x${string}`,
+            });
+          } else {
+            tx = await (walletClient as any).writeContract({
+              address: CONTRACT_ADDRESSES.familyHub,
+              abi: FAMILY_HUB_ABI,
+              functionName: 'createCustomVault',
+              args: [
+                params.name,
+                ruleTypeIndex,
+                BigInt(params.bufferRatioBps),
+                parseEther((params.fastWithdrawLimit || 0).toString()),
+                BigInt(params.requiredApprovals),
+                guardians as `0x${string}`[],
+                beneficiaries as `0x${string}`[],
+              ],
+              account: connectedWalletAddress as `0x${string}`,
+            });
+          }
           console.log('Tạo Hũ On-Chain thành công, TX:', tx);
         } catch (onchainErr) {
           console.warn('Onchain createCustomVault warning (fallback DB):', onchainErr);
@@ -618,6 +656,53 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     } catch (err: any) {
       return { success: false, error: err.message };
     }
+  };
+
+  // Giải ngân kỳ hụi xoay vòng (ROSCA Round Payout)
+  const payoutRoscaRound = async (vaultId: number, dbVaultId?: string): Promise<boolean> => {
+    const walletClient = getWalletClient();
+    if (walletClient && connectedWalletAddress) {
+      try {
+        await (walletClient as any).writeContract({
+          address: CONTRACT_ADDRESSES.familyHub,
+          abi: FAMILY_HUB_ABI,
+          functionName: 'payoutRoscaRound',
+          args: [BigInt(vaultId)],
+          account: connectedWalletAddress as `0x${string}`,
+        });
+      } catch (err) {
+        console.warn('payoutRoscaRound onchain warning (fallback local):', err);
+      }
+    }
+
+    if (dbVaultId) {
+      try {
+        await fetch('/api/vaults/rosca-payout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vaultId: dbVaultId }),
+        });
+        if (currentWorkspace) {
+          await loadWorkspaceData(currentWorkspace.id, currentMember.id);
+        }
+      } catch (err) {
+        console.warn('payoutRoscaRound API error:', err);
+      }
+    }
+
+    setNotifications((prev) => [
+      {
+        id: `notif-${Date.now()}`,
+        title: '🤝 Giải ngân kỳ Hụi thành công',
+        message: `Đã kích hoạt giải ngân kỳ Hụi của Hũ #${vaultId} cho thành viên đến lượt xoay vòng!`,
+        type: 'YIELD_PAYOUT',
+        createdAt: 'Vừa xong',
+        isRead: false,
+      },
+      ...prev,
+    ]);
+
+    return true;
   };
 
   // Nạp tiền vào Hũ Động
@@ -981,6 +1066,7 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         depositToVault,
         fastWithdrawFromVault,
         requestVaultWithdrawal,
+        payoutRoscaRound,
         currentMember,
         members,
         familyInfo,

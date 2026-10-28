@@ -213,6 +213,14 @@ const translations: Record<Language, Record<string, string>> = {
     "dash.audit.amount": "Số Tiền",
     "dash.audit.executor": "Thực Hiện",
     "dash.audit.status": "Trạng Thái",
+
+    // 404 Not Found Page
+    "notfound.badge": "HTTP 404 • Không Tìm Thấy Trang",
+    "notfound.title": "Không Tìm Thấy Trang",
+    "notfound.desc": "Đường dẫn bạn vừa truy cập không tồn tại hoặc đã được chuyển sang giao diện mới của Kinetix.",
+    "notfound.countdown": "Tự động chuyển hướng về Trang Chủ sau",
+    "notfound.home": "Về Trang Chủ",
+    "notfound.login": "Đăng Nhập",
   },
   en: {
     // Brand & Meta
@@ -415,6 +423,14 @@ const translations: Record<Language, Record<string, string>> = {
     "dash.audit.amount": "Amount",
     "dash.audit.executor": "Initiator",
     "dash.audit.status": "Status",
+
+    // 404 Not Found Page
+    "notfound.badge": "HTTP 404 • Page Not Found",
+    "notfound.title": "Page Not Found",
+    "notfound.desc": "The requested URL does not exist or has been relocated to the new Kinetix workspace.",
+    "notfound.countdown": "Redirecting to Home in",
+    "notfound.home": "Back to Home",
+    "notfound.login": "Login",
   },
 };
 

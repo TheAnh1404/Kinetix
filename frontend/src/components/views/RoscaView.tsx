@@ -16,6 +16,7 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
     currentWorkspace,
     depositToVault,
     requestVaultWithdrawal,
+    payoutRoscaRound,
     currentMember: contextMember,
     members,
     isLiveWeb3,
@@ -67,18 +68,29 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
     }
   };
 
-  // Kích hoạt giải ngân định kỳ
+  // Kích hoạt giải ngân định kỳ (ROSCA hoặc SHARED_GOAL)
   const handlePayout = async () => {
     if (!selectedVault) return;
     setIsPayingOut(true);
     try {
-      const res = await requestVaultWithdrawal(
-        selectedVault.onchainVaultId,
-        selectedVault.totalBalance > 0 ? selectedVault.totalBalance : 1000,
-        `Giải ngân kỳ Hụi xoay vòng - ${selectedVault.name}`
-      );
-      if (res.success) {
-        setPayoutSuccess(true);
+      if (selectedVault.ruleTemplate === 'ROSCA') {
+        // Gọi trực tiếp cơ chế giải ngân theo kỳ của Hũ ROSCA
+        const ok = await payoutRoscaRound(selectedVault.onchainVaultId, selectedVault.id);
+        if (ok) {
+          setPayoutSuccess(true);
+          setTimeout(() => setPayoutSuccess(false), 5000);
+        }
+      } else {
+        // Với SHARED_GOAL, tạo phiếu yêu cầu đa chữ ký giải ngân quỹ mục tiêu
+        const res = await requestVaultWithdrawal(
+          selectedVault.onchainVaultId,
+          selectedVault.totalBalance > 0 ? selectedVault.totalBalance : 1000,
+          `Giải ngân quỹ mục tiêu - ${selectedVault.name}`
+        );
+        if (res.success) {
+          setPayoutSuccess(true);
+          setTimeout(() => setPayoutSuccess(false), 5000);
+        }
       }
     } finally {
       setIsPayingOut(false);

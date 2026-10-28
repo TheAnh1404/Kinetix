@@ -30,11 +30,20 @@ export default function DashboardCatchAllPage() {
         break;
       case "kids":
       case "chores":
+      case "chore":
         router.replace("/?tab=kinetix-kids");
         break;
       case "rosca":
+      case "hui":
         router.replace("/?tab=quy-rosca");
         break;
+      case "vault":
+      case "vaults":
+      case "workspace":
+      case "workspaces":
+      case "goal":
+      case "goals":
+      case "shared-goal":
       case "guardian":
       case "admin":
       default:
