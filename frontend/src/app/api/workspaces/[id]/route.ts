@@ -52,36 +52,44 @@ export async function GET(
       .innerJoin(users, eq(users.id, workspaceMembers.userId))
       .where(eq(workspaceMembers.workspaceId, id));
 
-    // Nếu chưa có thành viên trong workspace_members, tự động liên kết từ users.familyId
-    if (memberRows.length === 0) {
-      const familyUsers = await db
-        .select()
-        .from(users)
-        .where(eq(users.familyId, id));
+    // Nếu workspace thiếu các vai trò đa thế hệ (Ông Bà, Con Trẻ, Guardians), tự động liên kết thành viên
+    const hasElderly = memberRows.some((m) => m.role === "ELDERLY");
+    const hasChild = memberRows.some((m) => m.role === "CHILD");
+    const hasGuardian = memberRows.some((m) => m.role === "GUARDIAN");
 
-      if (familyUsers.length > 0) {
-        for (const u of familyUsers) {
-          try {
-            await db.insert(workspaceMembers).values({
-              workspaceId: id,
-              userId: u.id,
-              role: u.role || "ADMIN",
-            });
-          } catch (e) {
-            // bỏ qua nếu đã tồn tại
-          }
+    if (!hasElderly || !hasChild || !hasGuardian) {
+      const allSystemUsers = await db.select().from(users);
+      const elderlyUser = allSystemUsers.find((u) => u.role === "ELDERLY");
+      const childUser = allSystemUsers.find((u) => u.role === "CHILD");
+      const guardianUsers = allSystemUsers.filter((u) => u.role === "GUARDIAN");
+
+      const toAdd = [];
+      if (!hasElderly && elderlyUser) toAdd.push({ user: elderlyUser, role: "ELDERLY" as const });
+      if (!hasChild && childUser) toAdd.push({ user: childUser, role: "CHILD" as const });
+      if (!hasGuardian && guardianUsers.length > 0) {
+        guardianUsers.forEach((g) => toAdd.push({ user: g, role: "GUARDIAN" as const }));
+      }
+
+      for (const item of toAdd) {
+        try {
+          await db.insert(workspaceMembers).values({
+            workspaceId: id,
+            userId: item.user.id,
+            role: item.role,
+          });
+          memberRows.push({
+            id: item.user.id,
+            fullName: item.user.fullName,
+            walletAddress: item.user.walletAddress,
+            role: item.role,
+            authMethod: item.user.authMethod,
+            avatarUrl: item.user.avatarUrl,
+            phoneNumber: item.user.phoneNumber,
+            joinedAt: new Date(),
+          });
+        } catch (e) {
+          // ignore duplicate
         }
-
-        memberRows = familyUsers.map((u) => ({
-          id: u.id,
-          fullName: u.fullName,
-          walletAddress: u.walletAddress,
-          role: u.role,
-          authMethod: u.authMethod,
-          avatarUrl: u.avatarUrl,
-          phoneNumber: u.phoneNumber,
-          joinedAt: u.createdAt,
-        }));
       }
     }
 

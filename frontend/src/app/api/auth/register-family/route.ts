@@ -3,7 +3,7 @@ import { verifyMessage } from "viem";
 import { sql } from "drizzle-orm";
 import crypto from "crypto";
 import { db } from "@/db";
-import { users, families, workspaceMembers, vaults } from "@/db/schema";
+import { users, families, workspaceMembers, vaults, vaultMembers } from "@/db/schema";
 import { signAuthToken, SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "@/lib/jwt";
 
 export const dynamic = "force-dynamic";
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     });
 
     // 8. Tự động khởi tạo 3 Hũ Động tiêu chuẩn cho Không gian mới
-    await db.insert(vaults).values([
+    const createdVaults = await db.insert(vaults).values([
       {
         workspaceId: family.id,
         onchainVaultId: 0,
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
         requiredApprovals: 2,
         cachedTotalBalance: "1200",
         cachedL1Buffer: "120",
-        cachedCChainYield: "1080",
+        cachedCChainYield: "86.4",
         isActive: true,
       },
       {
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
         requiredApprovals: 2,
         cachedTotalBalance: "450",
         cachedL1Buffer: "90",
-        cachedCChainYield: "360",
+        cachedCChainYield: "28.8",
         isActive: true,
       },
       {
@@ -181,10 +181,48 @@ export async function POST(req: NextRequest) {
         requiredApprovals: 3,
         cachedTotalBalance: "3000",
         cachedL1Buffer: "0",
-        cachedCChainYield: "3000",
+        cachedCChainYield: "240",
         isActive: true,
       },
-    ]);
+    ]).returning();
+
+    // 8b. Tự động liên kết các thành viên đa thế hệ (Ông Bà, Con Trẻ, Guardians) vào gia đình mới
+    try {
+      const allSystemUsers = await db.select().from(users);
+      const elderlyUser = allSystemUsers.find((u) => u.role === "ELDERLY");
+      const childUser = allSystemUsers.find((u) => u.role === "CHILD");
+      const guardianUsers = allSystemUsers.filter((u) => u.role === "GUARDIAN");
+
+      if (elderlyUser) {
+        await db.insert(workspaceMembers).values({ workspaceId: family.id, userId: elderlyUser.id, role: "ELDERLY" }).catch(() => {});
+      }
+      if (childUser) {
+        await db.insert(workspaceMembers).values({ workspaceId: family.id, userId: childUser.id, role: "CHILD" }).catch(() => {});
+      }
+      for (const g of guardianUsers) {
+        await db.insert(workspaceMembers).values({ workspaceId: family.id, userId: g.id, role: "GUARDIAN" }).catch(() => {});
+      }
+
+      // Liên kết vault_members
+      for (const v of createdVaults) {
+        if (v.ruleTemplate === "SHIELD") {
+          await db.insert(vaultMembers).values({ vaultId: v.id, userId: adminUser.id, vaultRole: "GUARDIAN" });
+          for (const g of guardianUsers) {
+            await db.insert(vaultMembers).values({ vaultId: v.id, userId: g.id, vaultRole: "GUARDIAN" }).catch(() => {});
+          }
+          if (elderlyUser) {
+            await db.insert(vaultMembers).values({ vaultId: v.id, userId: elderlyUser.id, vaultRole: "BENEFICIARY" }).catch(() => {});
+          }
+        } else if (v.ruleTemplate === "MILESTONE") {
+          await db.insert(vaultMembers).values({ vaultId: v.id, userId: adminUser.id, vaultRole: "GUARDIAN" });
+          if (childUser) {
+            await db.insert(vaultMembers).values({ vaultId: v.id, userId: childUser.id, vaultRole: "BENEFICIARY" }).catch(() => {});
+          }
+        }
+      }
+    } catch (linkErr) {
+      console.warn("Lỗi tự động liên kết thành viên gia đình:", linkErr);
+    }
 
     // 9. Ký JWT Session Token
     const token = await signAuthToken({

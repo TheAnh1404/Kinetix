@@ -699,4 +699,63 @@ export class FamilyService {
       roundIndex: v.roscaCurrentRound,
     };
   }
+
+  /**
+   * 10. Cập nhật số dư Hũ tiền (Nạp tiền, rút nhanh, hoặc đồng bộ từ On-Chain)
+   */
+  static async updateVaultBalance(params: {
+    vaultId?: string;
+    onchainVaultId?: number;
+    action?: "DEPOSIT" | "WITHDRAW" | "SET";
+    amount?: number;
+    newTotalBalance?: number | string;
+    newL1Buffer?: number | string;
+    newCChainYield?: number | string;
+  }): Promise<Vault> {
+    let targetVault: Vault | undefined;
+
+    if (params.vaultId) {
+      const [v] = await db.select().from(vaults).where(eq(vaults.id, params.vaultId));
+      targetVault = v;
+    } else if (params.onchainVaultId !== undefined) {
+      const [v] = await db.select().from(vaults).where(eq(vaults.onchainVaultId, params.onchainVaultId));
+      targetVault = v;
+    }
+
+    if (!targetVault) {
+      throw new Error("Không tìm thấy Hũ tiền trong cơ sở dữ liệu");
+    }
+
+    let updatedTotal = targetVault.cachedTotalBalance;
+    let updatedL1 = targetVault.cachedL1Buffer;
+    let updatedYield = targetVault.cachedCChainYield;
+
+    if (params.action === "DEPOSIT" && params.amount) {
+      const amt = Number(params.amount);
+      const toBridge = (amt * (10000 - targetVault.bufferRatioBps)) / 10000;
+      const toBuffer = amt - toBridge;
+      updatedTotal = (Number(targetVault.cachedTotalBalance) + amt).toFixed(6);
+      updatedL1 = (Number(targetVault.cachedL1Buffer) + toBuffer).toFixed(6);
+    } else if (params.action === "WITHDRAW" && params.amount) {
+      const amt = Number(params.amount);
+      updatedTotal = Math.max(0, Number(targetVault.cachedTotalBalance) - amt).toFixed(6);
+      updatedL1 = Math.max(0, Number(targetVault.cachedL1Buffer) - amt).toFixed(6);
+    } else {
+      if (params.newTotalBalance !== undefined) updatedTotal = Number(params.newTotalBalance).toFixed(6);
+      if (params.newL1Buffer !== undefined) updatedL1 = Number(params.newL1Buffer).toFixed(6);
+      if (params.newCChainYield !== undefined) updatedYield = Number(params.newCChainYield).toFixed(6);
+    }
+
+    const [updated] = await db
+      .update(vaults)
+      .set({
+        cachedTotalBalance: updatedTotal,
+        cachedL1Buffer: updatedL1,
+        cachedCChainYield: updatedYield,
+      })
+      .where(eq(vaults.id, targetVault.id))
+      .returning();
+
+    return updated;
+  }
 }

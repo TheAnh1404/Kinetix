@@ -260,3 +260,25 @@ apiRouter.get("/vaults", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * PATCH /api/vaults
+ * Cập nhật số dư Hũ tiền (Nạp / Rút / Đồng bộ)
+ */
+apiRouter.patch("/vaults", async (req: Request, res: Response) => {
+  try {
+    const { vaultId, onchainVaultId, action, amount, newTotalBalance, newL1Buffer, newCChainYield } = req.body;
+    const updated = await FamilyService.updateVaultBalance({
+      vaultId,
+      onchainVaultId: onchainVaultId !== undefined ? Number(onchainVaultId) : undefined,
+      action,
+      amount: amount !== undefined ? Number(amount) : undefined,
+      newTotalBalance,
+      newL1Buffer,
+      newCChainYield,
+    });
+    return res.status(200).json({ success: true, vault: updated });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
