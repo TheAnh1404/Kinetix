@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { LanguageProvider } from "@/context/LanguageContext";
+import { AppProviders } from "@/context/AppProviders";
 
 export const metadata: Metadata = {
-  title: "Kinetix - Family Finance OS on Avalanche",
+  title: "Kinetix - The Multi-Space Vault OS on Avalanche",
   description:
-    "Multi-Generational Family Finance OS on Avalanche L1: Zero Gas, Anti-Scam Multisig 2/3, and Real DeFi Yield.",
+    "Dynamic & Composable Multi-Space Vault OS on Avalanche: Zero Gas Family L1, Tiered Multisig M/N, and 8% APY DeFi Yield on Fuji C-Chain.",
 };
 
 export default function RootLayout({
@@ -28,7 +28,7 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-surface text-on-surface min-h-screen flex flex-col font-body-md text-body-md">
-        <LanguageProvider>{children}</LanguageProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );
