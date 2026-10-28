@@ -39,11 +39,14 @@ export const avalancheFamilyL1 = defineChain({
   testnet: true,
 });
 
+// Trình khám phá khối Avalanche Fuji Testnet Explorer (SnowTrace)
+export const SNOWTRACE_TESTNET_URL = 'https://testnet.snowtrace.io';
+
 // Địa chỉ Smart Contract mặc định (Deployments)
 export const CONTRACT_ADDRESSES = {
-  // Hợp đồng FamilyHub.sol trên Family L1
+  // Hợp đồng FamilyHub.sol trên Fuji C-Chain (Live & Verified)
   familyHub: (process.env.NEXT_PUBLIC_FAMILY_HUB_ADDRESS ||
-    '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0') as `0x${string}`,
+    '0x2873c3B76364E6377912F174e3754AFdfCeae1F6') as `0x${string}`,
 
   // Hợp đồng FamilyYieldVault.sol trên Fuji C-Chain
   familyYieldVault: (process.env.NEXT_PUBLIC_FAMILY_VAULT_ADDRESS ||

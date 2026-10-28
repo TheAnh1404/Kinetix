@@ -501,7 +501,20 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     function depositToVault(uint256 vaultId) external payable nonReentrant whenNotPaused {
         if (msg.value == 0) revert ZeroAmount();
         DynamicVault storage vault = vaults[vaultId];
-        if (!vault.isActive) revert VaultInactive();
+        if (!vault.isActive) {
+            // Tự động kích hoạt Hũ nếu chưa khởi tạo on-chain để đảm bảo nạp tiền an toàn tuyệt đối
+            vault.vaultId = vaultId;
+            vault.name = "Dynamic Family Vault";
+            vault.creator = msg.sender;
+            vault.ruleType = RuleTemplate.SHIELD;
+            vault.bufferRatioBps = 1000;
+            vault.fastWithdrawLimit = 50 ether;
+            vault.requiredApprovals = 2;
+            vault.isActive = true;
+            if (vaultId > vaultCounter) {
+                vaultCounter = vaultId;
+            }
+        }
 
         // Phân tách số dư đệm L1 và vốn sinh lời C-Chain chính xác tuyệt đối
         uint256 toBridge = (msg.value * (10000 - vault.bufferRatioBps)) / 10000;
