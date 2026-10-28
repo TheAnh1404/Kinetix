@@ -5,6 +5,7 @@ import {
   FamilyHub,
   FamilyYieldVault,
   MockTeleporterMessenger,
+  VaultCashflow,
 } from "../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -442,6 +443,403 @@ describe("Kinetix - Dynamic & Composable Multi-Space Vaults on Avalanche", funct
       await yieldVault.connect(admin).compoundYield(1);
       const newPrincipal = await yieldVault.vaultPrincipals(1);
       expect(newPrincipal).to.be.closeTo(ethers.parseEther("108"), ethers.parseEther("0.01"));
+    });
+  });
+
+  // =================================================================
+  // 8. HŨ DÒNG TIỀN HỢP NHẤT: RÚT LỚN VƯỢT ĐỆM VẪN GIẢI NGÂN TRỌN VẸN
+  // =================================================================
+  describe("8. Unified Cashflow Solvency (Rút tiền vượt đệm L1 giải ngân trọn vẹn)", function () {
+    it("Rút 70 AVAX khi đệm L1 chỉ có 10 AVAX: Nhận đủ 70 AVAX tại L1 và trừ 60 AVAX C-Chain", async function () {
+      // Nạp 100 AVAX vào Hũ 1 (10 AVAX đệm L1, 90 AVAX C-Chain)
+      await familyHub.connect(admin).depositToVault(1, { value: ethers.parseEther("100") });
+
+      const vaultBefore = await familyHub.getVault(1);
+      expect(vaultBefore.l1BufferBalance).to.equal(ethers.parseEther("10"));
+      expect(vaultBefore.cChainPrincipal).to.equal(ethers.parseEther("90"));
+
+      // Grandparent tạo yêu cầu rút 70 AVAX (vượt quá 10 AVAX đệm L1)
+      await familyHub.connect(grandparent).requestLargeWithdrawal(1, ethers.parseEther("70"), "Phẫu thuật y tế");
+
+      const balanceBefore = await ethers.provider.getBalance(grandparent.address);
+      // Guardian 1 & Guardian 2 duyệt
+      await familyHub.connect(guardian1).approveWithdrawal(1);
+      await familyHub.connect(guardian2).approveWithdrawal(1);
+
+      const balanceAfter = await ethers.provider.getBalance(grandparent.address);
+      // Nhận trọn vẹn 70 AVAX tại L1
+      expect(balanceAfter - balanceBefore).to.equal(ethers.parseEther("70"));
+
+      // Trạng thái Hũ: đệm L1 về 0, C-Chain còn 30 AVAX, tổng số dư còn 30 AVAX
+      const vaultAfter = await familyHub.getVault(1);
+      expect(vaultAfter.l1BufferBalance).to.equal(0);
+      expect(vaultAfter.cChainPrincipal).to.equal(ethers.parseEther("30"));
+      expect(vaultAfter.totalBalance).to.equal(ethers.parseEther("30"));
+    });
+
+    it("Chore-to-Earn: Thưởng nhiệm vụ thành công ngay cả khi đệm L1 cạn kiệt (fallback an toàn)", async function () {
+      // Tạo Hũ MILESTONE 5 với 0% đệm L1 (100% C-Chain)
+      const vaultId = await familyHub.connect(admin).createCustomVault.staticCall(
+        "Hũ Cột Mốc 100% C-Chain",
+        MILESTONE,
+        0, // 0% L1 buffer
+        0,
+        1,
+        [admin.address],
+        [kid.address]
+      );
+      await familyHub.connect(admin).createCustomVault(
+        "Hũ Cột Mốc 100% C-Chain",
+        MILESTONE,
+        0,
+        0,
+        1,
+        [admin.address],
+        [kid.address]
+      );
+
+      // Nạp 50 AVAX (đệm L1 = 0, C-Chain = 50)
+      await familyHub.connect(admin).depositToVault(vaultId, { value: ethers.parseEther("50") });
+
+      // Admin tạo chore thưởng 10 AVAX
+      const taskId = await familyHub.connect(admin).createChore.staticCall(vaultId, "Luyện thi Olympic", ethers.parseEther("10"), kid.address);
+      await familyHub.connect(admin).createChore(vaultId, "Luyện thi Olympic", ethers.parseEther("10"), kid.address);
+
+      // Kid báo cáo hoàn thành
+      await familyHub.connect(kid).claimChoreCompleted(taskId);
+
+      // Admin duyệt thưởng: Dù đệm L1 = 0, hệ thống tự trích từ Escrow/C-Chain trả đủ 10 AVAX cho con
+      const balanceBefore = await ethers.provider.getBalance(kid.address);
+      await familyHub.connect(admin).verifyAndRewardChore(taskId);
+      const balanceAfter = await ethers.provider.getBalance(kid.address);
+
+      expect(balanceAfter - balanceBefore).to.equal(ethers.parseEther("10"));
+    });
+  });
+
+  // =================================================================
+  // 9. CHÍNH SÁCH ROSCA: GÓP VỐN VÀ GIẢI NGÂN XOAY VÒNG THEO KỲ
+  // =================================================================
+  describe("9. Chính sách ROSCA (Góp vốn họ hụi & giải ngân xoay vòng theo kỳ)", function () {
+    let roscaVaultId: bigint;
+    const roundDuration = 7 * 24 * 3600; // 7 ngày
+    const contribution = ethers.parseEther("10"); // 10 AVAX / người
+
+    beforeEach(async function () {
+      roscaVaultId = await familyHub.connect(admin).createAdvancedVault.staticCall(
+        "Họ Hụi Bốn Mùa",
+        ROSCA,
+        0, // 100% sinh lời
+        0,
+        2,
+        [guardian1.address, guardian2.address],
+        [guardian1.address, guardian2.address, guardian3.address], // 3 thành viên
+        0,
+        0,
+        roundDuration,
+        contribution
+      );
+
+      await familyHub.connect(admin).createAdvancedVault(
+        "Họ Hụi Bốn Mùa",
+        ROSCA,
+        0,
+        0,
+        2,
+        [guardian1.address, guardian2.address],
+        [guardian1.address, guardian2.address, guardian3.address],
+        0,
+        0,
+        roundDuration,
+        contribution
+      );
+
+      // 3 thành viên mỗi người nạp 10 AVAX (tổng quỹ kỳ 1 = 30 AVAX)
+      await familyHub.connect(guardian1).depositToVault(roscaVaultId, { value: contribution });
+      await familyHub.connect(guardian2).depositToVault(roscaVaultId, { value: contribution });
+      await familyHub.connect(guardian3).depositToVault(roscaVaultId, { value: contribution });
+    });
+
+    it("Chặn giải ngân nếu chưa tới hạn chu kỳ (7 ngày)", async function () {
+      await expect(
+        familyHub.payoutRoscaRound(roscaVaultId)
+      ).to.be.revertedWithCustomError(familyHub, "RoscaRoundNotReady");
+    });
+
+    it("Đến hạn chu kỳ: Giải ngân 30 AVAX cho thành viên đầu tiên (guardian1) và sang kỳ 2", async function () {
+      // Tua qua 7 ngày
+      await time.increase(roundDuration + 1);
+
+      const balanceBefore = await ethers.provider.getBalance(guardian1.address);
+      await familyHub.payoutRoscaRound(roscaVaultId);
+      const balanceAfter = await ethers.provider.getBalance(guardian1.address);
+
+      // Guardian 1 nhận đủ 30 AVAX của kỳ 1
+      expect(balanceAfter - balanceBefore).to.equal(ethers.parseEther("30"));
+
+      // Hũ cập nhật sang round 1 (chu kỳ tiếp theo thuộc về guardian2)
+      const vault = await familyHub.getVault(roscaVaultId);
+      expect(vault.roscaCurrentRound).to.equal(1);
+    });
+  });
+
+  // =================================================================
+  // 10. CHÍNH SÁCH SHARED_GOAL: MỤC TIÊU CHUNG & KHÓA RÚT TIỀN
+  // =================================================================
+  describe("10. Chính sách SHARED_GOAL (Khóa giải ngân cho tới khi đạt mục tiêu)", function () {
+    let goalVaultId: bigint;
+    const targetAmount = ethers.parseEther("100");
+
+    beforeEach(async function () {
+      const deadline = (await time.latest()) + 30 * 24 * 3600;
+      goalVaultId = await familyHub.connect(admin).createAdvancedVault.staticCall(
+        "Quỹ Du Lịch Xuyên Việt",
+        SHARED_GOAL,
+        2000, // 20% đệm L1
+        0,
+        2,
+        [guardian1.address, guardian2.address],
+        [grandparent.address],
+        targetAmount, // 100 AVAX
+        deadline,
+        0,
+        0
+      );
+
+      await familyHub.connect(admin).createAdvancedVault(
+        "Quỹ Du Lịch Xuyên Việt",
+        SHARED_GOAL,
+        2000,
+        0,
+        2,
+        [guardian1.address, guardian2.address],
+        [grandparent.address],
+        targetAmount,
+        deadline,
+        0,
+        0
+      );
+    });
+
+    it("Chặn tạo phiếu rút tiền nếu chưa gom đủ 100 AVAX mục tiêu", async function () {
+      // Mới nạp 40 AVAX (< 100 AVAX)
+      await familyHub.connect(admin).depositToVault(goalVaultId, { value: ethers.parseEther("40") });
+
+      await expect(
+        familyHub.connect(grandparent).requestLargeWithdrawal(goalVaultId, ethers.parseEther("30"), "Đi du lịch")
+      ).to.be.revertedWithCustomError(familyHub, "GoalNotReached");
+    });
+
+    it("Nạp đủ 100 AVAX mục tiêu -> Mở khóa tạo yêu cầu và giải ngân thành công", async function () {
+      // Nạp thêm 100 AVAX (tổng 100 AVAX)
+      await familyHub.connect(admin).depositToVault(goalVaultId, { value: ethers.parseEther("100") });
+
+      // Tạo yêu cầu rút thành công
+      await familyHub.connect(grandparent).requestLargeWithdrawal(goalVaultId, ethers.parseEther("100"), "Đi du lịch");
+
+      // 2 Guardians duyệt -> giải ngân thành công
+      const balanceBefore = await ethers.provider.getBalance(grandparent.address);
+      await familyHub.connect(guardian1).approveWithdrawal(1);
+      await familyHub.connect(guardian2).approveWithdrawal(1);
+      const balanceAfter = await ethers.provider.getBalance(grandparent.address);
+
+      expect(balanceAfter - balanceBefore).to.equal(ethers.parseEther("100"));
+    });
+  });
+
+  // =================================================================
+  // 11. BẢO MẬT & TẠM DỪNG KHẨN CẤP (PAUSABLE & CREATOR RECOVERY)
+  // =================================================================
+  describe("11. Cơ chế Tạm Dừng Khẩn Cấp (Pausable) & Chuyển giao Creator", function () {
+    it("Admin kích hoạt Pause: Đóng băng nạp và rút tiền; Unpause mở khóa lại bình thường", async function () {
+      await familyHub.connect(admin).pause();
+
+      // Nạp tiền bị chặn khi Pause
+      await expect(
+        familyHub.connect(admin).depositToVault(1, { value: ethers.parseEther("10") })
+      ).to.be.revertedWithCustomError(familyHub, "EnforcedPause");
+
+      // Unpause mở khóa lại
+      await familyHub.connect(admin).unpause();
+      await expect(
+        familyHub.connect(admin).depositToVault(1, { value: ethers.parseEther("10") })
+      ).to.not.be.reverted;
+    });
+
+    it("Social Recovery chuyển giao cả vai trò Creator cho ví mới", async function () {
+      // Tạo một hũ mới do guardian3 làm creator
+      const vId = await familyHub.connect(guardian3).createCustomVault.staticCall(
+        "Hũ Riêng Guardian3",
+        SHIELD,
+        1000,
+        0,
+        2,
+        [guardian1.address, guardian2.address],
+        [guardian3.address]
+      );
+      await familyHub.connect(guardian3).createCustomVault(
+        "Hũ Riêng Guardian3",
+        SHIELD,
+        1000,
+        0,
+        2,
+        [guardian1.address, guardian2.address],
+        [guardian3.address]
+      );
+
+      const vaultBefore = await familyHub.getVault(vId);
+      expect(vaultBefore.creator).to.equal(guardian3.address);
+
+      // Guardian 1 & 2 khôi phục ví guardian3 -> newWallet
+      await familyHub.connect(guardian1).recoverMemberWallet(vId, guardian3.address, newWallet.address);
+      await familyHub.connect(guardian2).recoverMemberWallet(vId, guardian3.address, newWallet.address);
+
+      // Creator của hũ đã được đổi sang newWallet
+      const vaultAfter = await familyHub.getVault(vId);
+      expect(vaultAfter.creator).to.equal(newWallet.address);
+    });
+  });
+
+  // =================================================================
+  // 12. KIẾN TRÚC HŨ DÒNG TIỀN ĐỘC LẬP (VAULT CASHFLOW / TREASURY CORE)
+  // =================================================================
+  describe("12. Kiến Trúc Hũ Dòng Tiền Độc Lập (VaultCashflow / Treasury Core)", function () {
+    let vaultCashflow: VaultCashflow;
+    let modularVaultId: bigint;
+
+    beforeEach(async function () {
+      // Triển khai kho tiền chuyên biệt VaultCashflow
+      const VaultCashflowFactory = await ethers.getContractFactory("VaultCashflow");
+      vaultCashflow = (await VaultCashflowFactory.deploy(
+        admin.address,
+        await familyHub.getAddress(),
+        await mockTeleporter.getAddress(),
+        C_CHAIN_BLOCKCHAIN_ID,
+        await yieldVault.getAddress()
+      )) as VaultCashflow;
+      await vaultCashflow.waitForDeployment();
+
+      // Liên kết FamilyHub <-> VaultCashflow
+      await familyHub.connect(admin).setVaultCashflow(await vaultCashflow.getAddress());
+
+      // Tạo một Hũ tiền mới sau khi đã kết nối VaultCashflow
+      const tx = await familyHub.connect(admin).createCustomVault(
+        "Hũ Quỹ Gia Đình Modular",
+        SHIELD,
+        1000, // 10% L1 / 90% C-Chain
+        ethers.parseEther("20"), // fast withdraw limit 20 AVAX
+        2, // 2 chữ ký
+        [guardian1.address, guardian2.address, guardian3.address],
+        [grandparent.address]
+      );
+      const receipt = await tx.wait();
+      // Lấy vaultId từ biến đếm
+      modularVaultId = await familyHub.vaultCounter();
+    });
+
+    it("Kiểm tra phân quyền: Chỉ Controller hoặc Owner mới được phát lệnh giải ngân từ VaultCashflow", async function () {
+      // Người ngoài gọi trực tiếp executeWithdrawal sẽ bị từ chối
+      await expect(
+        vaultCashflow.connect(outsider).executeWithdrawal(modularVaultId, outsider.address, ethers.parseEther("1"))
+      ).to.be.revertedWithCustomError(vaultCashflow, "NotController");
+
+      // Controller là FamilyHub hoặc Owner
+      expect(await vaultCashflow.controller()).to.equal(await familyHub.getAddress());
+      expect(await vaultCashflow.owner()).to.equal(admin.address);
+    });
+
+    it("Nạp tiền ủy thác qua FamilyHub: Tự động tách đệm L1/C-Chain và cập nhật sổ cái VaultCashflow", async function () {
+      // Nạp 100 AVAX vào Hũ thông qua FamilyHub
+      await familyHub.connect(admin).depositToVault(modularVaultId, { value: ethers.parseEther("100") });
+
+      // Kiểm tra số dư trên VaultCashflow
+      const ledger = await vaultCashflow.getVaultLedger(modularVaultId);
+      expect(ledger.totalBalance).to.equal(ethers.parseEther("100"));
+      expect(ledger.l1BufferBalance).to.equal(ethers.parseEther("10")); // 10%
+      expect(ledger.cChainPrincipal).to.equal(ethers.parseEther("90")); // 90%
+
+      // Kiểm tra FamilyHub đọc qua VaultCashflow đồng bộ 100%
+      const overview = await familyHub.getVaultOverview(modularVaultId);
+      expect(overview.total).to.equal(ethers.parseEther("100"));
+      expect(overview.l1Buffer).to.equal(ethers.parseEther("10"));
+      expect(overview.cChainPrincipal).to.equal(ethers.parseEther("90"));
+    });
+
+    it("Rút tiền nhanh qua FamilyHub: VaultCashflow giải ngân Native AVAX trực tiếp cho người nhận", async function () {
+      // Nạp 100 AVAX
+      await familyHub.connect(admin).depositToVault(modularVaultId, { value: ethers.parseEther("100") });
+
+      // Beneficiary (grandparent) rút nhanh 5 AVAX (<= limit 20 AVAX)
+      const withdrawAmount = ethers.parseEther("5");
+      const balanceBefore = await ethers.provider.getBalance(grandparent.address);
+      const tx = await familyHub.connect(grandparent).fastWithdraw(modularVaultId, withdrawAmount);
+      const receipt = await tx.wait();
+      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
+      const balanceAfter = await ethers.provider.getBalance(grandparent.address);
+
+      // Grandparent nhận đúng 5 AVAX (sau khi bù gas mạng local)
+      expect(balanceAfter + gasUsed - balanceBefore).to.equal(withdrawAmount);
+
+      // Đệm L1 trên VaultCashflow giảm còn 5 AVAX
+      const ledger = await vaultCashflow.getVaultLedger(modularVaultId);
+      expect(ledger.l1BufferBalance).to.equal(ethers.parseEther("5"));
+      expect(ledger.totalBalance).to.equal(ethers.parseEther("95"));
+    });
+
+    it("Rút lớn Multisig vượt đệm L1: VaultCashflow rút cạn đệm L1 và trừ C-Chain principal, người nhận nhận trọn vẹn", async function () {
+      // Nạp 100 AVAX (L1 buffer = 10 AVAX, C-Chain = 90 AVAX)
+      await familyHub.connect(admin).depositToVault(modularVaultId, { value: ethers.parseEther("100") });
+
+      // Yêu cầu rút lớn 40 AVAX (> limit 20 AVAX, và > đệm L1 10 AVAX)
+      await familyHub.connect(grandparent).requestLargeWithdrawal(
+        modularVaultId,
+        ethers.parseEther("40"),
+        "Rút viện phí cấp cứu"
+      );
+
+      const reqId = await familyHub.requestCounter();
+
+      // Guardian 1 và Guardian 2 ký duyệt
+      const balanceBefore = await ethers.provider.getBalance(grandparent.address);
+      await familyHub.connect(guardian1).approveWithdrawal(reqId);
+      await familyHub.connect(guardian2).approveWithdrawal(reqId);
+      const balanceAfter = await ethers.provider.getBalance(grandparent.address);
+
+      // Grandparent nhận trọn vẹn 40 AVAX
+      expect(balanceAfter - balanceBefore).to.equal(ethers.parseEther("40"));
+
+      // Sổ cái VaultCashflow: Đệm L1 cạn = 0, C-Chain principal giảm 30 AVAX (còn 60 AVAX), Tổng còn 60 AVAX
+      const ledger = await vaultCashflow.getVaultLedger(modularVaultId);
+      expect(ledger.l1BufferBalance).to.equal(0n);
+      expect(ledger.cChainPrincipal).to.equal(ethers.parseEther("60"));
+      expect(ledger.totalBalance).to.equal(ethers.parseEther("60"));
+    });
+
+    it("Nạp tiền trực tiếp vào VaultCashflow: Tự động phân bổ và FamilyHub view phản ánh ngay lập tức", async function () {
+      // Nạp thẳng vào VaultCashflow mà không qua FamilyHub
+      await vaultCashflow.connect(admin).deposit(modularVaultId, admin.address, {
+        value: ethers.parseEther("50"),
+      });
+
+      const overview = await familyHub.getVaultOverview(modularVaultId);
+      expect(overview.total).to.equal(ethers.parseEther("50"));
+      expect(overview.l1Buffer).to.equal(ethers.parseEther("5")); // 10%
+      expect(overview.cChainPrincipal).to.equal(ethers.parseEther("45")); // 90%
+    });
+
+    it("Tạm dừng khẩn cấp trên VaultCashflow: Chặn đứng nạp và rút tiền", async function () {
+      await vaultCashflow.connect(admin).pause();
+
+      // Nạp tiền vào VaultCashflow bị chặn
+      await expect(
+        vaultCashflow.connect(admin).deposit(modularVaultId, admin.address, { value: ethers.parseEther("10") })
+      ).to.be.revertedWithCustomError(vaultCashflow, "EnforcedPause");
+
+      // Unpause mở lại
+      await vaultCashflow.connect(admin).unpause();
+      await expect(
+        vaultCashflow.connect(admin).deposit(modularVaultId, admin.address, { value: ethers.parseEther("10") })
+      ).to.not.be.reverted;
     });
   });
 });

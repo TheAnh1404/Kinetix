@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/ITeleporterMessenger.sol";
 
@@ -14,9 +15,10 @@ import "./interfaces/ITeleporterMessenger.sol";
  * 2. Tiếp nhận vốn nhàn rỗi được chuyển tiếp từ Family L1 thông qua Avalanche Teleporter (ICM).
  * 3. Tự động sinh lời mô phỏng giao thức Lending (Aave/Benqi) với mức lãi suất cố định 8% APY.
  * 4. Tính toán lãi suất nghiêm ngặt theo thời gian thực (block.timestamp) - TUYỆT ĐỐI KHÔNG dùng hàm tua nhanh thời gian giả tạo.
- * 5. Hỗ trợ giải ngân ngược về ví người nhận khi có yêu cầu rút tiền lớn được Guardians phê duyệt theo từng Hũ.
+ * 5. Tối ưu độ chính xác lãi suất (Precision Loss Prevention) bảo lưu thời gian khi nạp liên tiếp.
+ * 6. Hỗ trợ cơ chế tạm dừng khẩn cấp (Pausable).
  */
-contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
+contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterReceiver {
     // -------------------------------------------------------------
     // ENUMS & STRUCTS
     // -------------------------------------------------------------
@@ -100,8 +102,22 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
     }
 
     // -------------------------------------------------------------
-    // 1. CẤU HÌNH LIÊN CHUỖI
+    // 1. CẤU HÌNH LIÊN CHUỖI & EMERGENCY PAUSE
     // -------------------------------------------------------------
+
+    /**
+     * @notice Tạm dừng hoạt động khẩn cấp
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @notice Khôi phục hoạt động
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     /**
      * @notice Cập nhật địa chỉ Teleporter Messenger và FamilyHub
@@ -172,7 +188,7 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
         bytes32 /* originChainID */,
         address originSenderAddress,
         bytes calldata message
-    ) external override nonReentrant {
+    ) external override nonReentrant whenNotPaused {
         // Kiểm tra hợp đồng gọi callback phải là Teleporter Messenger
         if (address(teleporterMessenger) != address(0)) {
             if (msg.sender != address(teleporterMessenger)) revert OnlyTeleporterMessenger();
@@ -198,6 +214,7 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
 
     /**
      * @notice Xử lý nạp vốn vào hũ và kết chuyển lãi cũ trước khi cộng dồn vốn mới
+     * Bảo đảm: Tránh Precision Loss khi nạp liên tiếp nhiều lần trong khoảng thời gian ngắn
      */
     function _handleDeposit(uint256 vaultId, uint256 amount) internal {
         if (amount == 0) revert ZeroAmount();
@@ -206,20 +223,22 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
         uint256 newAccrued = calculateAccruedYield(vaultId);
         if (newAccrued > 0) {
             accruedYields[vaultId] += newAccrued;
+            lastDepositTimestamp[vaultId] = block.timestamp;
             emit YieldAccrued(vaultId, newAccrued, accruedYields[vaultId]);
+        } else if (lastDepositTimestamp[vaultId] == 0) {
+            lastDepositTimestamp[vaultId] = block.timestamp;
         }
 
-        // 2. Cập nhật vốn gốc và cập nhật lại mốc thời gian hiện tại
+        // 2. Cập nhật vốn gốc
         vaultPrincipals[vaultId] += amount;
-        lastDepositTimestamp[vaultId] = block.timestamp;
 
         emit PrincipalDeposited(vaultId, amount, block.timestamp);
     }
 
     /**
-     * @notice Tiếp nhận tiền gửi xuyên chuỗi trực tiếp kèm msg.value
+     * @notice Tiếp nhận tiền gửi xuyên chuỗi trực tiếp kèm msg.value (alias của depositPrincipal)
      */
-    function receiveCrossChainDeposit(uint256 vaultId) external payable nonReentrant {
+    function receiveCrossChainDeposit(uint256 vaultId) external payable nonReentrant whenNotPaused {
         if (msg.value == 0) revert ZeroAmount();
         _handleDeposit(vaultId, msg.value);
     }
@@ -235,8 +254,8 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
         uint256 newAccrued = calculateAccruedYield(vaultId);
         if (newAccrued > 0) {
             accruedYields[vaultId] += newAccrued;
+            lastDepositTimestamp[vaultId] = block.timestamp;
         }
-        lastDepositTimestamp[vaultId] = block.timestamp;
 
         // Trừ từ vốn gốc hoặc từ lãi tích lũy của Hũ
         if (vaultPrincipals[vaultId] >= amount) {
@@ -250,7 +269,7 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
             accruedYields[vaultId] -= remainder;
         }
 
-        // Thực hiện chuyển tiền nếu hợp đồng có đủ số dư thanh khoản trên C-Chain
+        // Thực hiện chuyển tiền nếu hợp đồng có sẵn số dư thanh khoản trên C-Chain
         if (address(this).balance >= amount) {
             (bool success, ) = payable(recipient).call{value: amount}("");
             if (!success) revert TransferFailed();
@@ -266,7 +285,7 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
         uint256 vaultId,
         address recipient,
         uint256 amount
-    ) external nonReentrant {
+    ) external nonReentrant whenNotPaused {
         // Cho phép Owner hoặc FamilyHub gọi
         if (msg.sender != owner() && msg.sender != familyHubAddress) {
             revert UnauthorizedSender();
@@ -281,7 +300,7 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
     /**
      * @notice Cho phép nạp trực tiếp vào Vault trên C-Chain theo vaultId
      */
-    function depositPrincipal(uint256 vaultId) external payable nonReentrant {
+    function depositPrincipal(uint256 vaultId) external payable nonReentrant whenNotPaused {
         if (msg.value == 0) revert ZeroAmount();
         _handleDeposit(vaultId, msg.value);
     }
@@ -289,7 +308,7 @@ contract FamilyYieldVault is Ownable, ReentrancyGuard, ITeleporterReceiver {
     /**
      * @notice Cho phép tái đầu tư lãi phát sinh vào vốn gốc (Compound Interest) cho vaultId
      */
-    function compoundYield(uint256 vaultId) external nonReentrant {
+    function compoundYield(uint256 vaultId) external nonReentrant whenNotPaused {
         uint256 newYield = calculateAccruedYield(vaultId);
         uint256 totalYield = accruedYields[vaultId] + newYield;
         if (totalYield == 0) revert ZeroAmount();

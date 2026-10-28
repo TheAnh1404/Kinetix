@@ -14,7 +14,6 @@ async function main() {
   console.log(`🌐 Target Network:   ${network.name} (ChainID: ${(await ethers.provider.getNetwork()).chainId})`);
   console.log("----------------------------------------------------\n");
 
-  const C_CHAIN_ID = 43113;
   const FUJI_TELEPORTER_MESSENGER = process.env.TELEPORTER_MESSENGER_FUJI || "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf";
 
   if (network.name === "fuji") {
@@ -49,17 +48,9 @@ async function main() {
     const existingVaultAddress = process.env.FAMILY_YIELD_VAULT_ADDRESS || ethers.ZeroAddress;
     const cChainBlockchainId = ethers.keccak256(ethers.toUtf8Bytes("Fuji-C-Chain-43113"));
 
-    // Danh sách 3 Guardians mẫu (nếu deploy thật, lấy từ ví các con trong gia đình)
-    const guardianAddresses = [
-      process.env.GUARDIAN_1 || deployer.address,
-      process.env.GUARDIAN_2 || "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      process.env.GUARDIAN_3 || "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
-    ];
-
     const FamilyHubFactory = await ethers.getContractFactory("FamilyHub");
     const familyHub = await FamilyHubFactory.deploy(
       deployer.address,
-      guardianAddresses,
       FUJI_TELEPORTER_MESSENGER,
       cChainBlockchainId,
       existingVaultAddress
@@ -68,7 +59,24 @@ async function main() {
     const hubAddress = await familyHub.getAddress();
 
     console.log(`✅ FamilyHub đã triển khai thành công tại: ${hubAddress}`);
-    console.log(`👉 Hãy cập nhật vào .env: FAMILY_HUB_ADDRESS=${hubAddress}\n`);
+
+    // Triển khai VaultCashflow
+    const VaultCashflowFactory = await ethers.getContractFactory("VaultCashflow");
+    const vaultCashflow = await VaultCashflowFactory.deploy(
+      deployer.address,
+      hubAddress,
+      FUJI_TELEPORTER_MESSENGER,
+      cChainBlockchainId,
+      existingVaultAddress
+    );
+    await vaultCashflow.waitForDeployment();
+    const cashflowAddress = await vaultCashflow.getAddress();
+    console.log(`✅ VaultCashflow đã triển khai thành công tại: ${cashflowAddress}`);
+
+    await familyHub.setVaultCashflow(cashflowAddress);
+    console.log(`🔗 Đã kết nối FamilyHub <-> VaultCashflow`);
+    console.log(`👉 Cập nhật vào .env: FAMILY_HUB_ADDRESS=${hubAddress}`);
+    console.log(`👉 Cập nhật vào .env: VAULT_CASHFLOW_ADDRESS=${cashflowAddress}\n`);
 
   } else {
     // -----------------------------------------------------------------
@@ -79,32 +87,114 @@ async function main() {
     const MockTeleporterFactory = await ethers.getContractFactory("MockTeleporterMessenger");
     const mockTeleporter = await MockTeleporterFactory.deploy();
     await mockTeleporter.waitForDeployment();
-    console.log(`📍 MockTeleporter:  ${await mockTeleporter.getAddress()}`);
+    const mockTeleporterAddress = await mockTeleporter.getAddress();
+    console.log(`📍 MockTeleporter:  ${mockTeleporterAddress}`);
 
     const YieldVaultFactory = await ethers.getContractFactory("FamilyYieldVault");
     const yieldVault = await YieldVaultFactory.deploy(
-      await mockTeleporter.getAddress(),
+      mockTeleporterAddress,
       ethers.ZeroHash,
       ethers.ZeroAddress
     );
     await yieldVault.waitForDeployment();
-    console.log(`📍 FamilyYieldVault: ${await yieldVault.getAddress()}`);
+    const yieldVaultAddress = await yieldVault.getAddress();
+    console.log(`📍 FamilyYieldVault: ${yieldVaultAddress}`);
 
-    const signers = await ethers.getSigners();
-    const guardians = [signers[1].address, signers[2].address, signers[3].address];
-
+    const cChainBlockchainId = ethers.keccak256(ethers.toUtf8Bytes("Fuji-C-Chain-43113"));
     const FamilyHubFactory = await ethers.getContractFactory("FamilyHub");
     const familyHub = await FamilyHubFactory.deploy(
       deployer.address,
-      guardians,
-      await mockTeleporter.getAddress(),
-      ethers.keccak256(ethers.toUtf8Bytes("Fuji")),
-      await yieldVault.getAddress()
+      mockTeleporterAddress,
+      cChainBlockchainId,
+      yieldVaultAddress
     );
     await familyHub.waitForDeployment();
-    console.log(`📍 FamilyHub:        ${await familyHub.getAddress()}`);
+    const familyHubAddress = await familyHub.getAddress();
+    console.log(`📍 FamilyHub:        ${familyHubAddress}`);
 
-    console.log("\n🎉 Triển khai thử nghiệm thành công!");
+    const VaultCashflowFactory = await ethers.getContractFactory("VaultCashflow");
+    const vaultCashflow = await VaultCashflowFactory.deploy(
+      deployer.address,
+      familyHubAddress,
+      mockTeleporterAddress,
+      cChainBlockchainId,
+      yieldVaultAddress
+    );
+    await vaultCashflow.waitForDeployment();
+    const vaultCashflowAddress = await vaultCashflow.getAddress();
+    console.log(`📍 VaultCashflow:     ${vaultCashflowAddress}`);
+
+    await familyHub.setVaultCashflow(vaultCashflowAddress);
+    console.log(`🔗 Đã liên kết FamilyHub <-> VaultCashflow`);
+
+    // Cập nhật cấu hình liên chuỗi cho YieldVault
+    await yieldVault.updateTeleporterConfig(
+      mockTeleporterAddress,
+      ethers.keccak256(ethers.toUtf8Bytes("Family-L1")),
+      familyHubAddress
+    );
+
+    // Khởi tạo 4 Hũ tiền mẫu đại diện cho 4 cách sử dụng
+    console.log("\n📦 Khởi tạo 4 Hũ mẫu với kiến trúc Hũ Dòng Tiền Hợp Nhất...");
+    const signers = await ethers.getSigners();
+    const guardian1 = signers[1] || deployer;
+    const guardian2 = signers[2] || deployer;
+    const beneficiary1 = signers[3] || deployer;
+
+    // Hũ 1: SHIELD (Bảo vệ & Hưu trí)
+    await familyHub.createCustomVault(
+      "Hũ Báo Hiếu Ông Bà",
+      0, // SHIELD
+      1000, // 10% L1 buffer
+      ethers.parseEther("50"),
+      2,
+      [deployer.address, guardian1.address, guardian2.address],
+      [beneficiary1.address]
+    );
+
+    // Hũ 2: MILESTONE (Việc nhà & Cột mốc)
+    await familyHub.createCustomVault(
+      "Hũ Lì Xì & Việc Nhà Bé Na",
+      1, // MILESTONE
+      1000,
+      0,
+      1,
+      [deployer.address],
+      [beneficiary1.address]
+    );
+
+    // Hũ 3: ROSCA (Họ Hụi Góp Vốn Xoay Vòng)
+    await familyHub.createAdvancedVault(
+      "Quỹ Góp Vốn Họ Hụi Anh Em",
+      2, // ROSCA
+      0, // 100% C-Chain sinh lời
+      0,
+      2,
+      [deployer.address, guardian1.address],
+      [deployer.address, guardian1.address, beneficiary1.address],
+      0,
+      0,
+      7 * 24 * 3600, // 7 ngày/kỳ
+      ethers.parseEther("10") // 10 AVAX mỗi kỳ
+    );
+
+    // Hũ 4: SHARED_GOAL (Mục tiêu chung)
+    await familyHub.createAdvancedVault(
+      "Quỹ Du Lịch Đà Lạt Cả Nhà",
+      3, // SHARED_GOAL
+      2000, // 20% L1 buffer
+      0,
+      2,
+      [deployer.address, guardian1.address],
+      [deployer.address, guardian1.address, beneficiary1.address],
+      ethers.parseEther("200"), // Mục tiêu 200 AVAX
+      Math.floor(Date.now() / 1000) + 90 * 24 * 3600, // Hạn chót 90 ngày
+      0,
+      0
+    );
+
+    console.log("✅ Đã khởi tạo 4 Hũ tiền mẫu thành công (SHIELD, MILESTONE, ROSCA, SHARED_GOAL)!");
+    console.log("\n🎉 Triển khai thử nghiệm toàn diện thành công!");
   }
 }
 
