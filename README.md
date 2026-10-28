@@ -543,13 +543,13 @@ npx hardhat test
 ### Step 5: Launch Local Development Servers
 
 ```bash
-# Terminal 1: Run Next.js 14 Web3 Frontend (Port 3000)
-cd frontend
-npm run dev
+# Khởi chạy đồng thời toàn bộ hệ thống (Frontend, Backend API & Event Listener Worker)
+npm run dev:all
 
-# Terminal 2: Run Viem Event Listener Worker Daemon
-cd backend
-npm run dev
+# Hoặc chạy riêng lẻ từng dịch vụ nếu cần:
+npm run dev:frontend   # Next.js 14 Web3 Frontend (Port 3000)
+npm run dev:server     # Express API Server (Port 4000)
+npm run dev:worker     # Viem Event Listener Worker Daemon
 ```
 
 Visit **`http://localhost:3000`** in your browser.

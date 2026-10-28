@@ -1,0 +1,31 @@
+{
+  "name": "kinetix-backend",
+  "version": "1.0.0",
+  "description": "Kinetix API Server and Blockchain Event Listener Daemon",
+  "main": "src/server.ts",
+  "scripts": {
+    "dev": "concurrently -k -n \"SERVER,WORKER\" -c \"green.bold,yellow.bold\" \"npm run server\" \"npm run worker\"",
+    "server": "tsx watch src/server.ts",
+    "worker": "tsx watch src/workers/eventListener.ts",
+    "start": "tsx src/server.ts",
+    "worker:listen": "tsx src/workers/eventListener.ts"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.30.10",
+    "express": "^4.19.2",
+    "viem": "^2.9.23",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.7",
+    "@types/ws": "^8.5.10",
+    "concurrently": "^9.1.2",
+    "tsx": "^4.10.5",
+    "typescript": "^5.4.5"
+  }
+}
