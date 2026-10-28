@@ -47,7 +47,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-lg border-t border-surface-container shadow-2xl px-2 py-1.5 flex items-center justify-around safe-area-inset-bottom">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-lg px-2 py-1.5 flex items-center justify-around safe-area-inset-bottom">
       {navItems.map((item, idx) => {
         if (item.isCenter) {
           return (
@@ -55,12 +55,12 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
               key={idx}
               onClick={onOpenDeposit}
               type="button"
-              className="flex flex-col items-center justify-center -mt-5"
+              className="flex flex-col items-center justify-center -mt-6 cursor-pointer"
             >
-              <div className="w-12 h-12 rounded-full bg-primary text-white shadow-lg flex items-center justify-center transition-transform active:scale-90 border-2 border-surface-container-lowest">
-                <span className="material-symbols-outlined text-[24px]">bolt</span>
+              <div className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-md flex items-center justify-center transition-transform active:scale-90 border-2 border-white">
+                <span className="material-symbols-outlined text-[24px] text-amber-300">bolt</span>
               </div>
-              <span className="text-[10px] font-bold text-primary mt-0.5">
+              <span className="text-[10px] font-bold text-red-600 mt-0.5">
                 {item.label}
               </span>
             </button>
@@ -75,13 +75,13 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
             type="button"
             className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
               isActive
-                ? 'text-primary font-bold'
-                : 'text-on-surface-variant hover:text-on-surface'
+                ? 'text-red-600 font-bold'
+                : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <span
               className={`material-symbols-outlined text-[22px] transition-transform ${
-                isActive ? 'scale-110' : ''
+                isActive ? 'scale-110 text-red-600' : 'text-slate-500'
               }`}
             >
               {item.icon}

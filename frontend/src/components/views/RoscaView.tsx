@@ -108,7 +108,7 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
     : '0.0050';
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-gutter py-space-xl flex flex-col gap-space-xl">
+    <div className="flex flex-col gap-6 w-full">
       {/* Top Identity & Subnet Metadata Banner */}
       <div className="relative overflow-hidden rounded-2xl bg-surface-container p-space-lg shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-space-md border border-outline-variant/30">
         <div className="flex flex-col gap-space-xs max-w-3xl">

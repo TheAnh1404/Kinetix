@@ -93,10 +93,10 @@ export const GuardianView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6 w-full">
+    <div className="flex flex-col gap-6 w-full">
       {/* Feedback banner */}
       {feedback && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex items-start justify-between gap-3 shadow-md animate-in fade-in duration-200">
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex items-start justify-between gap-3 shadow-xs animate-in fade-in duration-200">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-[28px] text-emerald-600">
               verified
@@ -113,26 +113,22 @@ export const GuardianView: React.FC = () => {
       )}
 
       {/* Top Header & Executive Command Center Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-outline-variant/30">
-        <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl shadow-xs border border-slate-200/80">
+        <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-2.5 py-0.5 rounded-full bg-secondary-container/15 text-secondary font-mono text-[11px] font-bold uppercase tracking-wider">
-              {familyInfo?.familyCode ? `MÃ: ${familyInfo.familyCode}` : "KINETIX GUARDIAN OS"}
+            <span className="px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 font-mono text-[11px] font-bold uppercase tracking-wider border border-red-200/60">
+              Tiered Multisig M/N
             </span>
-            <span className="text-outline-variant">•</span>
-            <span className="text-[11px] text-on-surface-variant font-medium">
-              TIERED MULTISIG 2/3 ON-CHAIN
-            </span>
-            <span className="text-outline-variant">•</span>
+            <span className="text-slate-300">•</span>
             <span className="text-[11px] text-emerald-700 font-bold flex items-center gap-1 font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Family L1 Active
+              Family L1 (0 Gas)
             </span>
           </div>
-          <h1 className="font-display-sm text-2xl lg:text-3xl font-extrabold text-on-surface tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             {familyInfo?.name ? familyInfo.name : t("dash.title")}
           </h1>
-          <p className="text-xs sm:text-sm text-on-surface-variant">
+          <p className="text-xs sm:text-sm text-slate-500">
             {t("dash.subtitle")}
           </p>
         </div>
@@ -140,43 +136,31 @@ export const GuardianView: React.FC = () => {
         {/* Quick Action Buttons Group */}
         <div className="flex flex-wrap items-center gap-2.5">
           <button
-            onClick={() => setIsMemberModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container border border-outline-variant/30 text-xs font-bold text-on-surface shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            onClick={() => setIsCreateVaultOpen(true)}
+            className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             type="button"
           >
-            <span className="material-symbols-outlined text-[17px] text-primary">person_add</span>
+            <span className="material-symbols-outlined text-[18px]">add_circle</span>
+            <span>Tạo Hũ Mới</span>
+          </button>
+
+          <button
+            onClick={() => setIsMemberModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            type="button"
+          >
+            <span className="material-symbols-outlined text-[17px] text-slate-600">person_add</span>
             <span>{t("dash.actions.addMember")}</span>
           </button>
 
           <button
             onClick={() => setIsChoreModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container border border-outline-variant/30 text-xs font-bold text-on-surface shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             type="button"
           >
             <span className="material-symbols-outlined text-[17px] text-amber-600">assignment_add</span>
             <span>{t("dash.actions.createChore")}</span>
           </button>
-
-          <button
-            onClick={() => setIsCreateVaultOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-secondary-container hover:bg-secondary text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-            type="button"
-          >
-            <span className="material-symbols-outlined text-[17px]">savings</span>
-            <span>Tạo Hũ Mới</span>
-          </button>
-
-          <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-surface-container-low rounded-xl border border-secondary/20">
-            <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-            <div className="flex flex-col">
-              <span className="text-[10px] uppercase font-bold text-on-surface-variant">
-                Avalanche L1
-              </span>
-              <span className="text-xs font-bold text-on-surface font-mono">
-                0 Gas (0 Gwei)
-              </span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -184,7 +168,7 @@ export const GuardianView: React.FC = () => {
       <FamilyStatsCards />
 
       {/* DASHBOARD NAVIGATION SUB-TABS */}
-      <div className="flex items-center gap-2 border-b border-surface-container overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto scrollbar-none">
         {[
           { id: "overview", label: t("dash.tab.overview"), icon: "dashboard" },
           { id: "vaults", label: t("dash.tab.vaults"), icon: "savings" },
@@ -196,10 +180,10 @@ export const GuardianView: React.FC = () => {
             key={tab.id}
             type="button"
             onClick={() => setActiveSubTab(tab.id as DashboardSubTab)}
-            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeSubTab === tab.id
-                ? "bg-secondary-container text-white shadow-sm ring-1 ring-secondary"
-                : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low"
+                ? "bg-slate-900 text-white shadow-xs font-bold"
+                : "bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/70"
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">

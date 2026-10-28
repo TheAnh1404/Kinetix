@@ -88,26 +88,26 @@ export const DepositVaultModal: React.FC<DepositVaultModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface-container-lowest rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-outline-variant/30 space-y-5">
+      <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-200 space-y-5">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-surface-container">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
               <span className="material-symbols-outlined text-[22px]">add_card</span>
             </div>
             <div>
-              <h3 className="text-base font-bold text-on-surface">
+              <h3 className="text-base font-bold text-slate-900">
                 {language === 'vi' ? 'Nạp Quỹ Vào Hũ Động' : 'Deposit to Dynamic Vault'}
               </h3>
-              <p className="text-xs text-on-surface-variant font-mono">
+              <p className="text-xs text-slate-500 font-mono">
                 {currentWorkspace?.name ? `${currentWorkspace.name} • ` : ''}Avalanche Fuji C-Chain
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
             type="button"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -257,8 +257,8 @@ export const DepositVaultModal: React.FC<DepositVaultModalProps> = ({
                     onClick={() => setDepositAmount(amt)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                       depositAmount === amt
-                        ? 'bg-primary text-white shadow-sm'
-                        : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                        ? 'bg-red-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60'
                     }`}
                   >
                     +{amt} AVAX
@@ -268,23 +268,23 @@ export const DepositVaultModal: React.FC<DepositVaultModalProps> = ({
             </div>
 
             {/* Dynamic Split Breakdown */}
-            <div className="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant/20 space-y-2 text-xs">
-              <div className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 {language === 'vi' ? 'Cơ Chế Phân Bổ Tự Động (Teleporter ICTT)' : 'Automated Liquidity Split'}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-on-surface-variant">
+                <span className="text-slate-600">
                   {language === 'vi' ? `Đệm Family L1 (${bufferPct}%):` : `L1 Liquid Buffer (${bufferPct}%):`}
                 </span>
-                <span className="font-mono font-bold text-primary">
+                <span className="font-mono font-bold text-slate-900">
                   {l1Amount.toFixed(4)} AVAX ({language === 'vi' ? 'Rút tức thì 0 gas' : 'Instant 0 gas'})
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-on-surface-variant">
+                <span className="text-slate-600">
                   {language === 'vi' ? `Fuji C-Chain (${yieldPct}% @ 8% APY):` : `Fuji C-Chain (${yieldPct}% @ 8% APY):`}
                 </span>
-                <span className="font-mono font-bold text-secondary-container">
+                <span className="font-mono font-bold text-emerald-700">
                   {cchainAmount.toFixed(4)} AVAX ({language === 'vi' ? 'DeFi Staking' : 'Yield Engine'})
                 </span>
               </div>
@@ -292,8 +292,8 @@ export const DepositVaultModal: React.FC<DepositVaultModalProps> = ({
 
             {/* Error Banner */}
             {depositError && (
-              <div className="p-3 rounded-xl bg-error/10 border border-error/30 text-error text-xs flex items-start gap-2">
-                <span className="material-symbols-outlined text-[18px] shrink-0">error</span>
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-start gap-2">
+                <span className="material-symbols-outlined text-[18px] shrink-0 text-red-600">error</span>
                 <div className="flex-1">
                   <p className="font-bold">{language === 'vi' ? 'Lỗi giao dịch:' : 'Transaction error:'}</p>
                   <p className="text-[11px]">{depositError}</p>
@@ -306,7 +306,7 @@ export const DepositVaultModal: React.FC<DepositVaultModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-xs font-bold text-on-surface transition-all cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition-all cursor-pointer"
               >
                 {language === 'vi' ? 'Hủy' : 'Cancel'}
               </button>
@@ -314,7 +314,7 @@ export const DepositVaultModal: React.FC<DepositVaultModalProps> = ({
                 type="button"
                 disabled={isDepositing || depositAmount <= 0}
                 onClick={handleDeposit}
-                className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
                 {isDepositing ? (
                   <>
@@ -323,7 +323,7 @@ export const DepositVaultModal: React.FC<DepositVaultModalProps> = ({
                   </>
                 ) : (
                   <>
-                    <span className="material-symbols-outlined text-[16px]">bolt</span>
+                    <span className="material-symbols-outlined text-[16px] text-amber-300">bolt</span>
                     <span>{language === 'vi' ? 'Ký & Nạp Quỹ On-Chain' : 'Sign & Deposit On-Chain'}</span>
                   </>
                 )}

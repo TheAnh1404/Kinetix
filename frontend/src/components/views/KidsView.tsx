@@ -54,7 +54,7 @@ export const KidsView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-gutter py-space-md flex flex-col gap-space-lg">
+    <div className="flex flex-col gap-6 w-full">
       {/* Toast Feedback */}
       {toast && (
         <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex items-start justify-between gap-3 shadow-md animate-in fade-in duration-300">

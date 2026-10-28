@@ -92,55 +92,87 @@ export const AppShell: React.FC<AppShellProps> = ({
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface text-on-surface">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
       
       {/* ========================================================================= */}
-      {/* 1. TOP GLOBAL APP HEADER */}
+      {/* 1. UNIFIED STICKY APP HEADER (TOP BAR + SPACE SEGMENTED TABS) */}
       {/* ========================================================================= */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-xl border-b border-surface-container/70 shadow-sm transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between gap-3">
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-all">
+        {/* Row 1: Global Branding, Workspace Switcher, Quick Wealth Pill & User Controls */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
           
           {/* Left: Brand Logo & Workspace Switcher */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             <Link
               href="/"
               onClick={() => onTabChange('trang-chu')}
               className="flex items-center gap-2 group cursor-pointer"
               title="Về Trang Chủ Giới Thiệu"
             >
-              <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                <span className="material-symbols-outlined text-[22px] text-secondary-container">
-                  family_restroom
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                <span className="material-symbols-outlined text-[20px]">
+                  account_balance_wallet
                 </span>
               </div>
               <div className="hidden sm:flex flex-col">
-                <span className="font-bold text-base leading-none text-on-surface tracking-tight">
+                <span className="font-bold text-base leading-none text-slate-900 tracking-tight">
                   Kinetix
                 </span>
-                <span className="text-[10px] font-mono text-on-surface-variant uppercase tracking-wider font-semibold">
+                <span className="text-[10px] font-mono text-red-600 uppercase tracking-wider font-bold">
                   Vault OS
                 </span>
               </div>
             </Link>
 
             {/* Separator */}
-            <span className="h-6 w-px bg-surface-container-high hidden sm:block" />
+            <span className="h-5 w-px bg-slate-200 hidden sm:block" />
 
             {/* Workspace Selector Dropdown */}
             <WorkspaceSwitcher />
+
+            {/* Workspace Family Code */}
+            {(currentWorkspace?.workspaceCode || familyInfo?.familyCode) && (
+              <button
+                onClick={handleCopyCode}
+                className="hidden xl:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200/70 text-slate-700 text-[11px] font-mono font-bold transition-colors cursor-pointer border border-slate-200/60"
+                title="Bấm để sao chép Mã Không Gian"
+                type="button"
+              >
+                <span>{currentWorkspace?.workspaceCode || familyInfo?.familyCode}</span>
+                <span className="material-symbols-outlined text-[13px] text-slate-500">
+                  {copiedCode ? 'check' : 'content_copy'}
+                </span>
+              </button>
+            )}
           </div>
 
-          {/* Right: Quick Actions, Network Badge, Role Switcher, Language & Logout */}
+          {/* Right: Quick Wealth, Quick Deposit Action, Network, Notifications, Lang & Profile */}
           <div className="flex items-center gap-2 sm:gap-2.5">
             
+            {/* Quick Financial Summary Pill (Desktop & Tablet) */}
+            <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-100/80 border border-slate-200/70">
+              <div className="flex items-baseline gap-1">
+                <span className="text-[10px] uppercase font-bold text-slate-500">Quỹ:</span>
+                <span className="font-mono text-xs sm:text-sm font-extrabold text-slate-900">
+                  {totalBalanceAVAX.toFixed(2)} AVAX
+                </span>
+              </div>
+              <span className="h-3.5 w-px bg-slate-300" />
+              <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                <span className="text-slate-600 font-mono">10% L1</span>
+                <span className="text-slate-400">•</span>
+                <span className="text-emerald-700 font-mono">90% C-Chain</span>
+              </div>
+            </div>
+
             {/* Quick Deposit Action Button */}
             <button
               type="button"
               onClick={() => setIsDepositModalOpen(true)}
-              className="px-3 sm:px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              className="px-3 sm:px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
             >
               <span className="material-symbols-outlined text-[17px] text-amber-300">bolt</span>
-              <span className="hidden sm:inline">{language === 'vi' ? 'Nạp Quỹ' : 'Deposit'}</span>
+              <span>{language === 'vi' ? 'Nạp Quỹ' : 'Deposit'}</span>
             </button>
 
             {/* Network Indicator Pill */}
@@ -148,7 +180,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               href={`${SNOWTRACE_TESTNET_URL}/address/${CONTRACT_ADDRESSES.familyHub}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface-container-low hover:bg-surface-container border border-outline-variant/30 text-xs font-mono text-on-surface transition-all"
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/70 border border-slate-200 text-xs font-mono text-slate-800 transition-all shrink-0"
               title="Xem Smart Contract trên SnowTrace Fuji C-Chain"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -157,16 +189,16 @@ export const AppShell: React.FC<AppShellProps> = ({
             </a>
 
             {/* Notifications Bell */}
-            <div className="relative">
+            <div className="relative shrink-0">
               <button
                 type="button"
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
-                className="w-8.5 h-8.5 rounded-xl bg-surface-container-low hover:bg-surface-container border border-outline-variant/30 flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer relative"
+                className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 flex items-center justify-center text-slate-600 transition-colors cursor-pointer relative"
                 title="Thông báo hệ thống"
               >
                 <span className="material-symbols-outlined text-[19px]">notifications</span>
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-error text-white font-mono text-[9px] font-bold flex items-center justify-center shadow-sm">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white font-mono text-[9px] font-bold flex items-center justify-center shadow-sm">
                     {unreadNotificationCount}
                   </span>
                 )}
@@ -174,39 +206,45 @@ export const AppShell: React.FC<AppShellProps> = ({
 
               {/* Notifications Dropdown Panel */}
               {isNotifOpen && (
-                <div className="absolute right-0 top-11 w-80 sm:w-96 bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/30 p-3 z-50 animate-in fade-in space-y-2">
-                  <div className="flex items-center justify-between pb-2 border-b border-surface-container px-1">
-                    <span className="text-xs font-bold text-on-surface">
+                <div className="absolute right-0 top-11 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-200 p-3 z-50 animate-in fade-in space-y-2">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 px-1">
+                    <span className="text-xs font-bold text-slate-900">
                       {language === 'vi' ? 'Thông Báo Gia Đình' : 'Family Notifications'}
                     </span>
                     <button
                       onClick={() => setIsNotifOpen(false)}
-                      className="text-xs text-on-surface-variant hover:text-on-surface"
+                      className="text-xs text-slate-400 hover:text-slate-700 cursor-pointer"
                       type="button"
                     >
                       ✕
                     </button>
                   </div>
                   <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
-                    {notifications.map((n) => (
-                      <div
-                        key={n.id}
-                        onClick={() => markNotificationRead(n.id)}
-                        className={`p-2.5 rounded-xl text-xs transition-colors cursor-pointer border ${
-                          n.isRead
-                            ? 'bg-surface-container-low/50 border-transparent text-on-surface-variant'
-                            : 'bg-surface-container-low border-primary/20 text-on-surface font-semibold'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-1 mb-0.5">
-                          <span className="font-bold text-[11px] line-clamp-1">{n.title}</span>
-                          <span className="text-[10px] text-on-surface-variant font-mono">{n.createdAt}</span>
-                        </div>
-                        <p className="text-[11px] text-on-surface-variant leading-relaxed line-clamp-2">
-                          {n.message}
-                        </p>
+                    {notifications.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-slate-500">
+                        Chưa có thông báo mới
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => markNotificationRead(n.id)}
+                          className={`p-2.5 rounded-xl text-xs transition-colors cursor-pointer border ${
+                            n.isRead
+                              ? 'bg-slate-50 border-transparent text-slate-500'
+                              : 'bg-red-50/50 border-red-200 text-slate-900 font-semibold'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
+                            <span className="font-bold text-[11px] line-clamp-1">{n.title}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{n.createdAt}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-2">
+                            {n.message}
+                          </p>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
@@ -215,7 +253,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             {/* Language Switcher */}
             <button
               onClick={toggleLanguage}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-surface-container-low hover:bg-surface-container border border-outline-variant/30 text-xs font-bold text-on-surface transition-all cursor-pointer font-mono"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-xs font-bold text-slate-800 transition-all cursor-pointer font-mono shrink-0"
               type="button"
             >
               <span>{language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}</span>
@@ -226,10 +264,10 @@ export const AppShell: React.FC<AppShellProps> = ({
               <button
                 type="button"
                 onClick={() => setIsRoleModalOpen(true)}
-                className="flex items-center gap-1.5 p-1 pr-2 rounded-full bg-surface-container-low hover:bg-surface-container border border-outline-variant/30 transition-all cursor-pointer group"
+                className="flex items-center gap-1.5 p-1 pr-2 rounded-full bg-slate-100 hover:bg-slate-200/80 border border-slate-200 transition-all cursor-pointer group shrink-0"
                 title={`${currentMember.name} • Bấm để đổi vai trò`}
               >
-                <div className="w-7 h-7 rounded-full overflow-hidden border border-secondary shadow-sm">
+                <div className="w-7 h-7 rounded-full overflow-hidden border border-red-500 shadow-xs">
                   <img
                     src={currentMember.avatar}
                     alt={currentMember.name}
@@ -237,14 +275,14 @@ export const AppShell: React.FC<AppShellProps> = ({
                   />
                 </div>
                 <div className="hidden md:flex flex-col text-left">
-                  <span className="text-[11px] font-bold text-on-surface leading-tight line-clamp-1">
+                  <span className="text-[11px] font-bold text-slate-900 leading-tight line-clamp-1">
                     {currentMember.name.split(' ')[0]}
                   </span>
-                  <span className="text-[9px] font-mono font-semibold text-secondary leading-tight">
+                  <span className="text-[9px] font-mono font-semibold text-red-600 leading-tight">
                     {currentMember.role}
                   </span>
                 </div>
-                <span className="material-symbols-outlined text-[15px] text-on-surface-variant group-hover:translate-y-0.5 transition-transform">
+                <span className="material-symbols-outlined text-[15px] text-slate-400 group-hover:translate-y-0.5 transition-transform">
                   expand_more
                 </span>
               </button>
@@ -254,99 +292,18 @@ export const AppShell: React.FC<AppShellProps> = ({
             <button
               onClick={logout}
               title={t('nav.logout')}
-              className="w-8.5 h-8.5 rounded-xl bg-surface-container-low hover:bg-error-container hover:text-error flex items-center justify-center text-on-surface-variant transition-colors cursor-pointer"
+              className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-600 flex items-center justify-center text-slate-600 transition-colors cursor-pointer shrink-0"
               type="button"
             >
               <span className="material-symbols-outlined text-[18px]">logout</span>
             </button>
           </div>
         </div>
-      </header>
 
-      {/* ========================================================================= */}
-      {/* 2. SUB-HEADER: PERSISTENT WEALTH BAR & 4-SPACE NAVIGATION TABS */}
-      {/* ========================================================================= */}
-      <div className="pt-18 bg-surface-container-lowest border-b border-surface-container/60 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          
-          {/* Row A: Workspace Identity & Financial Status Overview */}
-          <div className="py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-surface-container/50">
-            {/* Left: Current Workspace Title & Code */}
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base sm:text-lg font-bold text-on-surface tracking-tight">
-                    {currentWorkspace?.name || familyInfo?.name || 'Không Gian Gia Đình'}
-                  </h1>
-                  <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary font-mono text-[10px] font-bold uppercase">
-                    {currentWorkspace?.type || 'FAMILY'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-on-surface-variant font-mono mt-0.5">
-                  <span>Mã Không Gian:</span>
-                  <button
-                    onClick={handleCopyCode}
-                    className="font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
-                    type="button"
-                  >
-                    <span>{currentWorkspace?.workspaceCode || familyInfo?.familyCode || 'KNTX-8888'}</span>
-                    <span className="material-symbols-outlined text-[13px]">
-                      {copiedCode ? 'check' : 'content_copy'}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Total Wealth & Liquid Buffer Visualizer */}
-            <div className="flex items-center gap-3 sm:gap-6 bg-surface-container-low/70 px-4 py-2 rounded-2xl border border-outline-variant/20">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                  Tổng Tài Sản Quỹ
-                </span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-mono text-base sm:text-lg font-extrabold text-on-surface">
-                    {totalBalanceAVAX.toFixed(2)} AVAX
-                  </span>
-                  <span className="text-[11px] font-mono text-emerald-700 font-bold">
-                    ≈ ${(totalBalanceAVAX * 30).toLocaleString()} USD
-                  </span>
-                </div>
-              </div>
-
-              <div className="h-8 w-px bg-surface-container-high hidden sm:block" />
-
-              <div className="hidden sm:flex flex-col gap-1 min-w-[180px]">
-                <div className="flex items-center justify-between text-[10px] font-bold">
-                  <span className="text-primary font-mono">Đệm L1: {totalL1BufferAVAX.toFixed(2)} AVAX</span>
-                  <span className="text-emerald-700 font-mono">C-Chain: {totalCChainPrincipalAVAX.toFixed(2)} AVAX</span>
-                </div>
-                <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden flex">
-                  <div
-                    style={{
-                      width: `${totalBalanceAVAX > 0 ? (totalL1BufferAVAX / totalBalanceAVAX) * 100 : 10}%`,
-                    }}
-                    className="bg-primary h-full"
-                    title="Đệm L1 0 gas"
-                  />
-                  <div
-                    style={{
-                      width: `${totalBalanceAVAX > 0 ? (totalCChainPrincipalAVAX / totalBalanceAVAX) * 100 : 90}%`,
-                    }}
-                    className="bg-secondary-container h-full"
-                    title="C-Chain 8% APY"
-                  />
-                </div>
-                <span className="text-[9px] text-emerald-700 font-mono text-right font-semibold">
-                  +{(totalCChainYieldAVAX).toFixed(3)} AVAX Lãi Tích Lũy
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Row B: Space Navigator Tabs (4 Core Spaces + Return to Landing) */}
-          <div className="flex items-center justify-between overflow-x-auto py-2 gap-1.5 scrollbar-none">
-            <div className="flex items-center gap-1 sm:gap-2">
+        {/* Row 2: Space Segmented Tabs (4 Core Spaces + Return to Showcase) */}
+        <div className="border-t border-slate-200/70 bg-slate-50/70">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center justify-between gap-2 overflow-x-auto scrollbar-none">
+            <nav className="flex items-center gap-1 sm:gap-2">
               {spaces.map((sp) => {
                 const isActive = activeTab === sp.id;
                 return (
@@ -354,38 +311,44 @@ export const AppShell: React.FC<AppShellProps> = ({
                     key={sp.id}
                     onClick={() => onTabChange(sp.id)}
                     type="button"
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
                       isActive
-                        ? 'bg-primary text-white shadow-sm ring-1 ring-primary'
-                        : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
+                        ? 'bg-white text-slate-900 shadow-xs border border-slate-200 font-bold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                     }`}
                   >
-                    <span className="material-symbols-outlined text-[18px]">
+                    <span
+                      className={`material-symbols-outlined text-[18px] ${
+                        isActive ? 'text-red-600' : 'text-slate-500'
+                      }`}
+                    >
                       {sp.icon}
                     </span>
                     <span>{sp.label}</span>
                   </button>
                 );
               })}
-            </div>
+            </nav>
 
             {/* Link back to Showcase Landing */}
             <button
               onClick={() => onTabChange('trang-chu')}
               type="button"
-              className="text-xs font-semibold text-on-surface-variant hover:text-primary flex items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              className="text-xs font-semibold text-slate-500 hover:text-red-600 flex items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-slate-200/60 transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               <span className="material-symbols-outlined text-[16px]">visibility</span>
-              <span className="hidden lg:inline">{language === 'vi' ? 'Xem Trang Giới Thiệu' : 'Showcase Page'}</span>
+              <span className="hidden sm:inline">
+                {language === 'vi' ? 'Xem Trang Giới Thiệu' : 'Showcase'}
+              </span>
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* ========================================================================= */}
-      {/* 3. MAIN WORKSPACE CONTENT CANVAS */}
+      {/* 2. MAIN WORKSPACE CONTENT CANVAS */}
       {/* ========================================================================= */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 md:pb-8">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 md:pb-12">
         {children}
       </main>
 

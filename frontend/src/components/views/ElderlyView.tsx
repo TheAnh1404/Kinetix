@@ -139,7 +139,7 @@ export const ElderlyView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-gutter py-space-lg w-full flex flex-col gap-space-lg">
+    <div className="flex flex-col gap-6 w-full">
       {/* Toast Alert Notification */}
       {notification.show && (
         <div
@@ -171,10 +171,10 @@ export const ElderlyView: React.FC = () => {
       )}
 
       {/* Top Warm Greeting & Emergency Assistance Bar */}
-      <div className="w-full bg-surface-container-lowest rounded-2xl p-space-md md:p-space-lg shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-space-md border border-surface-container-high/60">
-        <div className="flex items-center gap-space-md">
-          <div className="relative flex-shrink-0">
-            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-inner bg-surface-container border-2 border-surface-container-highest">
+      <div className="w-full bg-white rounded-2xl p-5 md:p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-200/80">
+        <div className="flex items-center gap-4">
+          <div className="relative shrink-0">
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden shadow-inner bg-slate-100 border-2 border-red-500/30">
               <img
                 className="w-full h-full object-cover"
                 alt={currentMember?.name || "Ông Bà"}
@@ -184,42 +184,38 @@ export const ElderlyView: React.FC = () => {
                 }
               />
             </div>
-            <div className="absolute -bottom-1 -right-1 bg-surface-container-lowest rounded-full p-1 shadow-sm">
-              <span className="flex h-5 w-5 rounded-full bg-secondary-container animate-pulse items-center justify-center">
-                <span className="material-symbols-outlined text-[14px] text-on-secondary-container">
+            <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-xs">
+              <span className="flex h-5 w-5 rounded-full bg-red-600 animate-pulse items-center justify-center">
+                <span className="material-symbols-outlined text-[13px] text-white">
                   verified_user
                 </span>
               </span>
             </div>
           </div>
-          <div className="flex flex-col gap-space-xs">
-            <div className="inline-flex items-center gap-space-xs px-space-sm py-0.5 rounded-full bg-surface-container-high w-fit">
-              <span className="material-symbols-outlined text-[18px] text-tertiary-fixed-dim">
-                shield
-              </span>
-              <span className="font-label-lg text-label-lg text-on-surface">
-                Chế độ Bảo Vệ Kinetix SHIELD: <strong>ĐANG BẬT</strong>
-              </span>
+          <div className="flex flex-col gap-1">
+            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold w-fit">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Chế độ Kinetix SHIELD: ĐANG BẬT</span>
             </div>
-            <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight font-bold">
+            <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
               Chào {currentMember?.name || "Ông Nội"} ❤️
             </h1>
-            <p className="font-title-md text-title-md text-on-surface-variant font-normal">
+            <p className="text-xs sm:text-sm text-slate-500">
               {currentWorkspace ? `Không gian: ${currentWorkspace.name} • ` : ""}Chúc Ông ngày mới an vui, mạnh khỏe và thảnh thơi.
             </p>
 
             {/* Selector if multiple SHIELD vaults */}
             {shieldVaults.length > 1 && (
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs font-semibold text-on-surface-variant">Chọn Hũ:</span>
+                <span className="text-xs font-semibold text-slate-500">Chọn Hũ:</span>
                 {shieldVaults.map((vault) => (
                   <button
                     key={vault.id}
                     onClick={() => setSelectedVaultId(vault.onchainVaultId)}
-                    className={`px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       activeVault?.onchainVaultId === vault.onchainVaultId
-                        ? "bg-secondary text-white"
-                        : "bg-surface-container hover:bg-surface-container-high text-on-surface"
+                        ? "bg-red-600 text-white shadow-xs"
+                        : "bg-slate-100 hover:bg-slate-200 text-slate-700"
                     }`}
                     type="button"
                   >
@@ -233,17 +229,17 @@ export const ElderlyView: React.FC = () => {
 
         {/* Quick One-Tap Emergency Call Button */}
         <a
-          className="w-full md:w-auto flex items-center justify-center gap-space-sm px-space-lg py-space-md bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-on-secondary rounded-2xl shadow-md transition-all active:scale-95 group"
+          className="w-full md:w-auto flex items-center justify-center gap-3 px-5 py-3.5 bg-red-600 hover:bg-red-700 text-white rounded-2xl shadow-sm transition-all active:scale-95 group shrink-0"
           href={`tel:${emergencyPhone}`}
         >
-          <span className="material-symbols-outlined text-[32px] group-hover:animate-bounce">
+          <span className="material-symbols-outlined text-[28px] group-hover:animate-bounce">
             phone_in_talk
           </span>
           <div className="flex flex-col text-left">
-            <span className="font-label-caps text-label-caps tracking-widest opacity-90 uppercase">
+            <span className="text-[10px] tracking-widest opacity-90 uppercase font-bold">
               Hỗ Trợ Gia Đình
             </span>
-            <span className="font-headline-sm text-headline-sm font-bold">
+            <span className="text-sm font-bold">
               Cần trợ giúp? Bấm gọi con ngay
             </span>
           </div>
@@ -251,91 +247,89 @@ export const ElderlyView: React.FC = () => {
       </div>
 
       {/* Main Hero Balance Card */}
-      <div className="w-full bg-surface-container-lowest rounded-2xl p-space-lg md:p-space-xl shadow-sm relative overflow-hidden flex flex-col gap-space-md border border-surface-container-high/60">
-        <div className="absolute -right-16 -top-16 w-64 h-64 bg-surface-container-high/40 rounded-full blur-3xl pointer-events-none"></div>
-
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-space-xs relative z-10">
-          <div className="flex items-center gap-space-xs">
-            <span className="material-symbols-outlined text-[28px] text-secondary">
+      <div className="w-full bg-white rounded-2xl p-6 md:p-8 shadow-xs relative overflow-hidden flex flex-col gap-4 border border-slate-200/80">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 relative z-10">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[26px] text-red-600">
               savings
             </span>
-            <span className="font-headline-sm text-headline-sm text-on-surface-variant font-bold">
+            <span className="text-base font-bold text-slate-700">
               {activeVault ? activeVault.name : "Tiền sinh hoạt sẵn sàng tiêu (Hũ Báo Hiếu)"}
             </span>
           </div>
-          <div className="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-surface-container text-on-surface font-label-lg text-label-lg font-medium">
-            <span className="material-symbols-outlined text-[18px]">lock</span>
-            <span>Bộ đệm L1: Rút tức thì 0 gas fee</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
+            <span className="material-symbols-outlined text-[16px] text-emerald-600">lock_open</span>
+            <span>Bộ đệm L1: Rút tức thì 0đ phí gas</span>
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row lg:items-baseline gap-space-sm lg:gap-space-lg relative z-10">
-          <span className="font-display-lg text-display-lg md:text-[56px] md:leading-[64px] font-bold text-on-surface tracking-tight">
+        <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4 relative z-10">
+          <span className="text-4xl sm:text-5xl font-extrabold text-slate-900 font-mono tracking-tight">
             {bufferBalance.toFixed(2)} AVAX
           </span>
-          <span className="font-headline-lg text-headline-lg text-outline font-semibold">
+          <span className="text-base sm:text-xl text-slate-500 font-semibold font-mono">
             ~ {(bufferBalance * 750000).toLocaleString("vi-VN")} VNĐ
           </span>
         </div>
 
         {/* Growth Note Badge */}
-        <div className="relative z-10 flex items-center gap-space-sm p-space-md rounded-xl bg-surface-container-low text-on-surface">
-          <span className="material-symbols-outlined text-[26px] text-tertiary-fixed-dim">
-            eco
+        <div className="relative z-10 flex items-center gap-3 p-3.5 rounded-xl bg-emerald-50 text-emerald-950 border border-emerald-200/60">
+          <span className="material-symbols-outlined text-[24px] text-emerald-600 shrink-0">
+            trending_up
           </span>
-          <p className="font-body-lg text-body-lg">
+          <p className="text-xs sm:text-sm leading-relaxed">
             Phần vốn nhàn rỗi <strong>{cChainPrincipal.toFixed(2)} AVAX</strong> đang sinh lời tự động <strong>8% APY</strong> mỗi ngày từ Avalanche Fuji C-Chain và tự động chuyển về đệm L1 khi cần!
           </p>
         </div>
       </div>
 
       {/* Dual Action Area: High-Contrast Large Action Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-lg w-full">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
         {/* Card A: Daily Spending (Fast & Immediate <= fastLimit) */}
-        <div className="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm flex flex-col justify-between gap-space-md border border-surface-container-high/60">
-          <div className="flex flex-col gap-space-sm">
-            <div className="flex items-center gap-space-xs text-on-tertiary-container">
-              <span className="material-symbols-outlined text-[32px]">
+        <div className="bg-white rounded-2xl p-6 shadow-xs flex flex-col justify-between gap-6 border border-slate-200/80">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[28px] text-emerald-600">
                 shopping_basket
               </span>
-              <span className="font-label-caps text-label-caps bg-surface-container-high px-space-xs py-0.5 rounded uppercase font-bold text-on-surface">
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">
                 Rút Tức Thì (1 Chạm)
               </span>
             </div>
-            <h2 className="font-headline-lg text-headline-lg text-on-surface font-bold">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900">
               Rút tiền chợ / Mua thuốc (≤ {fastLimit} AVAX)
             </h2>
-            <p className="font-title-md text-title-md text-on-surface-variant font-normal">
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
               Dành cho chi tiêu nhỏ lẻ thường nhật. Nhận tiền về tài khoản trong 1 giây mà không cần con cháu duyệt, 0đ phí giao dịch.
             </p>
 
             {/* Quick Select Preset Pills */}
-            <div className="flex flex-col gap-space-xs pt-space-xs">
-              <label className="font-label-lg text-label-lg text-on-surface-variant font-semibold">
+            <div className="flex flex-col gap-2 pt-1">
+              <label className="text-xs font-bold text-slate-700">
                 Chọn số tiền muốn lấy:
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-space-xs">
+              <div className="grid grid-cols-3 gap-2">
                 {[0.01, 0.02, 0.05].map((val) => {
                   const isSelected = selectedPill === val;
                   return (
                     <button
                       key={val}
                       onClick={() => setSelectedPill(val)}
-                      className={`py-space-sm px-space-xs rounded-xl font-headline-sm text-headline-sm flex flex-col items-center justify-center transition-all cursor-pointer ${
+                      className={`py-2.5 px-2 rounded-xl text-center transition-all cursor-pointer border ${
                         isSelected
-                          ? "bg-secondary text-on-secondary shadow-md scale-[1.02]"
-                          : "bg-surface-container hover:bg-surface-container-high text-on-surface"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-xs font-bold"
+                          : "bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200 font-medium"
                       }`}
                       type="button"
                     >
-                      <span className="font-bold">{val} AVAX</span>
-                      <span
-                        className={`font-label-md text-label-md ${
-                          isSelected ? "text-white/80" : "text-on-surface-variant"
+                      <div className="text-xs sm:text-sm font-bold font-mono">{val} AVAX</div>
+                      <div
+                        className={`text-[10px] font-mono ${
+                          isSelected ? "text-white/80" : "text-slate-500"
                         }`}
                       >
                         {(val * 750000).toLocaleString("vi-VN")}đ
-                      </span>
+                      </div>
                     </button>
                   );
                 })}
@@ -343,58 +337,58 @@ export const ElderlyView: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-space-md flex flex-col gap-space-xs">
+          <div className="pt-2 flex flex-col gap-2">
             <button
               onClick={handleQuickWithdraw}
               disabled={isProcessing}
-              className="w-full py-space-md px-space-lg bg-surface-container-high hover:bg-surface-container text-on-surface font-headline-sm text-headline-sm rounded-xl shadow-md flex items-center justify-center gap-space-sm transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60"
+              className="w-full py-3.5 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm sm:text-base rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60"
               type="button"
             >
               {isProcessing ? (
                 <>
-                  <span className="material-symbols-outlined animate-spin text-[28px]">
+                  <span className="material-symbols-outlined animate-spin text-[22px]">
                     progress_activity
                   </span>
-                  <span>Đang giải ngân...</span>
+                  <span>Đang giải ngân tức thì...</span>
                 </>
               ) : (
                 <>
-                  <span className="material-symbols-outlined text-[28px] text-tertiary-fixed-dim">
+                  <span className="material-symbols-outlined text-[22px]">
                     bolt
                   </span>
-                  <span className="font-bold">RÚT {selectedPill} AVAX NGAY (0đ Phí Gas)</span>
+                  <span>RÚT {selectedPill} AVAX NGAY (0đ Phí Gas)</span>
                 </>
               )}
             </button>
-            <span className="font-label-md text-label-md text-center text-outline">
+            <span className="text-[11px] text-center text-slate-400">
               Bảo mật tự động bởi Hợp đồng FamilyHub trên Avalanche Family L1
             </span>
           </div>
         </div>
 
         {/* Card B: High-Value Spending (Anti-Scam Protection > fastLimit) */}
-        <div className="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm flex flex-col justify-between gap-space-md border border-surface-container-high/60">
-          <div className="flex flex-col gap-space-sm">
-            <div className="flex items-center gap-space-xs text-secondary">
-              <span className="material-symbols-outlined text-[32px]">
+        <div className="bg-white rounded-2xl p-6 shadow-xs flex flex-col justify-between gap-6 border border-slate-200/80">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[28px] text-red-600">
                 shield_with_heart
               </span>
-              <span className="font-label-caps text-label-caps bg-secondary-fixed px-space-xs py-0.5 rounded uppercase font-bold text-on-secondary-fixed">
+              <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 text-[10px] font-bold uppercase tracking-wider">
                 Bảo Vệ Đa Chữ Ký Multisig ({activeVault?.requiredApprovals || 2} Chữ Ký)
               </span>
             </div>
-            <h2 className="font-headline-lg text-headline-lg text-on-surface font-bold">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900">
               Rút khoản tiền lớn (&gt; {fastLimit} AVAX)
             </h2>
-            <p className="font-title-md text-title-md text-on-surface-variant font-normal">
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
               Dùng khi khám chữa bệnh, sửa nhà hoặc việc hệ trọng. Tự động kích hoạt cơ chế chống lừa đảo AI và kẻ gian mạo danh.
             </p>
 
             {/* Input Amount & Reason */}
-            <div className="flex flex-col gap-space-sm">
+            <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
                 <label
-                  className="font-label-lg text-label-lg text-on-surface-variant font-semibold"
+                  className="text-xs font-bold text-slate-700"
                   htmlFor="largeAmount"
                 >
                   Nhập số tiền Ông cần rút (AVAX):
@@ -403,13 +397,13 @@ export const ElderlyView: React.FC = () => {
                   <input
                     value={largeAmount}
                     onChange={(e) => setLargeAmount(e.target.value)}
-                    className="w-full py-space-sm px-space-md bg-surface rounded-xl font-headline-sm text-headline-sm text-on-surface placeholder:text-outline border border-surface-container-high focus:outline-none focus:ring-2 focus:ring-secondary font-bold font-mono"
+                    className="w-full py-2.5 px-3.5 pr-14 bg-slate-50 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500 font-bold font-mono"
                     id="largeAmount"
                     placeholder="Ví dụ: 0.2, 0.5, 1"
                     step="0.05"
                     type="number"
                   />
-                  <span className="absolute right-space-md font-headline-sm text-headline-sm text-on-surface-variant font-bold font-mono">
+                  <span className="absolute right-3.5 text-xs text-slate-500 font-bold font-mono">
                     AVAX
                   </span>
                 </div>
@@ -417,7 +411,7 @@ export const ElderlyView: React.FC = () => {
 
               <div className="flex flex-col gap-1">
                 <label
-                  className="font-label-lg text-label-lg text-on-surface-variant font-semibold"
+                  className="text-xs font-bold text-slate-700"
                   htmlFor="largeReason"
                 >
                   Lý do rút tiền (để các con yên tâm):
@@ -425,7 +419,7 @@ export const ElderlyView: React.FC = () => {
                 <input
                   value={largeReason}
                   onChange={(e) => setLargeReason(e.target.value)}
-                  className="w-full py-2.5 px-space-md bg-surface rounded-xl text-body-md text-on-surface placeholder:text-outline border border-surface-container-high focus:outline-none focus:ring-2 focus:ring-secondary"
+                  className="w-full py-2.5 px-3.5 bg-slate-50 rounded-xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500"
                   id="largeReason"
                   placeholder="Ví dụ: Khám bệnh định kỳ, sửa mái nhà"
                 />
@@ -433,30 +427,30 @@ export const ElderlyView: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-space-md flex flex-col gap-space-xs">
+          <div className="pt-2 flex flex-col gap-2">
             <button
               onClick={handleRequestLargeWithdrawal}
               disabled={isProcessing}
-              className="w-full py-space-md px-space-lg bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-on-secondary font-headline-sm text-headline-sm rounded-xl shadow-md flex items-center justify-center gap-space-sm transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 font-bold"
+              className="w-full py-3.5 px-6 bg-red-600 hover:bg-red-700 text-white font-bold text-sm sm:text-base rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60"
               type="button"
             >
               {isProcessing ? (
                 <>
-                  <span className="material-symbols-outlined animate-spin text-[28px]">
+                  <span className="material-symbols-outlined animate-spin text-[22px]">
                     progress_activity
                   </span>
                   <span>Đang gửi yêu cầu...</span>
                 </>
               ) : (
                 <>
-                  <span className="material-symbols-outlined text-[28px]">
+                  <span className="material-symbols-outlined text-[22px]">
                     send_time_extension
                   </span>
                   <span>GỬI YÊU CẦU CHO CÁC CON DUYỆT</span>
                 </>
               )}
             </button>
-            <span className="font-label-md text-label-md text-center text-outline">
+            <span className="text-[11px] text-center text-slate-400">
               Bắt buộc tối thiểu {activeVault?.requiredApprovals || 2} Guardians ký duyệt mới giải ngân
             </span>
           </div>
