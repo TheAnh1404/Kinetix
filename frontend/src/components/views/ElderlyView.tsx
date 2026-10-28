@@ -28,19 +28,19 @@ export const ElderlyView: React.FC = () => {
   const activeVault =
     shieldVaults.find((v) => v.onchainVaultId === selectedVaultId) || shieldVaults[0];
 
-  // Hạn mức rút nhanh lấy từ Hũ tiền (mặc định 50 nếu chưa cấu hình)
-  const fastLimit = activeVault?.fastWithdrawLimit || 50;
+  // Hạn mức rút nhanh lấy từ Hũ tiền (mặc định 0.05 AVAX nếu chưa cấu hình)
+  const fastLimit = activeVault?.fastWithdrawLimit ? Math.min(activeVault.fastWithdrawLimit, 0.05) : 0.05;
   const bufferBalance = activeVault
-    ? activeVault.l1BufferBalance
+    ? (activeVault.cachedL1Buffer !== undefined ? activeVault.cachedL1Buffer : activeVault.l1BufferBalance || 0)
     : fallbackVaults.retirementShield.localBuffer;
   const cChainPrincipal = activeVault
-    ? activeVault.cChainPrincipal
+    ? (activeVault.cachedTotalBalance !== undefined ? Math.max(0, activeVault.cachedTotalBalance - activeVault.cachedL1Buffer) : activeVault.cChainPrincipal || 0)
     : fallbackVaults.retirementShield.remoteYield;
 
-  const [selectedPill, setSelectedPill] = useState<number>(20);
-  const [largeAmount, setLargeAmount] = useState<string>("1000");
+  const [selectedPill, setSelectedPill] = useState<number>(0.02);
+  const [largeAmount, setLargeAmount] = useState<string>("0.2");
   const [largeReason, setLargeReason] = useState<string>(
-    "Khám bệnh đột xuất tại Bệnh viện Tim TW"
+    "Khám bệnh định kỳ và mua thuốc tại Bệnh viện"
   );
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [notification, setNotification] = useState<{
@@ -77,7 +77,7 @@ export const ElderlyView: React.FC = () => {
         setNotification({
           show: true,
           title: "🎉 RÚT TIỀN ĐI CHỢ THÀNH CÔNG TỨC THÌ!",
-          message: `Đã giải ngân ${selectedPill} USDC (~${(selectedPill * 25000).toLocaleString(
+          message: `Đã giải ngân ${selectedPill} AVAX (~${(selectedPill * 750000).toLocaleString(
             "vi-VN"
           )} VNĐ) từ đệm Family L1 trong <1 giây với 0đ phí gas!`,
           type: "success",
@@ -93,7 +93,7 @@ export const ElderlyView: React.FC = () => {
     const amt = parseFloat(largeAmount);
     if (!amt || amt <= fastLimit) {
       alert(
-        `Khoản rút lớn phải trên ${fastLimit} USDC. Khoản nhỏ xin dùng nút rút tức thì bên trái!`
+        `Khoản rút lớn phải trên ${fastLimit} AVAX. Khoản nhỏ xin dùng nút rút tức thì bên trái!`
       );
       return;
     }
@@ -127,7 +127,7 @@ export const ElderlyView: React.FC = () => {
         setNotification({
           show: true,
           title: "🛡️ ĐÃ KÍCH HOẠT BẢO VỆ CHỐNG LỪA ĐẢO AI (Multisig)!",
-          message: `Yêu cầu rút ${amt} USDC (Mã #${
+          message: `Yêu cầu rút ${amt} AVAX (Mã #${
             requestId || "001"
           } - "${largeReason}") đã ghi vào Smart Contract và gửi khẩn cấp tới các con (${guardianNames}). Cần tối thiểu ${reqApprovals} chữ ký Guardians duyệt mới giải ngân!`,
           type: "warning",
@@ -271,10 +271,10 @@ export const ElderlyView: React.FC = () => {
 
         <div className="flex flex-col lg:flex-row lg:items-baseline gap-space-sm lg:gap-space-lg relative z-10">
           <span className="font-display-lg text-display-lg md:text-[56px] md:leading-[64px] font-bold text-on-surface tracking-tight">
-            {bufferBalance.toFixed(2)} USDC
+            {bufferBalance.toFixed(2)} AVAX
           </span>
           <span className="font-headline-lg text-headline-lg text-outline font-semibold">
-            ~ {(bufferBalance * 25000).toLocaleString("vi-VN")} VNĐ
+            ~ {(bufferBalance * 750000).toLocaleString("vi-VN")} VNĐ
           </span>
         </div>
 
@@ -284,7 +284,7 @@ export const ElderlyView: React.FC = () => {
             eco
           </span>
           <p className="font-body-lg text-body-lg">
-            Phần vốn nhàn rỗi <strong>{cChainPrincipal.toLocaleString()} USDC</strong> đang sinh lời tự động <strong>8% APY</strong> mỗi ngày từ Avalanche Fuji C-Chain và tự động chuyển về đệm L1 khi cần!
+            Phần vốn nhàn rỗi <strong>{cChainPrincipal.toFixed(2)} AVAX</strong> đang sinh lời tự động <strong>8% APY</strong> mỗi ngày từ Avalanche Fuji C-Chain và tự động chuyển về đệm L1 khi cần!
           </p>
         </div>
       </div>
@@ -303,7 +303,7 @@ export const ElderlyView: React.FC = () => {
               </span>
             </div>
             <h2 className="font-headline-lg text-headline-lg text-on-surface font-bold">
-              Rút tiền chợ / Mua thuốc (≤ {fastLimit} USDC)
+              Rút tiền chợ / Mua thuốc (≤ {fastLimit} AVAX)
             </h2>
             <p className="font-title-md text-title-md text-on-surface-variant font-normal">
               Dành cho chi tiêu nhỏ lẻ thường nhật. Nhận tiền về tài khoản trong 1 giây mà không cần con cháu duyệt, 0đ phí giao dịch.
@@ -315,7 +315,7 @@ export const ElderlyView: React.FC = () => {
                 Chọn số tiền muốn lấy:
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-space-xs">
-                {[10, 20, fastLimit].map((val) => {
+                {[0.01, 0.02, 0.05].map((val) => {
                   const isSelected = selectedPill === val;
                   return (
                     <button
@@ -328,13 +328,13 @@ export const ElderlyView: React.FC = () => {
                       }`}
                       type="button"
                     >
-                      <span className="font-bold">{val} USDC</span>
+                      <span className="font-bold">{val} AVAX</span>
                       <span
                         className={`font-label-md text-label-md ${
                           isSelected ? "text-white/80" : "text-on-surface-variant"
                         }`}
                       >
-                        {(val * 25000).toLocaleString("vi-VN")}đ
+                        {(val * 750000).toLocaleString("vi-VN")}đ
                       </span>
                     </button>
                   );
@@ -362,7 +362,7 @@ export const ElderlyView: React.FC = () => {
                   <span className="material-symbols-outlined text-[28px] text-tertiary-fixed-dim">
                     bolt
                   </span>
-                  <span className="font-bold">RÚT {selectedPill} USDC NGAY (0đ Phí Gas)</span>
+                  <span className="font-bold">RÚT {selectedPill} AVAX NGAY (0đ Phí Gas)</span>
                 </>
               )}
             </button>
@@ -384,7 +384,7 @@ export const ElderlyView: React.FC = () => {
               </span>
             </div>
             <h2 className="font-headline-lg text-headline-lg text-on-surface font-bold">
-              Rút khoản tiền lớn (&gt; {fastLimit} USDC)
+              Rút khoản tiền lớn (&gt; {fastLimit} AVAX)
             </h2>
             <p className="font-title-md text-title-md text-on-surface-variant font-normal">
               Dùng khi khám chữa bệnh, sửa nhà hoặc việc hệ trọng. Tự động kích hoạt cơ chế chống lừa đảo AI và kẻ gian mạo danh.
@@ -397,19 +397,20 @@ export const ElderlyView: React.FC = () => {
                   className="font-label-lg text-label-lg text-on-surface-variant font-semibold"
                   htmlFor="largeAmount"
                 >
-                  Nhập số tiền Ông cần rút (USDC):
+                  Nhập số tiền Ông cần rút (AVAX):
                 </label>
                 <div className="relative flex items-center">
                   <input
                     value={largeAmount}
                     onChange={(e) => setLargeAmount(e.target.value)}
-                    className="w-full py-space-sm px-space-md bg-surface rounded-xl font-headline-sm text-headline-sm text-on-surface placeholder:text-outline border border-surface-container-high focus:outline-none focus:ring-2 focus:ring-secondary font-bold"
+                    className="w-full py-space-sm px-space-md bg-surface rounded-xl font-headline-sm text-headline-sm text-on-surface placeholder:text-outline border border-surface-container-high focus:outline-none focus:ring-2 focus:ring-secondary font-bold font-mono"
                     id="largeAmount"
-                    placeholder="Ví dụ: 100, 500, 1000"
+                    placeholder="Ví dụ: 0.2, 0.5, 1"
+                    step="0.05"
                     type="number"
                   />
-                  <span className="absolute right-space-md font-headline-sm text-headline-sm text-on-surface-variant font-bold">
-                    USDC
+                  <span className="absolute right-space-md font-headline-sm text-headline-sm text-on-surface-variant font-bold font-mono">
+                    AVAX
                   </span>
                 </div>
               </div>
