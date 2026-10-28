@@ -100,7 +100,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const currentSpace = spaces.find((s) => s.id === activeTab) || spaces[0];
 
   return (
-    <div className="min-h-screen flex bg-slate-50 text-slate-900">
+    <div className="h-screen w-full flex overflow-hidden bg-slate-50 text-slate-900">
       
       {/* ========================================================================= */}
       {/* 1. MOBILE BACKDROP OVERLAY */}
@@ -113,10 +113,10 @@ export const AppShell: React.FC<AppShellProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* 2. VERTICAL SIDEBAR (DESKTOP FIXED + MOBILE SLIDE-OVER DRAWER) */}
+      {/* 2. VERTICAL SIDEBAR (DESKTOP LOCKED FULL-HEIGHT + MOBILE SLIDE-OVER) */}
       {/* ========================================================================= */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200/80 flex flex-col transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 shrink-0 h-screen sticky top-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 h-full bg-white border-r border-slate-200/80 flex flex-col transition-transform duration-300 ease-in-out shrink-0 lg:static lg:translate-x-0 select-none ${
           isMobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
         }`}
       >
@@ -359,9 +359,9 @@ export const AppShell: React.FC<AppShellProps> = ({
       </aside>
 
       {/* ========================================================================= */}
-      {/* 3. MAIN RIGHT CANVAS (TOP BAR + CONTENT BODY) */}
+      {/* 3. MAIN RIGHT CANVAS (TOP BAR + CONTENT BODY WITH INDEPENDENT SCROLL) */}
       {/* ========================================================================= */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
         
         {/* TOP BAR */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 h-16 px-4 sm:px-6 flex items-center justify-between gap-3 shadow-xs">
