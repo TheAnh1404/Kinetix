@@ -48,7 +48,7 @@ export const KidsView: React.FC = () => {
     const success = await verifyAndRewardChore(taskId);
     if (success) {
       setToast(
-        `🎉 CHÚC MỪNG ${childDisplayName.toUpperCase()}! Hợp đồng FamilyHub đã giải ngân ${rewardAmount} USDC thẳng vào heo đất với 0đ phí gas trên Family L1!`
+        `🎉 CHÚC MỪNG ${childDisplayName.toUpperCase()}! Hợp đồng FamilyHub đã giải ngân ${rewardAmount} AVAX thẳng vào heo đất với 0đ phí gas trên Family L1!`
       );
     }
   };
@@ -221,18 +221,18 @@ export const KidsView: React.FC = () => {
               <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider font-bold">
                 Tổng số dư trong Heo Đất
               </span>
-              <div className="flex items-baseline gap-1 my-1">
+              <div className="flex items-baseline gap-1.5 my-1">
                 <span className="font-display-lg text-display-lg text-on-surface font-bold tracking-tight">
-                  {kidsBalance.toFixed(2)}
+                  {kidsBalance.toFixed(3)}
                 </span>
-                <span className="font-headline-sm text-headline-sm text-secondary-container font-bold">
-                  USDC
+                <span className="font-headline-sm text-headline-sm text-secondary font-bold">
+                  AVAX
                 </span>
               </div>
               <div className="font-body-sm text-body-sm text-on-surface-variant">
                 Tương đương{" "}
                 <strong className="text-on-surface font-semibold">
-                  ~{(kidsBalance * 25000).toLocaleString("vi-VN")} VNĐ
+                  ~{(kidsBalance * 750000).toLocaleString("vi-VN")} VNĐ
                 </strong>
               </div>
             </div>
@@ -246,7 +246,7 @@ export const KidsView: React.FC = () => {
                   </span>
                   Tiền lì xì Tết:
                 </span>
-                <span className="font-semibold text-on-surface">100.00 USDC</span>
+                <span className="font-semibold text-on-surface">0.100 AVAX</span>
               </div>
               <div className="flex items-center justify-between text-body-sm font-body-sm">
                 <span className="flex items-center gap-1.5 text-on-surface-variant">
@@ -256,7 +256,7 @@ export const KidsView: React.FC = () => {
                   Thưởng làm việc nhà:
                 </span>
                 <span className="font-semibold text-on-surface">
-                  {(kidsBalance - 102.5 > 0 ? kidsBalance - 102.5 : 0).toFixed(2)} USDC
+                  {(kidsBalance - 0.1 > 0 ? kidsBalance - 0.1 : 0).toFixed(3)} AVAX
                 </span>
               </div>
               <div className="flex items-center justify-between text-body-sm font-body-sm">
@@ -266,8 +266,8 @@ export const KidsView: React.FC = () => {
                   </span>
                   Lãi DeFi đẻ ra thêm:
                 </span>
-                <span className="font-bold text-on-tertiary-container bg-surface-container-high px-2 py-0.5 rounded-full">
-                  +2.50 USDC 📈
+                <span className="font-bold text-on-tertiary-container bg-surface-container-high px-2 py-0.5 rounded-full text-xs">
+                  +0.008 AVAX 📈
                 </span>
               </div>
             </div>
@@ -295,7 +295,7 @@ export const KidsView: React.FC = () => {
                   Nhiệm Vụ Việc Nhà (Chore-to-Earn) 🧹
                 </h2>
                 <p className="text-body-sm text-on-surface-variant">
-                  Bé hoàn thành việc nhà $\to$ Bố mẹ xác nhận $\to$ Thưởng USDC
+                  Bé hoàn thành việc nhà $\to$ Bố mẹ xác nhận $\to$ Thưởng AVAX
                   chuyển thẳng về ví với 0đ phí gas!
                 </p>
               </div>
@@ -316,7 +316,7 @@ export const KidsView: React.FC = () => {
                   Chưa có nhiệm vụ việc nhà nào
                 </h4>
                 <p className="text-xs text-on-surface-variant max-w-xs">
-                  Bé hãy nhắc Bố Mẹ giao việc để cùng làm việc tốt và tích lũy tiền thưởng USDC vào Heo Đất nhé! 🌟
+                  Bé hãy nhắc Bố Mẹ giao việc để cùng làm việc tốt và tích lũy tiền thưởng AVAX vào Heo Đất nhé! 🌟
                 </p>
               </div>
             ) : (
@@ -348,7 +348,7 @@ export const KidsView: React.FC = () => {
                         </span>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="font-bold text-xs px-2 py-0.5 rounded bg-surface-container-high text-on-surface">
-                            +{task.rewardAmount.toFixed(1)} USDC
+                            +{task.rewardAmount.toFixed(2)} AVAX
                           </span>
                           <span
                             className={`text-xs font-bold px-2 py-0.5 rounded-full ${
@@ -410,7 +410,7 @@ export const KidsView: React.FC = () => {
             <div className="mt-2 p-4 rounded-xl bg-surface-container-high/40 border border-surface-container-high flex flex-col gap-2">
               <div className="flex justify-between items-center text-body-sm font-semibold">
                 <span>🎯 Mục tiêu: Xe đạp địa hình mới</span>
-                <span>80.00 / 150.00 USDC (53%)</span>
+                <span>0.08 / 0.15 AVAX (53%)</span>
               </div>
               <div className="w-full h-2.5 rounded-full bg-surface-container overflow-hidden">
                 <div
@@ -419,7 +419,7 @@ export const KidsView: React.FC = () => {
                 ></div>
               </div>
               <span className="text-xs text-on-surface-variant">
-                Chỉ còn thiếu 70 USDC nữa thôi! Hãy chăm chỉ làm việc nhà và đạt
+                Chỉ còn thiếu 0.07 AVAX nữa thôi! Hãy chăm chỉ làm việc nhà và đạt
                 điểm cao nhé!
               </span>
             </div>

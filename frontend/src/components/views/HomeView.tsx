@@ -614,13 +614,24 @@ export const HomeView: React.FC<HomeViewProps> = ({
               {t("cta.desc")}
             </p>
             <div className="pt-4">
-              <Link
-                href="/login"
-                className="px-8 py-4 rounded-2xl bg-white text-primary hover:bg-slate-50 font-bold text-sm shadow-xl transition-all active:scale-95 inline-flex items-center gap-2 cursor-pointer"
-              >
-                <span>{t("cta.btn")}</span>
-                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-              </Link>
+              {isAuthenticated ? (
+                <button
+                  onClick={handleStartCTA}
+                  className="px-8 py-4 rounded-2xl bg-white text-primary hover:bg-slate-50 font-bold text-sm shadow-xl transition-all active:scale-95 inline-flex items-center gap-2 cursor-pointer"
+                  type="button"
+                >
+                  <span>{t("nav.dashboard")}</span>
+                  <span className="material-symbols-outlined text-[18px]">space_dashboard</span>
+                </button>
+              ) : (
+                <Link
+                  href="/login"
+                  className="px-8 py-4 rounded-2xl bg-white text-primary hover:bg-slate-50 font-bold text-sm shadow-xl transition-all active:scale-95 inline-flex items-center gap-2 cursor-pointer"
+                >
+                  <span>{t("cta.btn")}</span>
+                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>

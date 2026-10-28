@@ -40,12 +40,12 @@ export const FamilyStatsCards: React.FC = () => {
         </div>
         <div>
           <div className="font-display-sm text-2xl lg:text-3xl font-extrabold text-on-surface font-mono tracking-tight">
-            ${totalFamilyWealth.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-sans font-bold text-on-surface-variant">USDC</span>
+            {totalFamilyWealth.toFixed(3)} <span className="text-sm font-sans font-bold text-on-surface-variant">AVAX</span>
           </div>
           <div className="flex items-center gap-1.5 mt-1.5">
             <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold font-mono">
               <span className="material-symbols-outlined text-[13px]">trending_up</span>
-              +8.2% APY
+              +8.0% APY
             </span>
             <span className="text-[11px] text-on-surface-variant">
               {t("dash.kpi.totalWealthSub")}
@@ -66,7 +66,7 @@ export const FamilyStatsCards: React.FC = () => {
         </div>
         <div>
           <div className="font-display-sm text-2xl lg:text-3xl font-extrabold text-on-surface font-mono tracking-tight">
-            ${bufferTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-sans font-bold text-secondary font-semibold">L1</span>
+            {bufferTotal.toFixed(3)} <span className="text-sm font-sans font-bold text-secondary font-semibold">AVAX (L1)</span>
           </div>
           <div className="flex items-center gap-1.5 mt-1.5">
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container/15 text-secondary-container text-[11px] font-bold font-mono">
@@ -92,11 +92,11 @@ export const FamilyStatsCards: React.FC = () => {
         </div>
         <div>
           <div className="font-display-sm text-2xl lg:text-3xl font-extrabold text-emerald-800 font-mono tracking-tight">
-            ${yieldTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-sans font-bold text-emerald-600">C-Chain</span>
+            {yieldTotal.toFixed(3)} <span className="text-sm font-sans font-bold text-emerald-600">AVAX (C-Chain)</span>
           </div>
           <div className="flex items-center gap-1.5 mt-1.5">
             <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold font-mono">
-              +${accruedTotal.toFixed(2)} lãi
+              +{accruedTotal.toFixed(4)} AVAX lãi
             </span>
             <span className="text-[11px] text-on-surface-variant truncate">
               {t("dash.kpi.yieldCChainSub")}

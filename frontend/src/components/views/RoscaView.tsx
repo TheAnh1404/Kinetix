@@ -104,8 +104,8 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
 
   // Tính toán lãi dự kiến từ C-Chain (8% APY trên C-Chain principal)
   const cChainYield = selectedVault
-    ? ((selectedVault.cChainPrincipal * 0.08 * 30) / 365).toFixed(2)
-    : '18.50';
+    ? ((selectedVault.cChainPrincipal * 0.08 * 30) / 365).toFixed(4)
+    : '0.0050';
 
   return (
     <div className="max-w-7xl mx-auto w-full px-gutter py-space-xl flex flex-col gap-space-xl">
@@ -212,7 +212,7 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
                     Quy Mô Hũ Hiện Tại
                   </span>
                   <span className="font-headline-sm text-headline-sm text-on-surface mt-1 font-bold">
-                    ${selectedVault ? selectedVault.totalBalance.toLocaleString() : '1,000.00'} USDC
+                    {selectedVault ? selectedVault.totalBalance.toFixed(3) : '0.100'} AVAX
                   </span>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-on-surface">
@@ -222,8 +222,7 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
               <div className="flex items-center gap-space-xs text-on-surface-variant font-body-sm text-body-sm bg-surface-container-low p-space-xs rounded-lg">
                 <span className="material-symbols-outlined text-[18px] text-emerald-600">groups</span>
                 <span>
-                  {members.length > 0 ? `${members.length} thành viên tham gia` : '4 thành viên'} • $
-                  {contributionAmount}.00 USDC/kỳ
+                  {members.length > 0 ? `${members.length} thành viên tham gia` : '4 thành viên'} • {contributionAmount} AVAX/kỳ
                 </span>
               </div>
             </div>
@@ -267,7 +266,7 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
                     </span>
                   </div>
                   <span className="font-headline-sm text-headline-sm text-emerald-700 mt-1 font-bold">
-                    +${cChainYield} USDC
+                    +{cChainYield} AVAX
                   </span>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center text-on-surface">
@@ -275,7 +274,7 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
                 </div>
               </div>
               <p className="font-body-sm text-body-sm text-on-surface-variant bg-surface-container-low p-space-xs rounded-lg">
-                Tiền nhàn rỗi (${selectedVault?.cChainPrincipal.toLocaleString() || '3,000'} USDC) tự động sinh lời trên Fuji C-Chain trước ngày nhận!
+                Tiền nhàn rỗi ({selectedVault?.cChainPrincipal.toFixed(3) || '0.090'} AVAX) tự động sinh lời trên Fuji C-Chain trước ngày nhận!
               </p>
             </div>
           </div>
@@ -534,7 +533,7 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
                 ) : (
                   <>
                     <span className="material-symbols-outlined text-[18px]">payments</span>
-                    <span>Xác Nhận Đóng Góp {contributionAmount} USDC (0 Gas)</span>
+                    <span>Xác Nhận Đóng Góp {contributionAmount} AVAX (0 Gas)</span>
                   </>
                 )}
               </button>
@@ -548,14 +547,14 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
                     Tiến Độ Gom Quỹ Kỳ Này
                   </span>
                   <span className="font-label-lg text-label-lg text-emerald-700 font-bold bg-surface-container-low px-space-sm py-0.5 rounded-full">
-                    {selectedVault?.totalBalance || 1000} USDC Sẵn Sàng
+                    {selectedVault?.totalBalance.toFixed(3) || '0.100'} AVAX Sẵn Sàng
                   </span>
                 </div>
                 <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold">
                   Đủ Điều Kiện Kích Hoạt Giải Ngân
                 </h3>
                 <p className="font-body-md text-body-md text-on-surface-variant">
-                  Quỹ ${selectedVault?.totalBalance || 1000} USDC đã được Smart Contract ký quỹ đầy đủ. Người đến kỳ nhận sẽ nhận toàn bộ vốn góp kèm lãi sinh sôi từ Fuji C-Chain.
+                  Quỹ {selectedVault?.totalBalance.toFixed(3) || '0.100'} AVAX đã được Smart Contract ký quỹ đầy đủ. Người đến kỳ nhận sẽ nhận toàn bộ vốn góp kèm lãi sinh sôi từ Fuji C-Chain.
                 </p>
               </div>
 
@@ -569,7 +568,7 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
                         {member.name}
                       </span>
                       <span className="font-label-caps text-label-caps text-on-surface-variant">
-                        Đã đóng ${contributionAmount}
+                        Đã đóng {contributionAmount} AVAX
                       </span>
                     </div>
                   </div>
@@ -601,7 +600,7 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
                   ) : (
                     <>
                       <span className="material-symbols-outlined text-[24px]">payments</span>
-                      <span>Giải Ngân ${selectedVault?.totalBalance || 1000} USDC Cho Lượt Nhận</span>
+                      <span>Giải Ngân {selectedVault?.totalBalance.toFixed(3) || '0.100'} AVAX Cho Lượt Nhận</span>
                     </>
                   )}
                 </button>
@@ -646,10 +645,10 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
                   <tr className="hover:bg-surface-container-low/50 transition-colors">
                     <td className="py-space-md px-space-md font-mono text-secondary font-semibold">0x8ef...31a</td>
                     <td className="py-space-md px-space-md font-semibold">{activeMember.name}</td>
-                    <td className="py-space-md px-space-md font-bold">${contributionAmount}.00 USDC</td>
+                    <td className="py-space-md px-space-md font-bold">{contributionAmount} AVAX</td>
                     <td className="py-space-md px-space-md text-on-surface-variant">07:15 - Hôm nay</td>
                     <td className="py-space-md px-space-md font-mono">#148,291</td>
-                    <td className="py-space-md px-space-md text-emerald-600 font-bold">+${cChainYield}</td>
+                    <td className="py-space-md px-space-md text-emerald-600 font-bold">+{cChainYield} AVAX</td>
                     <td className="py-space-md px-space-md">
                       <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
                         Thành Công ✓
@@ -659,10 +658,10 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
                   <tr className="hover:bg-surface-container-low/50 transition-colors">
                     <td className="py-space-md px-space-md font-mono text-secondary font-semibold">0x4bc...91e</td>
                     <td className="py-space-md px-space-md font-semibold">{members[1]?.name || 'Cô Út'}</td>
-                    <td className="py-space-md px-space-md font-bold">$250.00 USDC</td>
+                    <td className="py-space-md px-space-md font-bold">0.020 AVAX</td>
                     <td className="py-space-md px-space-md text-on-surface-variant">08:30 - Hôm nay</td>
                     <td className="py-space-md px-space-md font-mono">#148,299</td>
-                    <td className="py-space-md px-space-md text-emerald-600 font-bold">+$12.30</td>
+                    <td className="py-space-md px-space-md text-emerald-600 font-bold">+0.0015 AVAX</td>
                     <td className="py-space-md px-space-md">
                       <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
                         Thành Công ✓

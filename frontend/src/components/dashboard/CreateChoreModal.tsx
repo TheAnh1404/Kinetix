@@ -15,7 +15,7 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({ isOpen, onCl
 
   const childMembers = members.filter((m) => m.role === "CHILD");
   const [title, setTitle] = useState("");
-  const [rewardAmount, setRewardAmount] = useState<string>("5");
+  const [rewardAmount, setRewardAmount] = useState<string>("0.02");
   const [childName, setChildName] = useState(childMembers[0]?.name || "Bé");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -23,10 +23,10 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({ isOpen, onCl
   if (!isOpen) return null;
 
   const quickSuggestions = [
-    { vi: "Rửa bát & lau bàn ăn sạch sẽ", en: "Wash dishes & wipe dining table", reward: "5" },
-    { vi: "Đạt điểm 10 bài kiểm tra Toán/Văn", en: "Score grade 10 in Math/Literature", reward: "15" },
-    { vi: "Tưới cây ban công & gấp quần áo", en: "Water plants & fold laundry", reward: "5" },
-    { vi: "Đọc xong 1 cuốn sách khoa học", en: "Finish reading a science book", reward: "10" },
+    { vi: "Rửa bát & lau bàn ăn sạch sẽ", en: "Wash dishes & wipe dining table", reward: "0.01" },
+    { vi: "Đạt điểm 10 bài kiểm tra Toán/Văn", en: "Score grade 10 in Math/Literature", reward: "0.05" },
+    { vi: "Tưới cây ban công & gấp quần áo", en: "Water plants & fold laundry", reward: "0.02" },
+    { vi: "Đọc xong 1 cuốn sách khoa học", en: "Finish reading a science book", reward: "0.03" },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,7 +34,7 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({ isOpen, onCl
     if (!title.trim()) return;
 
     setIsSubmitting(true);
-    const amt = parseFloat(rewardAmount) || 5;
+    const amt = parseFloat(rewardAmount) || 0.02;
     const targetChild = childMembers.find((c) => c.name === childName) || childMembers[0];
     const ok = await createChore({
       title: title.trim(),
@@ -50,7 +50,7 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({ isOpen, onCl
         setSuccess(false);
         onClose();
         setTitle("");
-        setRewardAmount("5");
+        setRewardAmount("0.02");
       }, 1200);
     }
   };
@@ -89,8 +89,8 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({ isOpen, onCl
             </h4>
             <p className="text-xs text-emerald-700 font-medium">
               {language === "vi"
-                ? `Bé "${childName}" đã nhận được thông báo nhiệm vụ "${title}" kèm phần thưởng ${rewardAmount} USDC.`
-                : `Child "${childName}" received task "${title}" with ${rewardAmount} USDC reward.`}
+                ? `Bé "${childName}" đã nhận được thông báo nhiệm vụ "${title}" kèm phần thưởng ${rewardAmount} AVAX.`
+                : `Child "${childName}" received task "${title}" with ${rewardAmount} AVAX reward.`}
             </p>
           </div>
         ) : (
@@ -115,7 +115,7 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({ isOpen, onCl
                       {language === "vi" ? item.vi : item.en}
                     </span>
                     <span className="px-1.5 py-0.5 rounded bg-secondary-container/20 text-secondary text-[10px] font-bold shrink-0">
-                      +{item.reward}$
+                      +{item.reward} AVAX
                     </span>
                   </button>
                 ))}
@@ -163,21 +163,21 @@ export const CreateChoreModal: React.FC<CreateChoreModalProps> = ({ isOpen, onCl
               {/* Reward Amount */}
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-bold text-on-surface">
-                  {language === "vi" ? "Mức Thưởng (USDC) *" : "Reward (USDC) *"}
+                  {language === "vi" ? "Mức Thưởng (AVAX) *" : "Reward (AVAX) *"}
                 </label>
                 <div className="relative">
                   <input
                     type="number"
-                    min="1"
-                    max="100"
-                    step="1"
+                    min="0.001"
+                    max="10"
+                    step="0.005"
                     value={rewardAmount}
                     onChange={(e) => setRewardAmount(e.target.value)}
                     className="w-full px-3.5 py-2.5 pr-14 bg-surface-container-low rounded-xl border border-outline-variant/30 text-sm text-on-surface font-mono font-bold focus:outline-none focus:ring-2 focus:ring-secondary-container"
                     required
                   />
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant font-mono">
-                    USDC
+                    AVAX
                   </span>
                 </div>
               </div>
