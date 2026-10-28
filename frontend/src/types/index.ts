@@ -107,4 +107,11 @@ export interface DynamicVaultItem {
   l1BufferBalance: number;
   cChainPrincipal: number;
   isActive: boolean;
+  // Các trường mở rộng theo 4 bộ quy tắc
+  targetGoalAmount?: number;
+  targetDeadline?: string | null;
+  roscaRoundDuration?: number;
+  roscaRoundContribution?: number;
+  roscaCurrentRound?: number;
+  roscaLastRoundTimestamp?: string | null;
 }

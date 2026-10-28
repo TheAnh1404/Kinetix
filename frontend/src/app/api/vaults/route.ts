@@ -56,6 +56,10 @@ export async function POST(req: NextRequest) {
       requiredApprovals,
       guardianWallets,
       beneficiaryWallets,
+      targetGoalAmount,
+      targetDeadline,
+      roscaRoundDuration,
+      roscaRoundContribution,
     } = body;
 
     if (!workspaceId || !name || !ruleTemplate) {
@@ -89,6 +93,12 @@ export async function POST(req: NextRequest) {
         cachedTotalBalance: "0",
         cachedL1Buffer: "0",
         cachedCChainYield: "0",
+        targetGoalAmount: (targetGoalAmount !== undefined ? targetGoalAmount : 0).toString(),
+        targetDeadline: targetDeadline ? new Date(targetDeadline) : null,
+        roscaRoundDuration: roscaRoundDuration !== undefined ? Number(roscaRoundDuration) : 0,
+        roscaRoundContribution: (roscaRoundContribution !== undefined ? roscaRoundContribution : 0).toString(),
+        roscaCurrentRound: 0,
+        roscaLastRoundTimestamp: new Date(),
         isActive: true,
       })
       .returning();
