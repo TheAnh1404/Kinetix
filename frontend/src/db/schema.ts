@@ -135,6 +135,13 @@ export const vaults = pgTable("vaults", {
   cachedTotalBalance: decimal("cached_total_balance", { precision: 18, scale: 6 }).default("0").notNull(),
   cachedL1Buffer: decimal("cached_l1_buffer", { precision: 18, scale: 6 }).default("0").notNull(),
   cachedCChainYield: decimal("cached_cchain_yield", { precision: 18, scale: 6 }).default("0").notNull(),
+  // Các trường mở rộng đồng bộ với 4 Bộ Quy Tắc của Smart Contract:
+  targetGoalAmount: decimal("target_goal_amount", { precision: 18, scale: 6 }).default("0").notNull(),
+  targetDeadline: timestamp("target_deadline", { withTimezone: true }),
+  roscaRoundDuration: integer("rosca_round_duration").default(0).notNull(), // giây
+  roscaRoundContribution: decimal("rosca_round_contribution", { precision: 18, scale: 6 }).default("0").notNull(),
+  roscaCurrentRound: integer("rosca_current_round").default(0).notNull(),
+  roscaLastRoundTimestamp: timestamp("rosca_last_round_timestamp", { withTimezone: true }),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

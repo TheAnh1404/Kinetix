@@ -263,6 +263,10 @@ export class FamilyService {
     creatorUserId?: string;
     guardianUserIds?: string[];
     beneficiaryUserIds?: string[];
+    targetGoalAmount?: number;
+    targetDeadline?: Date | string;
+    roscaRoundDuration?: number;
+    roscaRoundContribution?: number;
   }): Promise<Vault> {
     const [newVault] = await db
       .insert(vaults)
@@ -278,6 +282,12 @@ export class FamilyService {
         cachedTotalBalance: "0",
         cachedL1Buffer: "0",
         cachedCChainYield: "0",
+        targetGoalAmount: (params.targetGoalAmount ?? 0).toString(),
+        targetDeadline: params.targetDeadline ? new Date(params.targetDeadline) : null,
+        roscaRoundDuration: params.roscaRoundDuration ?? 0,
+        roscaRoundContribution: (params.roscaRoundContribution ?? 0).toString(),
+        roscaCurrentRound: 0,
+        roscaLastRoundTimestamp: new Date(),
         isActive: true,
       })
       .returning();
@@ -329,6 +339,15 @@ export class FamilyService {
     if (params.vaultId) {
       const [v] = await db.select().from(vaults).where(eq(vaults.id, params.vaultId));
       if (v) {
+        // Kiểm tra ràng buộc mục tiêu chung SHARED_GOAL
+        if (v.ruleTemplate === "SHARED_GOAL" && Number(v.targetGoalAmount) > 0) {
+          if (Number(v.cachedTotalBalance) < Number(v.targetGoalAmount)) {
+            if (v.targetDeadline && new Date() < new Date(v.targetDeadline)) {
+              throw new Error(`Quỹ Mục Tiêu Chung chưa đạt số tiền mục tiêu ${Number(v.targetGoalAmount)} AVAX (Hiện tại: ${Number(v.cachedTotalBalance)} AVAX).`);
+            }
+          }
+        }
+
         fastLimit = Number(v.fastWithdrawLimit);
         requiredApprovals = v.requiredApprovals;
       }
@@ -600,5 +619,84 @@ export class FamilyService {
       .from(chores)
       .where(eq(chores.familyId, familyId))
       .orderBy(desc(chores.createdAt));
+  }
+
+  /**
+   * 12. Giải ngân kỳ hụi xoay vòng cho Hũ ROSCA
+   */
+  static async payoutRoscaRound(vaultId: string): Promise<{
+    vault: Vault;
+    recipientUser: User | null;
+    payoutAmount: number;
+    roundIndex: number;
+  }> {
+    const [v] = await db.select().from(vaults).where(eq(vaults.id, vaultId));
+    if (!v) throw new Error(`Vault với ID ${vaultId} không tồn tại.`);
+    if (v.ruleTemplate !== "ROSCA") throw new Error("Chỉ Hũ có quy tắc ROSCA mới có thể giải ngân theo kỳ.");
+
+    // Lấy danh sách thành viên/beneficiaries của Hũ
+    const members = await db
+      .select({
+        user: users,
+        role: vaultMembers.vaultRole,
+      })
+      .from(vaultMembers)
+      .innerJoin(users, eq(users.id, vaultMembers.userId))
+      .where(eq(vaultMembers.vaultId, vaultId));
+
+    const beneficiaries = members.filter((m) => m.role === "BENEFICIARY" || m.role === "GUARDIAN");
+    const turnIndex = beneficiaries.length > 0 ? v.roscaCurrentRound % beneficiaries.length : 0;
+    const recipient = beneficiaries.length > 0 ? beneficiaries[turnIndex].user : null;
+
+    const roundContribution = Number(v.roscaRoundContribution);
+    const payoutAmount = roundContribution > 0 && beneficiaries.length > 0
+      ? roundContribution * beneficiaries.length
+      : Number(v.cachedTotalBalance);
+
+    const nextRound = v.roscaCurrentRound + 1;
+
+    // Cập nhật Hũ
+    const [updatedVault] = await db
+      .update(vaults)
+      .set({
+        roscaCurrentRound: nextRound,
+        roscaLastRoundTimestamp: new Date(),
+        cachedTotalBalance: Math.max(0, Number(v.cachedTotalBalance) - payoutAmount).toFixed(6),
+        cachedL1Buffer: "0",
+      })
+      .where(eq(vaults.id, vaultId))
+      .returning();
+
+    // Lưu bản ghi rút tiền EXECUTED
+    if (recipient) {
+      await db.insert(withdrawalRequests).values({
+        familyId: v.workspaceId,
+        vaultId: v.id,
+        requesterId: recipient.id,
+        amount: payoutAmount.toFixed(6),
+        vault: v.name,
+        reason: `Giải ngân kỳ Hụi #${v.roscaCurrentRound + 1} xoay vòng`,
+        approvalsCount: v.requiredApprovals,
+        requiredApprovals: v.requiredApprovals,
+        status: "EXECUTED",
+      });
+
+      // Thông báo cho người nhận và gia đình
+      await db.insert(notifications).values({
+        familyId: v.workspaceId,
+        userId: recipient.id,
+        title: "🤝 GIẢI NGÂN HỤI HỌ THÀNH CÔNG!",
+        message: `Chúc mừng bạn đã nhận quỹ giải ngân kỳ #${v.roscaCurrentRound + 1} của Hũ '${v.name}' với số tiền ${payoutAmount} AVAX!`,
+        type: "YIELD_PAYOUT",
+        isRead: false,
+      });
+    }
+
+    return {
+      vault: updatedVault,
+      recipientUser: recipient,
+      payoutAmount,
+      roundIndex: v.roscaCurrentRound,
+    };
   }
 }

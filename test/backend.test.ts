@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { FamilyService } from "../backend/src/services/familyService";
 import { db } from "../backend/src/db";
-import { families, users, withdrawalRequests, chores, notifications } from "../backend/src/db/schema";
+import { families, users, withdrawalRequests, chores, notifications, vaults, vaultMembers } from "../backend/src/db/schema";
 import { eq } from "drizzle-orm";
 
 describe("Kinetix Backend Services & Neon Database Integration", function () {
@@ -240,5 +240,67 @@ describe("Kinetix Backend Services & Neon Database Integration", function () {
     });
     expect(slowRes.isFastWithdraw).to.be.false;
     expect(slowRes.request.status).to.equal("PENDING");
+  });
+
+  it("9. payoutRoscaRound: Giải ngân kỳ hụi xoay vòng cho Hũ ROSCA và chuyển sang vòng tiếp theo", async function () {
+    const roscaVault = await FamilyService.createCustomVault({
+      workspaceId: familyId,
+      onchainVaultId: 101,
+      name: "Quỹ Họ Hụi Backend Test",
+      ruleTemplate: "ROSCA",
+      bufferRatioBps: 0,
+      fastWithdrawLimit: 0,
+      requiredApprovals: 2,
+      guardianUserIds: [adminUserId, guardianUserId],
+      beneficiaryUserIds: [guardianUserId, elderlyUserId],
+      roscaRoundDuration: 7 * 86400,
+      roscaRoundContribution: 50,
+    });
+
+    const payout = await FamilyService.payoutRoscaRound(roscaVault.id);
+    expect(payout.roundIndex).to.equal(0);
+    expect(payout.vault.roscaCurrentRound).to.equal(1);
+    expect(payout.recipientUser).to.not.be.null;
+
+    // Dọn dẹp hũ vừa test
+    await db.delete(withdrawalRequests).where(eq(withdrawalRequests.vaultId, roscaVault.id));
+    await db.delete(vaultMembers).where(eq(vaultMembers.vaultId, roscaVault.id));
+    await db.delete(vaults).where(eq(vaults.id, roscaVault.id));
+  });
+
+  it("10. SHARED_GOAL Lock: Chặn yêu cầu rút tiền khi chưa gom đủ mục tiêu", async function () {
+    const goalVault = await FamilyService.createCustomVault({
+      workspaceId: familyId,
+      onchainVaultId: 102,
+      name: "Quỹ Du Lịch Tokyo",
+      ruleTemplate: "SHARED_GOAL",
+      bufferRatioBps: 1000,
+      fastWithdrawLimit: 0,
+      requiredApprovals: 2,
+      guardianUserIds: [adminUserId],
+      beneficiaryUserIds: [elderlyUserId],
+      targetGoalAmount: 500, // Mục tiêu 500 AVAX
+      targetDeadline: new Date(Date.now() + 30 * 86400 * 1000), // Hạn 30 ngày
+    });
+
+    // Thử rút tiền khi cachedTotalBalance = 0 (< 500 AVAX)
+    let errorCaught = false;
+    try {
+      await FamilyService.createWithdrawalRequest({
+        familyId,
+        vaultId: goalVault.id,
+        requesterId: elderlyUserId,
+        amount: 50,
+        reason: "Rút đi du lịch trước",
+      });
+    } catch (err: any) {
+      errorCaught = true;
+      expect(err.message.toLowerCase()).to.include("chưa đạt số tiền mục tiêu 500 avax");
+    }
+    expect(errorCaught).to.be.true;
+
+    // Dọn dẹp
+    await db.delete(vaultMembers).where(eq(vaultMembers.vaultId, goalVault.id));
+    await db.delete(vaults).where(eq(vaults.id, goalVault.id));
   });
 });
