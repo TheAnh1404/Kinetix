@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Member } from '@/types';
-import { CONTRACT_ADDRESSES } from '@/contracts/config';
+import { CONTRACT_ADDRESSES, SNOWTRACE_TESTNET_URL } from '@/contracts/config';
 import { useFamily } from '@/context/FamilyContext';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -35,11 +35,13 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
   );
 
   const [copied, setCopied] = useState(false);
-  const [contributionAmount, setContributionAmount] = useState<number>(250);
+  const [contributionAmount, setContributionAmount] = useState<number>(0.02);
   const [isDepositing, setIsDepositing] = useState(false);
   const [isPayingOut, setIsPayingOut] = useState(false);
   const [payoutSuccess, setPayoutSuccess] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState(false);
+  const [depositTxHash, setDepositTxHash] = useState<string | null>(null);
+  const [depositError, setDepositError] = useState<string | null>(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
 
   const selectedVault =
@@ -57,11 +59,14 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
   const handleContribute = async () => {
     if (!selectedVault) return;
     setIsDepositing(true);
+    setDepositError(null);
     try {
-      const ok = await depositToVault(selectedVault.onchainVaultId, contributionAmount);
-      if (ok) {
+      const res = await depositToVault(selectedVault.onchainVaultId, contributionAmount);
+      if (res.success && res.txHash) {
+        setDepositTxHash(res.txHash);
         setDepositSuccess(true);
-        setTimeout(() => setDepositSuccess(false), 4000);
+      } else {
+        setDepositError(res.error || "Nạp tiền thất bại");
       }
     } finally {
       setIsDepositing(false);
@@ -431,40 +436,66 @@ export const RoscaView: React.FC<RoscaViewProps> = ({ currentMember: propMember 
                   <div className="relative flex-1">
                     <input
                       type="number"
+                      step="0.005"
                       value={contributionAmount}
                       onChange={(e) => setContributionAmount(Number(e.target.value))}
-                      className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 text-2xl font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary"
-                      min={10}
+                      className="w-full p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 text-2xl font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary font-mono"
+                      min={0.001}
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-on-surface-variant">
-                      USDC
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-primary">
+                      AVAX
                     </span>
                   </div>
                 </div>
 
                 {/* Quick preset buttons */}
                 <div className="flex items-center gap-2 mt-1">
-                  {[50, 100, 250, 500].map((amt) => (
+                  {[0.01, 0.02, 0.05, 0.1].map((amt) => (
                     <button
                       key={amt}
                       type="button"
                       onClick={() => setContributionAmount(amt)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                         contributionAmount === amt
-                          ? 'bg-secondary text-white'
+                          ? 'bg-secondary text-white shadow-sm'
                           : 'bg-surface-container hover:bg-surface-container-high text-on-surface'
                       }`}
                     >
-                      ${amt}
+                      +{amt} AVAX
                     </button>
                   ))}
                 </div>
               </div>
 
               {depositSuccess && (
-                <div className="p-space-sm bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 rounded-xl flex items-center gap-2 text-xs font-bold">
-                  <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                  <span>Đã đóng góp thành công {contributionAmount} USDC vào Smart Contract!</span>
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 rounded-xl flex flex-col gap-2 text-xs font-bold animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
+                    <span>Đã đóng góp thành công {contributionAmount} AVAX vào Smart Contract on-chain!</span>
+                  </div>
+                  {depositTxHash && (
+                    <div className="flex items-center justify-between pt-1 border-t border-emerald-200">
+                      <span className="font-mono text-[11px] text-emerald-800">
+                        TxHash: {depositTxHash.slice(0, 8)}...{depositTxHash.slice(-6)}
+                      </span>
+                      <a
+                        href={`${SNOWTRACE_TESTNET_URL}/tx/${depositTxHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline font-bold"
+                      >
+                        <span>Xem SnowTrace</span>
+                        <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {depositError && (
+                <div className="p-2.5 bg-error/10 border border-error/30 text-error text-xs rounded-xl flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">error</span>
+                  <span>{depositError}</span>
                 </div>
               )}
 

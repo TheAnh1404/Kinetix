@@ -11,7 +11,7 @@ import { GuardianView } from '@/components/views/GuardianView';
 import { KidsView } from '@/components/views/KidsView';
 import { RoscaView } from '@/components/views/RoscaView';
 import { FamilyProvider, useFamily } from '@/context/FamilyContext';
-import { VaultType } from '@/contracts/config';
+import { VaultType, SNOWTRACE_TESTNET_URL } from '@/contracts/config';
 
 const VALID_TABS: ActiveTab[] = [
   'trang-chu',
@@ -45,10 +45,17 @@ function FamilyAppContent() {
   } = useFamily();
 
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
-  const [depositAmount, setDepositAmount] = useState<string>('500');
-  const [selectedVaultId, setSelectedVaultId] = useState<number>(0);
+  const [depositAmount, setDepositAmount] = useState<string>('0.02');
+  const [selectedVaultId, setSelectedVaultId] = useState<number>(1);
   const [isDepositing, setIsDepositing] = useState(false);
-  const [depositSuccess, setDepositSuccess] = useState(false);
+  const [depositResult, setDepositResult] = useState<{
+    txHash: string;
+    amount: number;
+    vaultName: string;
+    vaultId: number;
+  } | null>(null);
+  const [depositError, setDepositError] = useState<string | null>(null);
+  const [copiedHash, setCopiedHash] = useState(false);
 
   // Cập nhật selectedVaultId mặc định khi dynamicVaults tải xong
   useEffect(() => {
@@ -98,23 +105,22 @@ function FamilyAppContent() {
   const handleDepositSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsDepositing(true);
+    setDepositError(null);
 
     const amt = parseFloat(depositAmount) || 0;
-    let success = false;
-
-    if (activeVaultObj) {
-      success = await depositToVault(activeVaultObj.onchainVaultId, amt);
-    } else {
-      success = await depositFunds(VaultType.RetirementShield, amt);
-    }
+    const vId = activeVaultObj ? activeVaultObj.onchainVaultId : 1;
+    const res = await depositToVault(vId, amt);
 
     setIsDepositing(false);
-    if (success) {
-      setDepositSuccess(true);
-      setTimeout(() => {
-        setDepositSuccess(false);
-        setIsDepositModalOpen(false);
-      }, 1800);
+    if (res.success && res.txHash) {
+      setDepositResult({
+        txHash: res.txHash,
+        amount: amt,
+        vaultName: activeVaultObj?.name || `Hũ #${vId}`,
+        vaultId: vId,
+      });
+    } else {
+      setDepositError(res.error || 'Nạp tiền on-chain thất bại');
     }
   };
 
@@ -186,17 +192,76 @@ function FamilyAppContent() {
               </button>
             </div>
 
-            {depositSuccess ? (
-              <div className="p-space-lg bg-emerald-50 rounded-xl flex flex-col items-center justify-center gap-2 text-center animate-in fade-in">
-                <span className="material-symbols-outlined text-[48px] text-emerald-600">check_circle</span>
-                <h4 className="font-headline-sm text-headline-sm text-emerald-800 font-bold">
-                  Nạp Quỹ Vào Hũ Thành Công!
-                </h4>
-                <p className="font-body-sm text-body-sm text-emerald-700 leading-relaxed">
-                  Đã giải ngân on-chain: {bufferRatioPct}% (
-                  {(parseFloat(depositAmount || '0') * (bufferRatioPct / 100)).toFixed(2)} USDC) vào đệm Family L1 và {bridgeRatioPct}% (
-                  {(parseFloat(depositAmount || '0') * (bridgeRatioPct / 100)).toFixed(2)} USDC) sang Fuji C-Chain sinh lời 8% APY.
-                </p>
+            {depositResult ? (
+              <div className="space-y-4 py-2 animate-in fade-in">
+                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col items-center justify-center gap-2 text-center">
+                  <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md">
+                    <span className="material-symbols-outlined text-[28px]">verified</span>
+                  </div>
+                  <h4 className="font-headline-sm text-base text-emerald-900 font-bold">
+                    Nạp Quỹ Vào Hũ Thành Công!
+                  </h4>
+                  <p className="font-body-sm text-xs text-emerald-700 leading-relaxed">
+                    Đã ký duyệt on-chain trên ví Core và xác nhận trên Avalanche Fuji C-Chain.
+                  </p>
+                </div>
+
+                <div className="bg-surface-container-low p-4 rounded-2xl border border-outline-variant/20 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-on-surface-variant">Hũ nhận:</span>
+                    <span className="font-bold text-on-surface">{depositResult.vaultName}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-on-surface-variant">Số lượng nạp:</span>
+                    <span className="font-mono font-bold text-emerald-700 text-sm">+{depositResult.amount} AVAX</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-on-surface-variant">Mạng Blockchain:</span>
+                    <span className="font-mono font-semibold text-primary">Avalanche Fuji C-Chain (43113)</span>
+                  </div>
+                  <div className="pt-2 border-t border-surface-container flex flex-col gap-1.5">
+                    <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
+                      Mã Giao Dịch (TxHash Real):
+                    </span>
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-surface-container font-mono text-[11px] text-on-surface break-all border border-outline-variant/30">
+                      <span className="flex-1 select-all">{depositResult.txHash}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(depositResult.txHash);
+                          setCopiedHash(true);
+                          setTimeout(() => setCopiedHash(false), 2000);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-surface-container-highest hover:bg-surface-container-high text-xs font-bold shrink-0 transition-colors cursor-pointer"
+                      >
+                        {copiedHash ? "Đã copy!" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 pt-1">
+                  <a
+                    href={`${SNOWTRACE_TESTNET_URL}/tx/${depositResult.txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3 px-4 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                  >
+                    <span>Tra Cứu Real-time Trên SnowTrace Testnet</span>
+                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDepositModalOpen(false);
+                      setDepositResult(null);
+                      setDepositError(null);
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-xs font-bold text-on-surface transition-all cursor-pointer"
+                  >
+                    Hoàn tất &amp; Đóng
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleDepositSubmit} className="flex flex-col gap-space-md">
@@ -217,9 +282,9 @@ function FamilyAppContent() {
                       ))
                     ) : (
                       <>
-                        <option value={0}>Hũ Báo Hiếu &amp; Hưu Trí (SHIELD - Đệm 10% L1)</option>
-                        <option value={1}>Hũ Tiết Kiệm Trẻ Em (MILESTONE - Đệm 20% L1)</option>
-                        <option value={2}>Hũ Tương Trợ Dòng Họ (ROSCA - Đệm 0% L1)</option>
+                        <option value={1}>Hũ Báo Hiếu &amp; Hưu Trí (SHIELD - Đệm 10% L1)</option>
+                        <option value={2}>Hũ Tiết Kiệm Trẻ Em (MILESTONE - Đệm 20% L1)</option>
+                        <option value={3}>Hũ Tương Trợ Dòng Họ (ROSCA - Đệm 0% L1)</option>
                       </>
                     )}
                   </select>
@@ -227,22 +292,40 @@ function FamilyAppContent() {
 
                 <div className="flex flex-col gap-1">
                   <label className="font-label-md text-label-md text-on-surface font-semibold">
-                    Số Tiền Nạp (USDC)
+                    Số Tiền Nạp (AVAX)
                   </label>
                   <div className="relative">
                     <input
                       type="number"
-                      step="1"
-                      min="10"
+                      step="0.005"
+                      min="0.001"
+                      max="100"
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
                       className="w-full p-space-sm pl-4 pr-16 bg-surface-container-low rounded-xl border border-outline-variant/30 text-on-surface font-headline-sm focus:outline-none focus:ring-2 focus:ring-secondary-container font-bold"
-                      placeholder="500"
+                      placeholder="0.02"
                       required
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 font-label-md text-label-md text-on-surface-variant font-bold">
-                      USDC
+                      AVAX
                     </span>
+                  </div>
+                  {/* Quick Select Amount Pills */}
+                  <div className="flex items-center gap-2 mt-2">
+                    {[0.01, 0.02, 0.05, 0.1].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setDepositAmount(amt.toString())}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                          depositAmount === amt.toString()
+                            ? "bg-primary text-white shadow-sm"
+                            : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+                        }`}
+                      >
+                        +{amt} AVAX
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -257,7 +340,7 @@ function FamilyAppContent() {
                       {bufferRatioPct}% Đệm Thanh Khoản (Family L1):
                     </span>
                     <span className="font-bold text-on-surface">
-                      {(parseFloat(depositAmount || '0') * (bufferRatioPct / 100)).toFixed(2)} USDC (Rút tức thì)
+                      {(parseFloat(depositAmount || '0') * (bufferRatioPct / 100)).toFixed(4)} AVAX (Rút tức thì)
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-body-sm">
@@ -266,15 +349,29 @@ function FamilyAppContent() {
                       {bridgeRatioPct}% Sinh Lời DeFi (Fuji C-Chain):
                     </span>
                     <span className="font-bold text-emerald-700">
-                      {(parseFloat(depositAmount || '0') * (bridgeRatioPct / 100)).toFixed(2)} USDC (8.0% APY)
+                      {(parseFloat(depositAmount || '0') * (bridgeRatioPct / 100)).toFixed(4)} AVAX (8.0% APY)
                     </span>
                   </div>
                 </div>
 
+                {/* Error Banner */}
+                {depositError && (
+                  <div className="p-3 rounded-xl bg-error/10 border border-error/30 text-error text-xs flex items-start gap-2">
+                    <span className="material-symbols-outlined text-[18px] shrink-0">error</span>
+                    <div className="flex-1">
+                      <p className="font-bold">Lỗi giao dịch:</p>
+                      <p className="text-[11px]">{depositError}</p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-end gap-space-sm pt-2">
                   <button
                     type="button"
-                    onClick={() => setIsDepositModalOpen(false)}
+                    onClick={() => {
+                      setIsDepositModalOpen(false);
+                      setDepositError(null);
+                    }}
                     className="px-space-md py-space-sm rounded-xl font-label-md text-on-surface-variant hover:bg-surface-container cursor-pointer"
                   >
                     Hủy
@@ -282,17 +379,17 @@ function FamilyAppContent() {
                   <button
                     type="submit"
                     disabled={isDepositing}
-                    className="px-space-lg py-space-sm bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-on-secondary rounded-xl font-label-lg font-bold shadow-sm transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-60"
+                    className="px-space-lg py-space-sm bg-primary hover:bg-primary/90 text-white rounded-xl font-label-lg font-bold shadow-sm transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-60"
                   >
                     {isDepositing ? (
                       <>
                         <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
-                        <span>Đang Nạp &amp; Bridge Teleporter...</span>
+                        <span>Đang Ký Trên Core Wallet...</span>
                       </>
                     ) : (
                       <>
                         <span className="material-symbols-outlined text-[18px]">bolt</span>
-                        <span>Xác Nhận Nạp Quỹ</span>
+                        <span>Ký &amp; Nạp Quỹ On-Chain</span>
                       </>
                     )}
                   </button>
