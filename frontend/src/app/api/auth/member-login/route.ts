@@ -12,13 +12,13 @@ export const dynamic = "force-dynamic";
 function getRedirectPathByRole(role: string): string {
   switch (role) {
     case "ELDERLY":
-      return "/?tab=kinetix-shield";
+      return "/dashboard?tab=kinetix-shield";
     case "CHILD":
-      return "/?tab=kinetix-kids";
+      return "/dashboard?tab=kinetix-kids";
     case "ADMIN":
     case "GUARDIAN":
     default:
-      return "/?tab=quan-tri-cha-me";
+      return "/dashboard?tab=quan-tri-cha-me";
   }
 }
 

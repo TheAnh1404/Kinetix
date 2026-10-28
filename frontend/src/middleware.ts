@@ -19,11 +19,14 @@ function getDefaultTabForRole(role?: string): string {
 
 /**
  * Next.js Edge Middleware
- * Bảo vệ route, chống 404 và phân quyền thông minh dựa trên vai trò gia đình
+ * Bảo vệ route, chống 404 và phân quyền thông minh:
+ * - / : Landing Page thuần túy công khai cho mọi người
+ * - /login : Trang đăng nhập (chuyển tới /dashboard nếu đã đăng nhập)
+ * - /dashboard : Không gian ứng dụng chức năng (bắt buộc xác thực đăng nhập)
  */
 export async function middleware(req: NextRequest) {
   try {
-    const { pathname } = req.nextUrl;
+    const { pathname, searchParams } = req.nextUrl;
 
     // 1. Tuyệt đối bỏ qua các file tĩnh, bundle chunks, Next.js assets và API routes
     if (
@@ -38,27 +41,44 @@ export async function middleware(req: NextRequest) {
     const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
     const payload = token ? await verifyAuthToken(token) : null;
 
-    // 2. Nếu đang ở trang login và đã đăng nhập hợp lệ -> chuyển hướng vào ứng dụng
+    // 2. Chặn truy cập trái phép tab nội bộ trên Root URL (/?tab=...) nếu chưa đăng nhập
+    if (pathname === "/" && searchParams.has("tab")) {
+      const requestedTab = searchParams.get("tab");
+      if (requestedTab && requestedTab !== "trang-chu") {
+        if (!payload) {
+          const loginUrl = new URL("/login", req.url);
+          loginUrl.searchParams.set("from", `/dashboard?tab=${requestedTab}`);
+          return NextResponse.redirect(loginUrl);
+        } else {
+          // Nếu đã đăng nhập mà gõ /?tab=... -> chuyển sang /dashboard?tab=...
+          return NextResponse.redirect(
+            new URL(`/dashboard?tab=${requestedTab}`, req.url)
+          );
+        }
+      }
+    }
+
+    // 3. Nếu đang ở trang login và đã đăng nhập hợp lệ -> chuyển hướng vào /dashboard
     if (pathname === "/login") {
       if (payload) {
         return NextResponse.redirect(
-          new URL(`/?tab=${getDefaultTabForRole(payload.role)}`, req.url)
+          new URL(`/dashboard?tab=${getDefaultTabForRole(payload.role)}`, req.url)
         );
       }
       return NextResponse.next();
     }
 
-    // 2.1 Shortcut /register -> chuyển tới trang login với chế độ tạo gia đình
+    // 3.1 Shortcut /register -> chuyển tới trang login với chế độ tạo gia đình
     if (pathname === "/register") {
       if (payload) {
         return NextResponse.redirect(
-          new URL(`/?tab=${getDefaultTabForRole(payload.role)}`, req.url)
+          new URL(`/dashboard?tab=${getDefaultTabForRole(payload.role)}`, req.url)
         );
       }
       return NextResponse.redirect(new URL("/login?mode=register", req.url));
     }
 
-    // 3. Xử lý các route Dashboard và shortcut phân quyền (chống 404 hoàn toàn)
+    // 4. Xử lý các route Dashboard và shortcut phân quyền (chống 404 hoàn toàn)
     const isDashboardRoute =
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/vault") ||
@@ -93,7 +113,7 @@ export async function middleware(req: NextRequest) {
         pathname.startsWith("/shield") ||
         pathname.startsWith("/elderly")
       ) {
-        return NextResponse.redirect(new URL("/?tab=kinetix-shield", req.url));
+        return NextResponse.redirect(new URL("/dashboard?tab=kinetix-shield", req.url));
       }
 
       if (
@@ -101,7 +121,7 @@ export async function middleware(req: NextRequest) {
         pathname.startsWith("/kids") ||
         pathname.startsWith("/chore")
       ) {
-        return NextResponse.redirect(new URL("/?tab=kinetix-kids", req.url));
+        return NextResponse.redirect(new URL("/dashboard?tab=kinetix-kids", req.url));
       }
 
       if (
@@ -109,7 +129,7 @@ export async function middleware(req: NextRequest) {
         pathname.startsWith("/rosca") ||
         pathname.startsWith("/hui")
       ) {
-        return NextResponse.redirect(new URL("/?tab=quy-rosca", req.url));
+        return NextResponse.redirect(new URL("/dashboard?tab=quy-rosca", req.url));
       }
 
       if (
@@ -127,17 +147,22 @@ export async function middleware(req: NextRequest) {
         pathname.startsWith("/setting")
       ) {
         if (payload.role === "ELDERLY") {
-          return NextResponse.redirect(new URL("/?tab=kinetix-shield", req.url));
+          return NextResponse.redirect(new URL("/dashboard?tab=kinetix-shield", req.url));
         }
         if (payload.role === "CHILD") {
-          return NextResponse.redirect(new URL("/?tab=kinetix-kids", req.url));
+          return NextResponse.redirect(new URL("/dashboard?tab=kinetix-kids", req.url));
         }
-        return NextResponse.redirect(new URL("/?tab=quan-tri-cha-me", req.url));
+        return NextResponse.redirect(new URL("/dashboard?tab=quan-tri-cha-me", req.url));
       }
 
-      // /dashboard chung -> chuyển về tab theo vai trò hiện tại
+      // /dashboard chính -> Cho phép render trực tiếp DashboardPage
+      if (pathname === "/dashboard") {
+        return NextResponse.next();
+      }
+
+      // Subroute khác của /dashboard -> chuyển về tab theo vai trò hiện tại
       return NextResponse.redirect(
-        new URL(`/?tab=${getDefaultTabForRole(payload.role)}`, req.url)
+        new URL(`/dashboard?tab=${getDefaultTabForRole(payload.role)}`, req.url)
       );
     }
 

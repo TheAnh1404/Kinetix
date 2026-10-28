@@ -228,7 +228,7 @@ Issued At: ${issuedAt}`;
 
       setUser(data.user);
       setFamily(data.family);
-      router.push("/?tab=quan-tri-cha-me");
+      router.push("/dashboard?tab=quan-tri-cha-me");
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message || "Lỗi xử lý đăng ký gia đình." };
@@ -293,7 +293,7 @@ Issued At: ${issuedAt}`;
 
       setUser(data.user);
       setFamily(data.family);
-      router.push("/?tab=quan-tri-cha-me");
+      router.push("/dashboard?tab=quan-tri-cha-me");
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message || "Lỗi xử lý tham gia gia đình." };
@@ -381,7 +381,7 @@ Issued At: ${issuedAt}`;
       if (verifyData.redirectUrl) {
         router.push(verifyData.redirectUrl);
       } else {
-        router.push("/?tab=quan-tri-cha-me");
+        router.push("/dashboard?tab=quan-tri-cha-me");
       }
       return { success: true };
     } catch (err: any) {
@@ -440,7 +440,7 @@ Issued At: ${issuedAt}`;
       await fetch("/api/auth/logout", { method: "POST" });
       setUser(null);
       setFamily(null);
-      router.push("/login");
+      router.push("/");
     } catch (err) {
       console.error("Lỗi đăng xuất:", err);
     }

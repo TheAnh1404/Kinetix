@@ -40,16 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const scrollToSection = (id: string) => {
-    if (activeTab !== "trang-chu" && onTabChange) {
-      onTabChange("trang-chu");
-      setTimeout(() => {
-        const el = document.getElementById(id);
-        if (el) el.scrollIntoView({ behavior: "smooth" });
-      }, 100);
-    } else {
-      const el = document.getElementById(id);
-      if (el) el.scrollIntoView({ behavior: "smooth" });
-    }
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
@@ -169,22 +161,15 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
 
                 {/* Dashboard Access Button */}
-                <button
-                  onClick={() => {
-                    if (onTabChange) {
-                      if (user?.role === "ELDERLY") onTabChange("kinetix-shield");
-                      else if (user?.role === "CHILD") onTabChange("kinetix-kids");
-                      else onTabChange("quan-tri-cha-me");
-                    }
-                  }}
+                <Link
+                  href="/dashboard"
                   className="px-4 py-2 rounded-xl bg-secondary-container hover:bg-secondary text-white font-label-lg text-xs sm:text-sm font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-                  type="button"
                 >
                   <span className="material-symbols-outlined text-[18px]">
                     space_dashboard
                   </span>
                   <span className="hidden sm:inline">{t("nav.dashboard")}</span>
-                </button>
+                </Link>
 
                 {/* Member Avatar */}
                 {currentMember && (
@@ -214,16 +199,24 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               </div>
             ) : (
-              /* If NOT Authenticated: BẮT ĐẦU ĐĂNG NHẬP SỬ DỤNG */
-              <Link
-                href="/login"
-                className="px-4 py-2.5 rounded-xl bg-secondary-container hover:bg-secondary text-white font-label-lg text-xs sm:text-sm font-bold shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95 group"
-              >
-                <span>{t("nav.getStarted")}</span>
-                <span className="material-symbols-outlined text-[18px] transition-transform group-hover:translate-x-0.5">
-                  arrow_forward
-                </span>
-              </Link>
+              /* If NOT Authenticated: ĐĂNG NHẬP HOẶC BẮT ĐẦU */
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/login"
+                  className="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all cursor-pointer"
+                >
+                  {language === "vi" ? "Đăng Nhập" : "Log In"}
+                </Link>
+                <Link
+                  href="/login?mode=register"
+                  className="px-4 py-2.5 rounded-xl bg-secondary-container hover:bg-secondary text-white font-label-lg text-xs sm:text-sm font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 group"
+                >
+                  <span>{t("nav.getStarted")}</span>
+                  <span className="material-symbols-outlined text-[17px] transition-transform group-hover:translate-x-0.5">
+                    arrow_forward
+                  </span>
+                </Link>
+              </div>
             )}
 
           </div>

@@ -2,29 +2,33 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ActiveTab } from "../../types";
 import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/context/LanguageContext";
 
 interface HomeViewProps {
-  onNavigate: (tab: ActiveTab) => void;
-  onOpenDeposit: () => void;
+  onNavigate?: (tab: ActiveTab) => void;
+  onOpenDeposit?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
   onNavigate,
   onOpenDeposit,
 }) => {
+  const router = useRouter();
   const { dynamicVaults, currentWorkspace } = useFamily();
   const { isAuthenticated, user } = useAuth();
   const { t } = useLanguage();
 
   const handleStartCTA = () => {
     if (isAuthenticated) {
-      if (user?.role === "ELDERLY") onNavigate("kinetix-shield");
-      else if (user?.role === "CHILD") onNavigate("kinetix-kids");
-      else onNavigate("quan-tri-cha-me");
+      if (user?.role === "ELDERLY") router.push("/dashboard?tab=kinetix-shield");
+      else if (user?.role === "CHILD") router.push("/dashboard?tab=kinetix-kids");
+      else router.push("/dashboard?tab=quan-tri-cha-me");
+    } else {
+      router.push("/login");
     }
   };
 

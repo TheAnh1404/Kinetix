@@ -26,16 +26,16 @@ export default function DashboardCatchAllPage() {
     switch (slug) {
       case "elderly":
       case "shield":
-        router.replace("/?tab=kinetix-shield");
+        router.replace("/dashboard?tab=kinetix-shield");
         break;
       case "kids":
       case "chores":
       case "chore":
-        router.replace("/?tab=kinetix-kids");
+        router.replace("/dashboard?tab=kinetix-kids");
         break;
       case "rosca":
       case "hui":
-        router.replace("/?tab=quy-rosca");
+        router.replace("/dashboard?tab=quy-rosca");
         break;
       case "vault":
       case "vaults":
@@ -48,11 +48,11 @@ export default function DashboardCatchAllPage() {
       case "admin":
       default:
         if (user?.role === "ELDERLY") {
-          router.replace("/?tab=kinetix-shield");
+          router.replace("/dashboard?tab=kinetix-shield");
         } else if (user?.role === "CHILD") {
-          router.replace("/?tab=kinetix-kids");
+          router.replace("/dashboard?tab=kinetix-kids");
         } else {
-          router.replace("/?tab=quan-tri-cha-me");
+          router.replace("/dashboard?tab=quan-tri-cha-me");
         }
         break;
     }

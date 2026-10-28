@@ -106,10 +106,9 @@ export const AppShell: React.FC<AppShellProps> = ({
           {/* Left: Brand Logo & Workspace Switcher */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             <Link
-              href="/"
-              onClick={() => onTabChange('trang-chu')}
+              href="/dashboard"
               className="flex items-center gap-2 group cursor-pointer"
-              title="Về Trang Chủ Giới Thiệu"
+              title="Kinetix Workspace Dashboard"
             >
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                 <span className="material-symbols-outlined text-[20px]">
@@ -124,6 +123,16 @@ export const AppShell: React.FC<AppShellProps> = ({
                   Vault OS
                 </span>
               </div>
+            </Link>
+
+            {/* Link quay lại Landing Page giới thiệu */}
+            <Link
+              href="/"
+              className="hidden lg:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-900 text-xs font-semibold hover:bg-slate-100 transition-colors"
+              title="Xem Trang Giới Thiệu Kinetix"
+            >
+              <span className="material-symbols-outlined text-[15px]">public</span>
+              <span>Landing Page</span>
             </Link>
 
             {/* Separator */}
