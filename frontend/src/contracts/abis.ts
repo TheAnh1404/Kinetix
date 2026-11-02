@@ -1772,6 +1772,43 @@ export const FAMILY_YIELD_VAULT_ABI = [
     "type": "error"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "available",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "requested",
+        "type": "uint256"
+      }
+    ],
+    "name": "InsufficientContractBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "available",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "requested",
+        "type": "uint256"
+      }
+    ],
+    "name": "InsufficientReservePool",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidChainID",
+    "type": "error"
+  },
+  {
     "inputs": [],
     "name": "OnlyTeleporterMessenger",
     "type": "error"
@@ -1969,6 +2006,25 @@ export const FAMILY_YIELD_VAULT_ABI = [
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "depositor",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "YieldReserveDeposited",
+    "type": "event"
+  },
+  {
     "inputs": [],
     "name": "APY_RATE",
     "outputs": [
@@ -2073,6 +2129,13 @@ export const FAMILY_YIELD_VAULT_ABI = [
       }
     ],
     "name": "depositPrincipal",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "depositYieldReserve",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
@@ -2233,7 +2296,7 @@ export const FAMILY_YIELD_VAULT_ABI = [
     "inputs": [
       {
         "internalType": "bytes32",
-        "name": "",
+        "name": "originChainID",
         "type": "bytes32"
       },
       {
@@ -2324,6 +2387,19 @@ export const FAMILY_YIELD_VAULT_ABI = [
       }
     ],
     "name": "vaultPrincipals",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "yieldReservePool",
     "outputs": [
       {
         "internalType": "uint256",

@@ -22,7 +22,7 @@ dotenv.config();
 
 // Cấu hình RPC và địa chỉ Smart Contract
 const RPC_URL = process.env.FAMILY_L1_RPC_URL || process.env.FUJI_RPC_URL || "https://api.avax-test.network/ext/bc/C/rpc";
-const HUB_ADDRESS = (process.env.FAMILY_HUB_ADDRESS || "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0") as Address;
+const HUB_ADDRESS = (process.env.FAMILY_HUB_ADDRESS || "0x2873c3B76364E6377912F174e3754AFdfCeae1F6") as Address;
 
 console.log("=================================================");
 console.log("🛰️  KINETIX BLOCKCHAIN EVENT LISTENER WORKER");
@@ -37,13 +37,13 @@ const publicClient = createPublicClient({
   transport: http(RPC_URL),
 });
 
-// Các sự kiện On-Chain từ FamilyHub.sol (Dynamic & Composable Multi-Space Vaults)
+// Các sự kiện On-Chain từ FamilyHub.sol (Khớp 100% với ABI Solidity)
 const vaultCreatedEvent = parseAbiItem(
-  "event VaultCreated(uint256 indexed vaultId, string name, uint8 indexed ruleType, uint256 bufferRatioBps, uint256 fastWithdrawLimit, uint256 requiredApprovals)"
+  "event VaultCreated(uint256 indexed vaultId, string name, address indexed creator, uint8 ruleType, uint256 bufferRatioBps, uint256 requiredApprovals)"
 );
 
-const depositToVaultEvent = parseAbiItem(
-  "event DepositToVault(uint256 indexed vaultId, address indexed depositor, uint256 totalAmount, uint256 toBuffer, uint256 toBridge)"
+const fundsDepositedEvent = parseAbiItem(
+  "event FundsDeposited(uint256 indexed vaultId, address indexed depositor, uint256 totalAmount, uint256 toBuffer, uint256 toBridge)"
 );
 
 const fastWithdrawalExecutedEvent = parseAbiItem(
@@ -51,7 +51,7 @@ const fastWithdrawalExecutedEvent = parseAbiItem(
 );
 
 const withdrawalRequestedEvent = parseAbiItem(
-  "event WithdrawalRequested(uint256 indexed requestId, uint256 indexed vaultId, address indexed requester, uint256 amount, address recipient, string reason, uint256 deadline)"
+  "event WithdrawalRequested(uint256 indexed requestId, uint256 indexed vaultId, address indexed requester, uint256 amount, string reason, uint256 deadline)"
 );
 
 const withdrawalApprovedEvent = parseAbiItem(
@@ -63,21 +63,71 @@ const withdrawalExecutedEvent = parseAbiItem(
 );
 
 const choreClaimedEvent = parseAbiItem(
-  "event ChoreClaimed(uint256 indexed taskId, uint256 indexed vaultId, address indexed kidAddress)"
+  "event ChoreClaimed(uint256 indexed taskId, address indexed assignee)"
 );
 
 const choreRewardedEvent = parseAbiItem(
-  "event ChoreRewarded(uint256 indexed taskId, uint256 indexed vaultId, address indexed kidAddress, uint256 rewardAmount)"
+  "event ChoreRewarded(uint256 indexed taskId, uint256 indexed vaultId, address indexed assignee, uint256 rewardAmount)"
 );
 
 /**
- * 1. Lắng nghe nạp tiền vào Hũ Động (DepositToVault)
+ * 1. Lắng nghe khởi tạo Hũ Động (VaultCreated)
  */
-function watchDepositToVault() {
-  console.log("👂 Đang lắng nghe sự kiện: DepositToVault...");
+function watchVaultCreated() {
+  console.log("👂 Đang lắng nghe sự kiện: VaultCreated...");
   return publicClient.watchEvent({
     address: HUB_ADDRESS,
-    event: depositToVaultEvent,
+    event: vaultCreatedEvent,
+    onLogs: async (logs) => {
+      for (const log of logs) {
+        const { vaultId, name, creator, ruleType, bufferRatioBps, requiredApprovals } = log.args;
+        if (vaultId === undefined) continue;
+
+        const onchainId = Number(vaultId);
+        console.log(`\n🏦 [EVENT] Khởi tạo Hũ on-chain ID #${onchainId}: "${name}" bởi ${creator}`);
+
+        const existing = await db
+          .select()
+          .from(vaults)
+          .where(eq(vaults.onchainVaultId, onchainId));
+
+        if (existing.length === 0) {
+          const defaultWs = await db.select().from(workspaces).limit(1);
+          if (defaultWs.length > 0) {
+            const ruleTemplates: ("SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL")[] = [
+              "SHIELD",
+              "MILESTONE",
+              "ROSCA",
+              "SHARED_GOAL",
+            ];
+            const ruleStr = ruleTemplates[Number(ruleType ?? 0)] || "SHIELD";
+
+            await db.insert(vaults).values({
+              workspaceId: defaultWs[0].id,
+              onchainVaultId: onchainId,
+              name: name || `Dynamic Vault #${onchainId}`,
+              ruleTemplate: ruleStr,
+              bufferRatioBps: Number(bufferRatioBps ?? 1000),
+              requiredApprovals: Number(requiredApprovals ?? 2),
+              cachedTotalBalance: "0",
+              cachedL1Buffer: "0",
+              cachedCChainYield: "0",
+            });
+          }
+        }
+      }
+    },
+  });
+}
+
+/**
+ * 2. Lắng nghe nạp tiền vào Hũ Động (FundsDeposited)
+ */
+function watchFundsDeposited() {
+  console.log("👂 Đang lắng nghe sự kiện: FundsDeposited...");
+  return publicClient.watchEvent({
+    address: HUB_ADDRESS,
+    event: fundsDepositedEvent,
     onLogs: async (logs) => {
       for (const log of logs) {
         const { vaultId, depositor, totalAmount, toBuffer, toBridge } = log.args;
@@ -86,7 +136,7 @@ function watchDepositToVault() {
         const onchainId = Number(vaultId);
         const totalAvax = Number(formatEther(totalAmount));
         const bufferAvax = Number(formatEther(toBuffer ?? 0n));
-        console.log(`\n💰 [EVENT] Nạp tiền vào Hũ ID #${onchainId}: ${totalAvax} AVAX (L1 Buffer: ${bufferAvax} AVAX)`);
+        console.log(`\n💰 [EVENT] Nạp tiền vào Hũ ID #${onchainId}: ${totalAvax} AVAX (L1 Buffer: ${bufferAvax} AVAX) bởi ${depositor}`);
 
         // Cập nhật số dư trong database
         const [matchingVault] = await db
@@ -112,7 +162,7 @@ function watchDepositToVault() {
 }
 
 /**
- * 2. Lắng nghe yêu cầu rút tiền lớn (WithdrawalRequested)
+ * 3. Lắng nghe yêu cầu rút tiền lớn (WithdrawalRequested)
  */
 function watchWithdrawalRequests() {
   console.log("👂 Đang lắng nghe sự kiện: WithdrawalRequested...");
@@ -121,7 +171,7 @@ function watchWithdrawalRequests() {
     event: withdrawalRequestedEvent,
     onLogs: async (logs) => {
       for (const log of logs) {
-        const { requestId, vaultId, requester, amount, recipient, reason } = log.args;
+        const { requestId, vaultId, requester, amount, reason, deadline } = log.args;
         if (!requestId || !requester || amount === undefined) continue;
 
         const onchainReqId = Number(requestId);
@@ -205,7 +255,7 @@ function watchWithdrawalRequests() {
 }
 
 /**
- * 3. Lắng nghe Guardian ký duyệt (WithdrawalApproved)
+ * 4. Lắng nghe Guardian ký duyệt (WithdrawalApproved)
  */
 function watchWithdrawalApproved() {
   console.log("👂 Đang lắng nghe sự kiện: WithdrawalApproved...");
@@ -242,7 +292,7 @@ function watchWithdrawalApproved() {
 }
 
 /**
- * 4. Lắng nghe giải ngân thành công (WithdrawalExecuted)
+ * 5. Lắng nghe giải ngân thành công (WithdrawalExecuted)
  */
 function watchWithdrawalExecuted() {
   console.log("👂 Đang lắng nghe sự kiện: WithdrawalExecuted...");
@@ -268,7 +318,7 @@ function watchWithdrawalExecuted() {
 }
 
 /**
- * 5. Lắng nghe hoàn thành việc nhà (ChoreRewarded)
+ * 6. Lắng nghe hoàn thành việc nhà và nhận thưởng (ChoreRewarded)
  */
 function watchChoreRewarded() {
   console.log("👂 Đang lắng nghe sự kiện: ChoreRewarded...");
@@ -277,11 +327,11 @@ function watchChoreRewarded() {
     event: choreRewardedEvent,
     onLogs: async (logs) => {
       for (const log of logs) {
-        const { taskId, kidAddress, rewardAmount } = log.args;
+        const { taskId, assignee, rewardAmount } = log.args;
         if (!taskId || rewardAmount === undefined) continue;
 
         const onchainTaskId = Number(taskId);
-        console.log(`\n🌟 [EVENT] Thưởng việc nhà on-chain Task #${onchainTaskId} cho ${kidAddress}`);
+        console.log(`\n🌟 [EVENT] Thưởng việc nhà on-chain Task #${onchainTaskId} cho ${assignee}`);
 
         await db
           .update(chores)
@@ -294,7 +344,8 @@ function watchChoreRewarded() {
 
 async function startWorker() {
   try {
-    watchDepositToVault();
+    watchVaultCreated();
+    watchFundsDeposited();
     watchWithdrawalRequests();
     watchWithdrawalApproved();
     watchWithdrawalExecuted();
