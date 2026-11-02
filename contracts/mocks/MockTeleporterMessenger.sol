@@ -11,12 +11,22 @@ import "../interfaces/ITeleporterMessenger.sol";
 contract MockTeleporterMessenger is ITeleporterMessenger {
     uint256 private _messageIdCounter;
 
+    /// @notice Giả lập ID chuỗi nguồn (mặc định keccak256("Family-L1") để đồng bộ với test suite)
+    bytes32 public mockOriginBlockchainID = keccak256(bytes("Family-L1"));
+
     event MockMessageSent(
         uint256 indexed messageId,
         bytes32 indexed destinationBlockchainID,
         address indexed destinationAddress,
         bytes message
     );
+
+    /**
+     * @notice Cho phép cấu hình mockOriginBlockchainID phục vụ kiểm thử bảo mật
+     */
+    function setMockOriginBlockchainID(bytes32 _id) external {
+        mockOriginBlockchainID = _id;
+    }
 
     /**
      * @notice Giả lập gửi thông điệp và tự động phân phát đến Receiver nếu có địa chỉ hợp lệ
@@ -36,8 +46,7 @@ contract MockTeleporterMessenger is ITeleporterMessenger {
 
         // Nếu chuỗi nhận hoặc địa chỉ nhận được thiết lập, gọi callback receiveTeleporterMessage
         if (messageInput.destinationAddress != address(0)) {
-            // Giả lập ID chuỗi nguồn
-            bytes32 originChainId = keccak256(abi.encodePacked(block.chainid));
+            bytes32 originChainId = mockOriginBlockchainID;
             try
                 ITeleporterReceiver(messageInput.destinationAddress).receiveTeleporterMessage(
                     originChainId,
