@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/context/LanguageContext';
 import { useSettings, DisplayCurrency, AppTheme } from '@/context/SettingsContext';
 import { SNOWTRACE_TESTNET_URL, CONTRACT_ADDRESSES } from '@/contracts/config';
-import { DemoMember } from '@/types';
+import { FamilyMember } from '@/types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -98,7 +98,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       if (res.ok && data.success) {
         // Cập nhật state context trực tiếp
         if (currentMember) {
-          const updated: DemoMember = {
+          const updated: FamilyMember = {
             ...currentMember,
             name: fullName,
             avatar: avatarUrl,

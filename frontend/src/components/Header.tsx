@@ -5,15 +5,14 @@ import Link from "next/link";
 import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/context/LanguageContext";
-import { RoleSwitcherModal } from "./RoleSwitcherModal";
 import { WorkspaceSwitcher } from "./workspaces/WorkspaceSwitcher";
-import { ActiveTab, DemoMember } from "../types";
+import { ActiveTab, FamilyMember } from "../types";
 
 interface HeaderProps {
   activeTab?: ActiveTab;
   onTabChange?: (tab: ActiveTab) => void;
-  currentMember?: DemoMember;
-  onMemberChange?: (member: DemoMember) => void;
+  currentMember?: FamilyMember;
+  onMemberChange?: (member: FamilyMember) => void;
   isWalletConnected?: boolean;
   onConnectWallet?: () => void;
   isLandingPage?: boolean;
@@ -28,7 +27,6 @@ export const Header: React.FC<HeaderProps> = ({
   const { familyInfo } = useFamily();
   const { isAuthenticated, user, logout } = useAuth();
   const { language, toggleLanguage, t } = useLanguage();
-  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
   const handleCopyCode = () => {
@@ -173,8 +171,8 @@ export const Header: React.FC<HeaderProps> = ({
 
                 {/* Member Avatar */}
                 {currentMember && (
-                  <div
-                    onClick={() => setIsRoleModalOpen(true)}
+                  <Link
+                    href="/dashboard"
                     className="w-9 h-9 rounded-full overflow-hidden border-2 border-secondary shadow-sm cursor-pointer hover:ring-2 hover:ring-secondary/30 transition-all shrink-0"
                     title={currentMember.name}
                   >
@@ -183,7 +181,7 @@ export const Header: React.FC<HeaderProps> = ({
                       alt={currentMember.name}
                       className="w-full h-full object-cover"
                     />
-                  </div>
+                  </Link>
                 )}
 
                 {/* Logout Button */}
@@ -222,16 +220,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </header>
-
-      {/* Role Switcher Modal (Chỉ mở khi click avatar) */}
-      {currentMember && onMemberChange && (
-        <RoleSwitcherModal
-          isOpen={isRoleModalOpen}
-          onClose={() => setIsRoleModalOpen(false)}
-          currentMember={currentMember}
-          onSelectMember={onMemberChange}
-        />
-      )}
     </>
   );
 };

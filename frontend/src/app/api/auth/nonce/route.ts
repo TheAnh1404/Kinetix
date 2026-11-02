@@ -30,7 +30,7 @@ export async function GET() {
     });
   } catch (error: any) {
     console.error("Lỗi tạo nonce:", error);
-    // Fallback: Nếu lỗi DB, vẫn trả về nonce ngẫu nhiên để client không bị gián đoạn demo
+    // Fallback an toàn: Nếu lỗi DB, vẫn trả về nonce ngẫu nhiên bảo mật để đảm bảo tính liên tục của hệ thống
     const fallbackNonce = crypto.randomBytes(16).toString("hex");
     return NextResponse.json({
       success: true,

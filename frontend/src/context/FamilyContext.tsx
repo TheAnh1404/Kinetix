@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { parseEther, formatEther } from 'viem';
-import { DemoMember, DEMO_MEMBERS, WorkspaceItem, DynamicVaultItem } from '@/types';
+import { FamilyMember, INITIAL_MEMBERS, WorkspaceItem, DynamicVaultItem } from '@/types';
 import {
   CONTRACT_ADDRESSES,
   RuleTemplate,
@@ -191,10 +191,10 @@ interface FamilyContextType {
   payoutRoscaRound: (vaultId: number, dbVaultId?: string) => Promise<boolean>;
 
   // Members & Auth
-  currentMember: DemoMember;
-  members: DemoMember[];
+  currentMember: FamilyMember;
+  members: FamilyMember[];
   familyInfo: { id: string; name: string; familyCode: string } | null;
-  setCurrentMember: (member: DemoMember) => void;
+  setCurrentMember: (member: FamilyMember) => void;
   refreshMembers: () => Promise<void>;
   addMemberToFamily: (memberData: {
     fullName: string;
@@ -251,8 +251,8 @@ interface FamilyContextType {
 const FamilyContext = createContext<FamilyContextType | undefined>(undefined);
 
 export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentMember, setCurrentMember] = useState<DemoMember>(DEMO_MEMBERS[0]);
-  const [members, setMembers] = useState<DemoMember[]>(DEMO_MEMBERS);
+  const [currentMember, setCurrentMember] = useState<FamilyMember>(INITIAL_MEMBERS[0]);
+  const [members, setMembers] = useState<FamilyMember[]>(INITIAL_MEMBERS);
   const [familyInfo, setFamilyInfo] = useState<{ id: string; name: string; familyCode: string } | null>(null);
   
   // Workspaces
@@ -265,7 +265,7 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const [isWalletConnected, setIsWalletConnected] = useState<boolean>(true);
   const [connectedWalletAddress, setConnectedWalletAddress] = useState<string | null>(
-    DEMO_MEMBERS[0].walletAddress
+    INITIAL_MEMBERS[0].walletAddress
   );
 
   const [isLiveWeb3, setIsLiveWeb3] = useState<boolean>(false);
@@ -461,7 +461,7 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       // 2. Nạp thành viên
       const membersRes = await fetch(`/api/workspaces/${workspaceId}`, { cache: 'no-store' });
       const membersData = await membersRes.json();
-      let mappedMembers: DemoMember[] = [];
+      let mappedMembers: FamilyMember[] = [];
       if (membersData.success && Array.isArray(membersData.members) && membersData.members.length > 0) {
         mappedMembers = membersData.members.map((u: any) => ({
           id: u.id,

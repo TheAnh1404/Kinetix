@@ -21,13 +21,12 @@ export interface FamilyMember {
   phoneNumber?: string | null;
 }
 
-export type DemoMember = FamilyMember;
 export type Member = FamilyMember;
 
-export const DEMO_MEMBERS: DemoMember[] = [
+export const INITIAL_MEMBERS: FamilyMember[] = [
   {
     id: "user-admin",
-    name: "Bố Ba (Admin)",
+    name: "Bố Ba (Chủ Hộ)",
     role: "ADMIN",
     title: "Người quản trị gia đình • Ví Core",
     walletAddress: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
@@ -37,7 +36,7 @@ export const DEMO_MEMBERS: DemoMember[] = [
   },
   {
     id: "user-guardian-1",
-    name: "Anh Cả (Guardian 1)",
+    name: "Anh Cả (Người Bảo Hộ 1)",
     role: "GUARDIAN",
     title: "Bảo hộ cấp cao • Đã ký duyệt 1/2",
     walletAddress: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
@@ -47,7 +46,7 @@ export const DEMO_MEMBERS: DemoMember[] = [
   },
   {
     id: "user-guardian-2",
-    name: "Cô Út (Guardian 2)",
+    name: "Cô Út (Người Bảo Hộ 2)",
     role: "GUARDIAN",
     title: "Bảo hộ tài chính • Quỹ Họ Hụi",
     walletAddress: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
@@ -57,27 +56,25 @@ export const DEMO_MEMBERS: DemoMember[] = [
   },
   {
     id: "user-elderly",
-    name: "Ông Nội (Nguyễn Văn An)",
+    name: "Ông Nội (Cụ Ba)",
     role: "ELDERLY",
     title: "Thế hệ 1 • Thụ hưởng Kinetix Shield",
     walletAddress: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
     address: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
-    avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuB9RXFgUn83eP41jg2weE3YA8vd83fsVimUf5y0OcZS7SOQ3XPOzG_gbODV_xJIXeRQye9NHAh2TXP_28Oz-bPHhWTfscJFCZWXYRXq2gQAAtwAVTc1yseRsDx3GBa94HVhTHAal40UzoVwN7YY1IXQ5EmMOe0WhhEvzu4V7ZNBtixA0ZiaR61Ad1UJUADoRuNzug0ggIZW8eO5XEiktIZD-zCJ4THMAqG0i7Z1ivkCGPnUrjsBJg",
+    avatar: "https://images.unsplash.com/photo-1544717305-2782549b5136?w=150",
     defaultTab: "kinetix-shield",
   },
   {
     id: "user-child",
-    name: "Bé Na (Lớp 6A)",
+    name: "Bé Na (Con Gái)",
     role: "CHILD",
     title: "Thế hệ 3 • Kinetix Kids Heo Đất",
     walletAddress: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
     address: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
-    avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuAc1UhNj0E3eKWwrEAv9WJ4KTtp_4pnR4-fyhwEHSKncOxXMGgdr5EdEkF7AMpuaguOYSWTwC-3Ovp1jhOZtflnABlKorh-7E9pPfvKLow6TvFQHGxmf0EgQh_J7eX2WyhgY_obtzgCtT892o3CCd1-TKpF3WABb42fGzxm4wVTK6S7fWG0bKJKRZGbEsWybndKRK3uK6Aix2ehMS1hOr8zRyDG3ZRA0ODbqcIHWiDv1p2ayRMtyQ",
+    avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150",
     defaultTab: "kinetix-kids",
   },
 ];
-
-export const INITIAL_MEMBERS = DEMO_MEMBERS;
 
 export interface WorkspaceItem {
   id: string;
