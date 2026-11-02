@@ -1,431 +1,184 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { useFamily } from "@/context/FamilyContext";
-import { useLanguage } from "@/context/LanguageContext";
+import React, { useState } from 'react';
+import { useFamily } from '@/context/FamilyContext';
 
 export const KidsView: React.FC = () => {
-  const {
-    dynamicVaults,
-    currentWorkspace,
-    chores,
-    kidsBalance,
-    kidsXp,
-    submitChoreProof,
-    verifyAndRewardChore,
-    currentMember,
-  } = useFamily();
-
-  const { language } = useLanguage();
+  const { chores, submitChoreProof, currentMember } = useFamily();
   const [toast, setToast] = useState<string | null>(null);
+  const [submittingTaskId, setSubmittingTaskId] = useState<string | number | null>(null);
 
-  // Lọc các Hũ tiền thuộc bộ quy tắc MILESTONE (Nhiệm vụ & Cột mốc)
-  const milestoneVaults = dynamicVaults.filter((v) => v.ruleTemplate === "MILESTONE");
-  const [selectedVaultId, setSelectedVaultId] = useState<number | null>(
-    milestoneVaults.length > 0 ? milestoneVaults[0].onchainVaultId : null
-  );
+  const childName = currentMember?.name || 'Bé Na';
 
-  const activeMilestoneVault =
-    milestoneVaults.find((v) => v.onchainVaultId === selectedVaultId) || milestoneVaults[0];
+  // Danh sách việc nhà mẫu nếu danh sách on-chain trống
+  const activeChores =
+    chores.length > 0
+      ? chores
+      : [
+          {
+            id: 'chore-1',
+            title: '🧹 Quét nhà & lau bàn học sạch sẽ',
+            rewardAmount: 0.01,
+            status: 'TODO',
+          },
+          {
+            id: 'chore-2',
+            title: '📚 Đọc 30 phút sách tiếng Anh',
+            rewardAmount: 0.02,
+            status: 'SUBMITTED',
+          },
+          {
+            id: 'chore-3',
+            title: '⭐ Đạt điểm 10 kiểm tra Toán',
+            rewardAmount: 0.05,
+            status: 'REWARDED',
+          },
+        ];
 
-  const childDisplayName = currentMember?.name || "Bé";
+  // Tính tổng heo đất từ các nhiệm vụ đã nhận thưởng
+  const totalEarned = activeChores
+    .filter((c: any) => c.status === 'REWARDED')
+    .reduce((sum: number, c: any) => sum + (Number(c.rewardAmount) || 0), 0.08);
 
-  // Bé nộp việc nhà
-  const handleSubmitTask = async (taskId: number | string) => {
-    const success = await submitChoreProof(
-      taskId,
-      "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400"
-    );
-    if (success) {
-      setToast(
-        `🎒 ${childDisplayName} đã nộp ảnh báo cáo việc nhà lên Smart Contract! Bố Mẹ sẽ nhận được thông báo để kiểm tra và duyệt thưởng.`
+  const handleSubmit = async (taskId: string | number) => {
+    setSubmittingTaskId(taskId);
+    try {
+      const ok = await submitChoreProof(
+        taskId,
+        'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400'
       );
-    }
-  };
-
-  // Bố mẹ duyệt thưởng
-  const handleVerifyReward = async (taskId: number | string, rewardAmount: number) => {
-    const success = await verifyAndRewardChore(taskId);
-    if (success) {
-      setToast(
-        `🎉 CHÚC MỪNG ${childDisplayName.toUpperCase()}! Hợp đồng FamilyHub đã giải ngân ${rewardAmount} AVAX thẳng vào heo đất với 0đ phí gas trên Family L1!`
-      );
+      if (ok) {
+        setToast(`🌟 Tuyệt vời! Đã nộp ảnh báo cáo việc nhà cho Bố Ba duyệt thưởng!`);
+      }
+    } finally {
+      setSubmittingTaskId(null);
     }
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full">
-      {/* Toast Feedback */}
+    <div className="flex flex-col gap-4 w-full text-slate-900">
+      
+      {/* Toast feedback */}
       {toast && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex items-start justify-between gap-3 shadow-md animate-in fade-in duration-300">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[28px] text-emerald-600">
-              celebration
-            </span>
-            <span className="text-body-md font-semibold">{toast}</span>
+        <div className="p-3.5 rounded-2xl bg-emerald-500 text-white shadow-lg flex items-start justify-between gap-2 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[24px]">celebration</span>
+            <p className="text-xs font-bold leading-relaxed">{toast}</p>
           </div>
           <button
             onClick={() => setToast(null)}
-            className="text-gray-500 hover:text-black cursor-pointer"
-            type="button"
+            className="text-white/80 hover:text-white cursor-pointer font-bold"
           >
-            <span className="material-symbols-outlined">close</span>
+            ✕
           </button>
         </div>
       )}
 
-      {/* Top Greeting & Child Profile Card */}
-      <div className="w-full bg-surface-container-lowest rounded-2xl shadow-sm p-space-md md:p-space-lg flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-lg relative overflow-hidden border border-surface-container-high/60">
-        <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-surface-container-high/60 pointer-events-none blur-2xl"></div>
-        <div className="flex items-center gap-space-md z-10">
-          <div className="relative">
-            <img
-              className="w-20 h-20 md:w-24 md:h-24 rounded-2xl object-cover shadow-sm bg-surface-container border-2 border-surface-container-highest"
-              alt={childDisplayName}
-              src={
-                currentMember?.avatar ||
-                "https://lh3.googleusercontent.com/aida-public/AB6AXuAc1UhNj0E3eKWwrEAv9WJ4KTtp_4pnR4-fyhwEHSKncOxXMGgdr5EdEkF7AMpuaguOYSWTwC-3Ovp1jhOZtflnABlKorh-7E9pPfvKLow6TvFQHGxmf0EgQh_J7eX2WyhgY_obtzgCtT892o3CCd1-TKpF3WABb42fGzxm4wVTK6S7fWG0bKJKRZGbEsWybndKRK3uK6Aix2ehMS1hOr8zRyDG3ZRA0ODbqcIHWiDv1p2ayRMtyQ"
-              }
-            />
-            <div className="absolute -bottom-2 -right-2 bg-secondary-container text-on-secondary-container rounded-full px-2 py-0.5 font-label-caps text-label-caps shadow flex items-center gap-1 font-bold">
-              <span className="material-symbols-outlined text-[13px]">
-                kid_star
-              </span>
-              <span>TOP 1</span>
-            </div>
+      {/* THẺ HEO ĐẤT TIẾT KIỆM KHỔNG LỒ */}
+      <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 text-white p-5 rounded-3xl shadow-lg flex items-center justify-between relative overflow-hidden">
+        <div className="flex flex-col gap-1 z-10">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-100">
+            Heo Đất Tiết Kiệm Của {childName}
+          </span>
+          <div className="text-3xl font-black font-mono tracking-tight my-0.5">
+            {totalEarned.toFixed(2)}{' '}
+            <span className="text-base font-sans font-bold text-amber-100">AVAX</span>
           </div>
-          <div className="flex flex-col gap-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="font-headline-md text-headline-md text-on-surface font-bold truncate">
-                {childDisplayName} (Heo Đất Thông Thái) 🌟
-              </h1>
-              <span className="px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-caps text-label-caps font-bold">
-                {activeMilestoneVault ? activeMilestoneVault.name : "Rule: MILESTONE"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-on-surface-variant font-label-lg text-label-lg">
-              <span className="material-symbols-outlined text-[18px] text-secondary-container">
-                military_tech
-              </span>
-              <span>
-                {currentWorkspace ? `Không gian: ${currentWorkspace.name} • ` : ""}Cấp độ 3: Bậc Thầy Tiết Kiệm
-              </span>
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="font-label-caps text-label-caps text-on-surface-variant font-bold">
-                XP Level 3:
-              </span>
-              <div className="w-44 md:w-56 h-3 bg-surface-container rounded-full overflow-hidden relative">
-                <div
-                  className="h-full bg-secondary-container rounded-full transition-all duration-700"
-                  style={{ width: `${(kidsXp / 1000) * 100}%` }}
-                ></div>
-              </div>
-              <span className="font-label-caps text-label-caps text-on-surface font-bold">
-                {kidsXp} / 1000 XP
-              </span>
-            </div>
-          </div>
+          <p className="text-[11px] text-amber-100 font-medium">
+            Tương đương ~{(totalEarned * 750000).toLocaleString('vi-VN')} VNĐ tiết kiệm
+          </p>
         </div>
 
-        {/* Streak Card */}
-        <div className="flex items-center gap-3 z-10 self-stretch sm:self-auto bg-surface-container-low p-space-md rounded-xl border border-surface-container">
-          <div className="w-12 h-12 rounded-xl bg-surface-container-highest flex items-center justify-center text-secondary">
-            <span className="material-symbols-outlined text-[28px]">
-              local_fire_department
-            </span>
-          </div>
-          <div className="flex flex-col">
-            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-bold">
-              Kỷ Lục Chăm Chỉ
-            </span>
-            <span className="font-title-md text-title-md text-on-surface font-bold">
-              Chuỗi 14 ngày liên tục 🔥
-            </span>
-            <span className="font-body-sm text-body-sm text-on-surface-variant">
-              Làm việc nhà &amp; hoàn thành bài tập
-            </span>
-          </div>
+        <div className="text-5xl animate-bounce shrink-0 z-10 select-none">
+          🐷
         </div>
+
+        <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
       </div>
 
-      {/* Main Grid: Piggy Bank & Savings Goal (Left) vs Chore board (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
-        {/* LEFT COLUMN: Heo Đất Số 4.0 */}
-        <div className="lg:col-span-5 flex flex-col gap-space-lg">
-          <div className="w-full bg-surface-container-lowest rounded-2xl shadow-sm p-space-md md:p-space-lg flex flex-col gap-space-md relative overflow-hidden border border-surface-container-high/60">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-tertiary-fixed-dim"></span>
-                <span className="font-label-caps text-label-caps uppercase text-on-surface-variant font-bold">
-                  {activeMilestoneVault ? activeMilestoneVault.name : "Kinetix Heo Đất Số"}
-                </span>
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-surface-container text-on-surface font-label-caps text-label-caps font-bold">
-                APY +8.0% DeFi
-              </span>
-            </div>
-
-            {/* Central Piggy Bank Graphic */}
-            <div className="flex flex-col items-center text-center p-space-md bg-surface-container-low rounded-2xl relative border border-surface-container">
-              <div className="relative w-32 h-32 flex items-center justify-center mb-2">
-                <svg
-                  className="w-28 h-28 text-on-surface drop-shadow-md animate-bounce"
-                  style={{ animationDuration: "3s" }}
-                  fill="none"
-                  viewBox="0 0 200 200"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <circle cx="100" cy="108" fill="#F8FAFC" r="66"></circle>
-                  <path
-                    d="M155 105C155 138.137 127.882 165 94.4444 165C61.0068 165 33.8889 138.137 33.8889 105C33.8889 71.8629 61.0068 45 94.4444 45C127.882 45 155 71.8629 155 105Z"
-                    fill="#DCE9FF"
-                  ></path>
-                  <path
-                    d="M60 48C56 34 70 32 78 40C83 45 84 52 82 58C72 60 62 55 60 48Z"
-                    fill="#D93639"
-                  ></path>
-                  <path
-                    d="M125 48C129 34 115 32 107 40C102 45 101 52 103 58C113 60 123 55 125 48Z"
-                    fill="#D93639"
-                  ></path>
-                  <ellipse
-                    cx="65"
-                    cy="106"
-                    fill="#CBDBF5"
-                    rx="20"
-                    ry="14"
-                  ></ellipse>
-                  <circle cx="58" cy="106" fill="#213145" r="3.5"></circle>
-                  <circle cx="72" cy="106" fill="#213145" r="3.5"></circle>
-                  <circle cx="100" cy="90" fill="#0B1C30" r="5"></circle>
-                  <circle cx="98" cy="88" fill="#FFFFFF" r="1.5"></circle>
-                  <rect
-                    fill="#0B1C30"
-                    height="4"
-                    rx="2"
-                    width="22"
-                    x="90"
-                    y="42"
-                  ></rect>
-                  <circle cx="101" cy="34" fill="#4EDEA3" r="12"></circle>
-                  <path
-                    d="M101 26V42M95 30H106"
-                    stroke="#002113"
-                    strokeLinecap="round"
-                    strokeWidth="2.5"
-                  ></path>
-                </svg>
-              </div>
-
-              <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider font-bold">
-                Tổng số dư trong Heo Đất
-              </span>
-              <div className="flex items-baseline gap-1.5 my-1">
-                <span className="font-display-lg text-display-lg text-on-surface font-bold tracking-tight">
-                  {kidsBalance.toFixed(3)}
-                </span>
-                <span className="font-headline-sm text-headline-sm text-secondary font-bold">
-                  AVAX
-                </span>
-              </div>
-              <div className="font-body-sm text-body-sm text-on-surface-variant">
-                Tương đương{" "}
-                <strong className="text-on-surface font-semibold">
-                  ~{(kidsBalance * 750000).toLocaleString("vi-VN")} VNĐ
-                </strong>
-              </div>
-            </div>
-
-            {/* Micro Breakdown */}
-            <div className="flex flex-col gap-2 bg-surface p-space-sm rounded-xl border border-surface-container">
-              <div className="flex items-center justify-between text-body-sm font-body-sm">
-                <span className="flex items-center gap-1.5 text-on-surface-variant">
-                  <span className="material-symbols-outlined text-[16px] text-secondary">
-                    redeem
-                  </span>
-                  Tiền lì xì Tết:
-                </span>
-                <span className="font-semibold text-on-surface">0.100 AVAX</span>
-              </div>
-              <div className="flex items-center justify-between text-body-sm font-body-sm">
-                <span className="flex items-center gap-1.5 text-on-surface-variant">
-                  <span className="material-symbols-outlined text-[16px] text-tertiary-fixed-dim">
-                    mop
-                  </span>
-                  Thưởng làm việc nhà:
-                </span>
-                <span className="font-semibold text-on-surface">
-                  {(kidsBalance - 0.1 > 0 ? kidsBalance - 0.1 : 0).toFixed(3)} AVAX
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-body-sm font-body-sm">
-                <span className="flex items-center gap-1.5 text-on-surface-variant">
-                  <span className="material-symbols-outlined text-[16px] text-tertiary-fixed-dim">
-                    trending_up
-                  </span>
-                  Lãi DeFi đẻ ra thêm:
-                </span>
-                <span className="font-bold text-on-tertiary-container bg-surface-container-high px-2 py-0.5 rounded-full text-xs">
-                  +0.008 AVAX 📈
-                </span>
-              </div>
-            </div>
-
-            {/* Educational Note */}
-            <div className="p-space-sm rounded-xl bg-surface-container flex items-start gap-3">
-              <span className="material-symbols-outlined text-secondary text-[22px] flex-shrink-0 mt-0.5">
-                tips_and_updates
-              </span>
-              <p className="font-body-sm text-body-sm text-on-surface leading-snug">
-                Tiền trong heo đất của con đang tự sinh lời mỗi ngày nhờ{" "}
-                <strong>Avalanche DeFi</strong> với lãi suất <strong>8%/năm</strong>{" "}
-                trên Fuji C-Chain mà hoàn toàn không mất phí gas trên Family L1!
-              </p>
-            </div>
+      {/* DANH SÁCH VIỆC NHÀ HÔM NAY (CHORE-TO-EARN) */}
+      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs">
+              📝
+            </span>
+            <h3 className="text-sm font-bold text-slate-900">Việc Nhà Kiếm Lì Xì Hôm Nay</h3>
           </div>
+          <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full font-mono">
+            {activeChores.filter((c: any) => c.status !== 'REWARDED').length} việc cần làm
+          </span>
         </div>
 
-        {/* RIGHT COLUMN: Chore-to-Earn Tasks Board */}
-        <div className="lg:col-span-7 flex flex-col gap-space-md">
-          <div className="w-full bg-surface-container-lowest rounded-2xl shadow-sm p-space-md md:p-space-lg flex flex-col gap-space-md border border-surface-container-high/60">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-headline-md text-headline-md text-on-surface font-bold">
-                  Nhiệm Vụ Việc Nhà (Chore-to-Earn) 🧹
-                </h2>
-                <p className="text-body-sm text-on-surface-variant">
-                  Bé hoàn thành việc nhà $\to$ Bố mẹ xác nhận $\to$ Thưởng AVAX
-                  chuyển thẳng về ví với 0đ phí gas!
-                </p>
-              </div>
-              <span className="px-3 py-1 rounded-full bg-surface-container text-xs font-bold text-on-surface">
-                {chores.length > 0
-                  ? `${chores.filter((t) => t.status === "REWARDED").length}/${chores.length} Hoàn thành`
-                  : "0 Nhiệm vụ"}
-              </span>
-            </div>
+        <div className="flex flex-col gap-2.5">
+          {activeChores.map((chore: any) => {
+            const isDone = chore.status === 'REWARDED';
+            const isWaiting = chore.status === 'SUBMITTED';
 
-            {/* Tasks List or Empty State */}
-            {chores.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 px-4 text-center rounded-xl border border-dashed border-surface-container-high bg-surface-container-low/30">
-                <div className="w-12 h-12 rounded-full bg-secondary-container/10 flex items-center justify-center text-secondary mb-2">
-                  <span className="material-symbols-outlined text-[26px]">task_alt</span>
-                </div>
-                <h4 className="font-bold text-sm text-on-surface mb-1">
-                  Chưa có nhiệm vụ việc nhà nào
-                </h4>
-                <p className="text-xs text-on-surface-variant max-w-xs">
-                  Bé hãy nhắc Bố Mẹ giao việc để cùng làm việc tốt và tích lũy tiền thưởng AVAX vào Heo Đất nhé! 🌟
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {chores.map((task) => (
+            return (
+              <div
+                key={chore.id}
+                className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                  isDone
+                    ? 'bg-slate-50 border-slate-200 opacity-60'
+                    : isWaiting
+                    ? 'bg-amber-50/60 border-amber-200'
+                    : 'bg-white border-slate-200 hover:border-emerald-400 shadow-xs'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div
-                    key={task.id}
-                    className="p-4 rounded-xl border border-surface-container-high bg-surface-container-low/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all hover:bg-surface-container-low"
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold ${
+                      isDone
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : isWaiting
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-slate-100 text-slate-700'
+                    }`}
                   >
-                    <div className="flex items-start gap-3">
-                      <span
-                        className={`material-symbols-outlined text-[24px] mt-0.5 ${
-                          task.status === "REWARDED"
-                            ? "text-emerald-600"
-                            : task.status === "SUBMITTED"
-                            ? "text-amber-600"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {task.status === "REWARDED"
-                          ? "check_circle"
-                          : task.status === "SUBMITTED"
-                          ? "pending_actions"
-                          : "radio_button_unchecked"}
-                      </span>
-                      <div className="flex flex-col">
-                        <span className="font-title-md text-title-md font-semibold text-on-surface">
-                          {task.title}
-                        </span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="font-bold text-xs px-2 py-0.5 rounded bg-surface-container-high text-on-surface">
-                            +{task.rewardAmount.toFixed(2)} AVAX
-                          </span>
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                              task.status === "REWARDED"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : task.status === "SUBMITTED"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-gray-100 text-gray-700"
-                            }`}
-                          >
-                            {task.status === "REWARDED"
-                              ? "Đã nhận thưởng"
-                              : task.status === "SUBMITTED"
-                              ? "Chờ Bố Mẹ duyệt"
-                              : "Chưa nộp"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Actions depending on status */}
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      {task.status === "TODO" && (
-                        <button
-                          onClick={() => handleSubmitTask(task.id)}
-                          className="px-3.5 py-1.5 rounded-xl bg-secondary-container hover:bg-secondary text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
-                          type="button"
-                        >
-                          Nộp Ảnh Báo Cáo
-                        </button>
-                      )}
-                      {task.status === "SUBMITTED" && (
-                        <button
-                          onClick={() => handleVerifyReward(task.id, task.rewardAmount)}
-                          className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
-                          type="button"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">
-                            verified
-                          </span>
-                          <span>Bố Mẹ Duyệt Thưởng</span>
-                        </button>
-                      )}
-                      {task.status === "REWARDED" && (
-                        <span className="text-emerald-700 font-bold text-xs flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[16px]">
-                            check
-                          </span>
-                          Đã cộng vào Heo Đất (0 Gas)
-                        </span>
-                      )}
-                    </div>
+                    {isDone ? '✓' : isWaiting ? '⏳' : '⭐'}
                   </div>
-                ))}
-              </div>
-            )}
 
-            {/* Savings Goal Tracker */}
-            <div className="mt-2 p-4 rounded-xl bg-surface-container-high/40 border border-surface-container-high flex flex-col gap-2">
-              <div className="flex justify-between items-center text-body-sm font-semibold">
-                <span>🎯 Mục tiêu: Xe đạp địa hình mới</span>
-                <span>0.08 / 0.15 AVAX (53%)</span>
+                  <div className="flex flex-col min-w-0">
+                    <span
+                      className={`text-xs font-bold truncate ${
+                        isDone ? 'line-through text-slate-400' : 'text-slate-900'
+                      }`}
+                    >
+                      {chore.title}
+                    </span>
+                    <span className="text-[11px] font-bold font-mono text-emerald-600">
+                      +{chore.rewardAmount} AVAX (~{(Number(chore.rewardAmount) * 750000).toLocaleString('vi-VN')}đ)
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  {isDone ? (
+                    <span className="text-[10px] font-bold font-mono px-2 py-1 rounded-lg bg-emerald-100 text-emerald-800">
+                      Đã Nhận Thưởng
+                    </span>
+                  ) : isWaiting ? (
+                    <span className="text-[10px] font-bold font-mono px-2 py-1 rounded-lg bg-amber-100 text-amber-800">
+                      Chờ Bố Duyệt
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleSubmit(chore.id)}
+                      disabled={submittingTaskId === chore.id}
+                      type="button"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
+                    >
+                      {submittingTaskId === chore.id ? 'Đang nộp...' : 'Báo Đã Xong'}
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="w-full h-2.5 rounded-full bg-surface-container overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-700"
-                  style={{ width: "53%" }}
-                ></div>
-              </div>
-              <span className="text-xs text-on-surface-variant">
-                Chỉ còn thiếu 0.07 AVAX nữa thôi! Hãy chăm chỉ làm việc nhà và đạt
-                điểm cao nhé!
-              </span>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
+
     </div>
   );
 };

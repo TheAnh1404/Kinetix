@@ -2,17 +2,16 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useFamily } from '@/context/FamilyContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/context/LanguageContext';
 import { WorkspaceSwitcher } from '@/components/workspaces/WorkspaceSwitcher';
-import { RoleSwitcherModal } from '@/components/RoleSwitcherModal';
 import { DepositVaultModal } from '@/components/vaults/DepositVaultModal';
 import { CreateVaultModal } from '@/components/vaults/CreateVaultModal';
 import { SettingsModal } from '@/components/settings/SettingsModal';
-import { MobileNavBar } from '@/components/navigation/MobileNavBar';
-import { ActiveTab, DemoMember } from '@/types';
-import { SNOWTRACE_TESTNET_URL, CONTRACT_ADDRESSES } from '@/contracts/config';
+import { MobilePhoneContainer } from '@/components/layout/MobilePhoneContainer';
+import { ActiveTab } from '@/types';
 
 interface AppShellProps {
   activeTab: ActiveTab;
@@ -29,32 +28,19 @@ export const AppShell: React.FC<AppShellProps> = ({
     currentWorkspace,
     familyInfo,
     currentMember,
-    setCurrentMember,
-    members,
-    dynamicVaults,
-    notifications,
-    unreadNotificationCount,
-    markNotificationRead,
   } = useFamily();
 
   const { user, logout } = useAuth();
   const { language, toggleLanguage, t } = useLanguage();
+  const router = useRouter();
 
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [isCreateVaultOpen, setIsCreateVaultOpen] = useState(false);
-  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
-  // Tính toán tổng tài sản thật của Không gian từ danh sách Dynamic Vaults
-  const totalBalanceAVAX = dynamicVaults.reduce((sum, v) => sum + v.cachedTotalBalance, 0);
-  const totalL1BufferAVAX = dynamicVaults.reduce((sum, v) => sum + v.cachedL1Buffer, 0);
-  const totalCChainYieldAVAX = dynamicVaults.reduce((sum, v) => sum + v.cachedCChainYield, 0);
-
   const handleCopyCode = () => {
-    const code = currentWorkspace?.workspaceCode || familyInfo?.familyCode;
+    const code = currentWorkspace?.workspaceCode || familyInfo?.familyCode || 'KNTX-8888';
     if (code) {
       navigator.clipboard?.writeText(code);
       setCopiedCode(true);
@@ -62,448 +48,322 @@ export const AppShell: React.FC<AppShellProps> = ({
     }
   };
 
-  const spaces = [
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
+
+  const userRole = user?.role || currentMember?.role || 'ADMIN';
+  const isAdmin = userRole === 'ADMIN';
+
+  // Thông tin hiển thị cho từng vai diễn thành viên
+  const memberRoleDetails: Record<string, { label: string; badge: string; icon: string }> = {
+    ELDERLY: {
+      label: language === 'vi' ? 'Hũ An Sinh Ông Bà' : 'Grandparent Shield',
+      badge: '0 Gas Fee',
+      icon: 'shield',
+    },
+    CHILD: {
+      label: language === 'vi' ? 'Heo Đất Bé Na' : 'Kids Piggy Bank',
+      badge: 'Chore-to-Earn',
+      icon: 'savings',
+    },
+    GUARDIAN: {
+      label: language === 'vi' ? 'Quỹ Họ Hụi Anh Cả' : 'ROSCA Pool',
+      badge: '8% APY C-Chain',
+      icon: 'groups',
+    },
+  };
+
+  const currentRoleInfo = memberRoleDetails[userRole] || memberRoleDetails.ELDERLY;
+
+  // Danh mục menu điều hướng dành cho Admin trên Laptop
+  const adminSpaces = [
     {
       id: 'quan-tri-cha-me' as ActiveTab,
-      label: language === 'vi' ? 'Quản Trị & Hũ Tiền' : 'Parent & Vaults Hub',
-      shortLabel: language === 'vi' ? 'Quản Trị' : 'Admin',
+      label: language === 'vi' ? 'Bàn Quản Trị Trung Tâm' : 'Master Command Center',
       icon: 'dashboard',
-      description: language === 'vi' ? 'Đa chữ ký M/N & Danh mục Hũ tiền' : 'Multisig M/N & Vaults Portfolio',
-      badge: 'Admin',
+      description: 'Tổng quan N Hũ, Đa chữ ký M/N & L1 Buffer',
     },
     {
       id: 'kinetix-shield' as ActiveTab,
-      label: language === 'vi' ? 'Báo Hiếu & An Sinh' : 'Kinetix Shield (Seniors)',
-      shortLabel: language === 'vi' ? 'Báo Hiếu' : 'Shield',
+      label: language === 'vi' ? 'Hũ An Sinh Ông Bà' : 'Elderly Shield Vault',
       icon: 'shield',
-      description: language === 'vi' ? 'Rút tức thì 0 gas & Chống lừa đảo' : 'Instant 0 gas & Safe Shield',
-      badge: '0 Gas',
+      description: 'Xem trước giao diện Ông Bà (0 gas)',
     },
     {
       id: 'kinetix-kids' as ActiveTab,
-      label: language === 'vi' ? 'Heo Đất & Việc Nhà' : 'Kinetix Kids (Earn)',
-      shortLabel: language === 'vi' ? 'Việc Nhà' : 'Kids',
+      label: language === 'vi' ? 'Heo Đất & Việc Nhà Trẻ' : 'Kids Chore Vault',
       icon: 'savings',
-      description: language === 'vi' ? 'Nhiệm vụ Chore-to-Earn & Tích lũy' : 'Chore-to-Earn Tasks & Savings',
-      badge: 'Earn',
+      description: 'Xem trước heo đất & thưởng việc nhà',
     },
     {
       id: 'quy-rosca' as ActiveTab,
-      label: language === 'vi' ? 'Họ Hụi & Mục Tiêu' : 'ROSCA & Shared Goals',
-      shortLabel: language === 'vi' ? 'Họ Hụi' : 'ROSCA',
+      label: language === 'vi' ? 'Quỹ Họ Hụi Xoay Vòng' : 'ROSCA Savings Vault',
       icon: 'groups',
-      description: language === 'vi' ? 'Góp vốn xoay vòng & Mục tiêu chung' : 'Rotating Savings & Goals',
-      badge: '8% APY',
+      description: 'Xem trước quỹ họ hụi & lãi C-Chain',
     },
   ];
 
-  const currentSpace = spaces.find((s) => s.id === activeTab) || spaces[0];
-
-  return (
-    <div className="h-screen w-full flex overflow-hidden bg-slate-50 text-slate-900">
-      
-      {/* ========================================================================= */}
-      {/* 1. MOBILE BACKDROP OVERLAY */}
-      {/* ========================================================================= */}
-      {isMobileSidebarOpen && (
-        <div
-          onClick={() => setIsMobileSidebarOpen(false)}
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 lg:hidden transition-opacity"
-        />
-      )}
-
-      {/* ========================================================================= */}
-      {/* 2. VERTICAL SIDEBAR (DESKTOP LOCKED FULL-HEIGHT + MOBILE SLIDE-OVER) */}
-      {/* ========================================================================= */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 h-full bg-white border-r border-slate-200/80 flex flex-col transition-transform duration-300 ease-in-out shrink-0 lg:static lg:translate-x-0 select-none ${
-          isMobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
-        }`}
-      >
-        {/* A. SIDEBAR BRAND HEADER */}
-        <div className="h-16 px-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2.5 group cursor-pointer"
-            title="Kinetix Workspace Dashboard"
-          >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
-              <span className="material-symbols-outlined text-[20px]">
-                account_balance_wallet
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-base leading-none text-slate-900 tracking-tight">
-                Kinetix
-              </span>
-              <span className="text-[10px] font-mono text-red-600 uppercase tracking-wider font-bold mt-0.5">
-                Vault OS
-              </span>
-            </div>
-          </Link>
-
-          <div className="flex items-center gap-1">
-            {/* Link quay lại Landing Page giới thiệu */}
-            <Link
-              href="/"
-              className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors"
-              title="Xem Landing Page"
-            >
-              <span className="material-symbols-outlined text-[18px]">public</span>
-            </Link>
-
-            {/* Nút đóng Sidebar trên màn hình nhỏ */}
-            <button
-              onClick={() => setIsMobileSidebarOpen(false)}
-              className="lg:hidden w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
-              type="button"
-              title="Đóng menu"
-            >
-              <span className="material-symbols-outlined text-[20px]">close</span>
-            </button>
-          </div>
-        </div>
-
-        {/* B. WORKSPACE SWITCHER SECTION */}
-        <div className="p-3 border-b border-slate-100 bg-slate-50/50 shrink-0">
-          <div className="flex items-center justify-between mb-1.5 px-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-              {language === 'vi' ? 'Không Gian Đang Chọn' : 'Active Workspace'}
-            </span>
-            {(currentWorkspace?.workspaceCode || familyInfo?.familyCode) && (
-              <button
-                onClick={handleCopyCode}
-                className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-slate-600 hover:text-red-600 transition-colors cursor-pointer"
-                title="Sao chép Mã Không Gian"
-                type="button"
-              >
-                <span>{currentWorkspace?.workspaceCode || familyInfo?.familyCode}</span>
-                <span className="material-symbols-outlined text-[12px]">
-                  {copiedCode ? 'check' : 'content_copy'}
-                </span>
-              </button>
-            )}
-          </div>
-          <WorkspaceSwitcher />
-        </div>
-
-        {/* C. VERTICAL NAVIGATION TABS */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin">
-          <div className="px-2 pt-1 pb-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-              {language === 'vi' ? 'Bộ 4 Không Gian Hũ Tiền' : 'Multi-Space Vaults'}
-            </span>
-          </div>
-
-          {spaces.map((sp) => {
-            const isActive = activeTab === sp.id;
-            return (
-              <button
-                key={sp.id}
-                onClick={() => {
-                  onTabChange(sp.id);
-                  setIsMobileSidebarOpen(false);
-                }}
-                type="button"
-                className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all cursor-pointer relative group ${
-                  isActive
-                    ? 'bg-red-50 text-red-950 font-bold border border-red-200/80 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent'
-                }`}
-              >
-                {/* Active indicator bar */}
-                {isActive && (
-                  <span className="absolute left-0 top-3 bottom-3 w-1.5 bg-red-600 rounded-r-full" />
-                )}
-
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                    isActive
-                      ? 'bg-red-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-slate-800'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[20px]">
-                    {sp.icon}
-                  </span>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs sm:text-sm font-bold truncate">
-                      {sp.label}
-                    </span>
-                    <span
-                      className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${
-                        isActive
-                          ? 'bg-red-200/60 text-red-800'
-                          : 'bg-slate-100 text-slate-500'
-                      }`}
-                    >
-                      {sp.badge}
-                    </span>
-                  </div>
-                  <p
-                    className={`text-[11px] truncate mt-0.5 ${
-                      isActive ? 'text-red-700/80 font-medium' : 'text-slate-400'
-                    }`}
-                  >
-                    {sp.description}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-
-          {/* D. QUICK TREASURY WIDGET CARD */}
-          <div className="pt-3">
-            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-sm border border-slate-700/50">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                  {language === 'vi' ? 'Tổng Quỹ Không Gian' : 'Treasury Balance'}
-                </span>
-                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono">
-                  8% APY
-                </span>
-              </div>
-
-              <div className="flex items-baseline gap-1 mb-2">
-                <span className="font-mono text-xl font-black text-white">
-                  {totalBalanceAVAX.toFixed(2)}
-                </span>
-                <span className="text-xs font-bold text-slate-400 font-mono">AVAX</span>
-              </div>
-
-              <div className="flex items-center justify-between text-[10px] font-mono text-slate-300 py-1.5 px-2 rounded-xl bg-slate-800/80 border border-slate-700/50 mb-3">
-                <span className="text-amber-400">10% Đệm L1 (0 Gas)</span>
-                <span className="text-slate-500">•</span>
-                <span className="text-emerald-400">90% C-Chain</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsDepositModalOpen(true)}
-                className="w-full py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-              >
-                <span className="material-symbols-outlined text-[16px] text-amber-300">bolt</span>
-                <span>{language === 'vi' ? 'Nạp Quỹ Tức Thì' : 'Deposit Vault'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* E. SIDEBAR FOOTER (USER PROFILE, NETWORK & CONTROLS) */}
-        <div className="p-3 border-t border-slate-100 bg-slate-50/70 space-y-2 shrink-0">
-          {/* Dual-Chain Network SnowTrace Link */}
-          <a
-            href={`${SNOWTRACE_TESTNET_URL}/address/${CONTRACT_ADDRESSES.familyHub}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-mono text-slate-700 hover:border-slate-300 transition-colors"
-            title="Xem Smart Contract trên SnowTrace Fuji C-Chain"
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-bold">Avalanche Fuji</span>
-            </div>
-            <span className="text-[10px] font-semibold text-emerald-700">0 Gas L1</span>
-          </a>
-
-          {/* User Member Card & Switcher */}
-          {currentMember && (
-            <div className="flex items-center justify-between p-2 rounded-2xl bg-white border border-slate-200/80">
-              <div
-                onClick={() => setIsRoleModalOpen(true)}
-                className="flex items-center gap-2 cursor-pointer group flex-1 min-w-0"
-                title="Đổi vai trò thành viên"
-              >
-                <div className="w-8 h-8 rounded-full overflow-hidden border border-red-500 shadow-xs shrink-0">
-                  <img
-                    src={currentMember.avatar}
-                    alt={currentMember.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex flex-col text-left min-w-0">
-                  <span className="text-xs font-bold text-slate-900 truncate">
-                    {currentMember.name}
-                  </span>
-                  <span className="text-[10px] font-mono font-semibold text-red-600">
-                    {currentMember.role}
-                  </span>
-                </div>
-              </div>
-
-              {/* Quick Actions (Settings & Logout) */}
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="w-7 h-7 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
-                  title="Cài đặt ứng dụng & Quản lý tài khoản"
-                >
-                  <span className="material-symbols-outlined text-[17px]">settings</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="w-7 h-7 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors cursor-pointer"
-                  title={t('nav.logout')}
-                >
-                  <span className="material-symbols-outlined text-[17px]">logout</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </aside>
-
-      {/* ========================================================================= */}
-      {/* 3. MAIN RIGHT CANVAS (TOP BAR + CONTENT BODY WITH INDEPENDENT SCROLL) */}
-      {/* ========================================================================= */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
+  /* ========================================================================= */
+  /* PHÂN LUỒNG 1: THÀNH VIÊN GIA ĐÌNH (ÔNG BÀ, CON TRẺ, ANH CẢ) */
+  /* Giao diện Smartphone tối giản, không hiển thị thanh quản trị của Admin */
+  /* ========================================================================= */
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen w-full flex flex-col bg-slate-950 text-slate-100 font-sans">
         
-        {/* TOP BAR */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 h-16 px-4 sm:px-6 flex items-center justify-between gap-3 shadow-xs">
-          
-          {/* Left: Mobile Menu Toggle + Breadcrumb */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 cursor-pointer"
-              title="Mở Menu Điều Hướng"
-            >
-              <span className="material-symbols-outlined text-[20px]">menu</span>
-            </button>
-
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
-                <span className="material-symbols-outlined text-[18px]">
-                  {currentSpace.icon}
+        {/* Top Header Tối Giản Cho Thiết Bị Di Động */}
+        <header className="w-full bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-2.5 flex items-center justify-between z-30 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <img
+              src={user?.avatarUrl || currentMember?.avatar || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150'}
+              alt={user?.fullName || 'Thành viên'}
+              className="w-8 h-8 rounded-full object-cover border border-slate-700"
+            />
+            <div className="flex flex-col text-left">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-white leading-tight">
+                  {user?.fullName || currentMember?.name || 'Thành viên Gia đình'}
+                </span>
+                <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold font-mono">
+                  {userRole}
                 </span>
               </div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-medium text-slate-400 hidden sm:inline">
-                    {currentWorkspace?.name || 'Không Gian Kinetix'}
-                  </span>
-                  <span className="text-xs text-slate-300 hidden sm:inline">/</span>
-                  <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
-                    {currentSpace.label}
-                  </h1>
-                </div>
-                <span className="text-[11px] text-slate-500 hidden sm:block">
-                  {currentSpace.description}
-                </span>
-              </div>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {language === "vi" ? "Không gian: " : "Space: "}
+                {currentWorkspace?.workspaceCode || familyInfo?.familyCode || 'KNTX-8888'}
+              </span>
             </div>
           </div>
 
-          {/* Right: Quick Actions (Deposit, Notifications, Language) */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* Quick Deposit Action Button */}
-            <button
-              type="button"
-              onClick={() => setIsDepositModalOpen(true)}
-              className="px-3 sm:px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
-            >
-              <span className="material-symbols-outlined text-[17px] text-amber-300">bolt</span>
-              <span>{language === 'vi' ? 'Nạp Quỹ' : 'Deposit'}</span>
-            </button>
-
-            {/* Notifications Bell */}
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsNotifOpen(!isNotifOpen)}
-                className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 flex items-center justify-center text-slate-600 transition-colors cursor-pointer relative"
-                title="Thông báo hệ thống"
-              >
-                <span className="material-symbols-outlined text-[19px]">notifications</span>
-                {unreadNotificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white font-mono text-[9px] font-bold flex items-center justify-center shadow-sm">
-                    {unreadNotificationCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Notifications Dropdown Panel */}
-              {isNotifOpen && (
-                <div className="absolute right-0 top-11 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-200 p-3 z-50 animate-in fade-in space-y-2">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 px-1">
-                    <span className="text-xs font-bold text-slate-900">
-                      {language === 'vi' ? 'Thông Báo Gia Đình' : 'Family Notifications'}
-                    </span>
-                    <button
-                      onClick={() => setIsNotifOpen(false)}
-                      className="text-xs text-slate-400 hover:text-slate-700 cursor-pointer"
-                      type="button"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
-                    {notifications.length === 0 ? (
-                      <div className="py-6 text-center text-xs text-slate-500">
-                        Chưa có thông báo mới
-                      </div>
-                    ) : (
-                      notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          onClick={() => markNotificationRead(n.id)}
-                          className={`p-2.5 rounded-xl text-xs transition-colors cursor-pointer border ${
-                            n.isRead
-                              ? 'bg-slate-50 border-transparent text-slate-500'
-                              : 'bg-red-50/50 border-red-200 text-slate-900 font-semibold'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-1 mb-0.5">
-                            <span className="font-bold text-[11px] line-clamp-1">{n.title}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">{n.createdAt}</span>
-                          </div>
-                          <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-2">
-                            {n.message}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Language Switcher */}
+          <div className="flex items-center gap-2">
             <button
               onClick={toggleLanguage}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-xs font-bold text-slate-800 transition-all cursor-pointer font-mono shrink-0"
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-mono font-bold text-slate-300 transition-colors"
               type="button"
-              title="Chuyển đổi ngôn ngữ / Switch language"
             >
-              <span>{language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}</span>
+              {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-slate-700/60 text-xs font-bold transition-all cursor-pointer"
+              title="Đổi tài khoản hoặc đăng xuất"
+              type="button"
+            >
+              <span className="material-symbols-outlined text-[15px]">logout</span>
+              <span className="hidden sm:inline">{language === 'vi' ? 'Đổi Vai' : 'Switch'}</span>
             </button>
           </div>
         </header>
 
-        {/* WORKSPACE CONTENT CANVAS */}
-        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-12">
-          {children}
-        </main>
+        {/* Khung Màn Hình Điện Thoại Tối Giản */}
+        <div className="flex-1 w-full flex items-center justify-center p-2 sm:p-6 bg-radial from-slate-900 to-slate-950 overflow-y-auto">
+          <MobilePhoneContainer
+            title={currentRoleInfo.label}
+            roleBadge={currentRoleInfo.badge}
+          >
+            {children}
+          </MobilePhoneContainer>
+        </div>
+
+      </div>
+    );
+  }
+
+  /* ========================================================================= */
+  /* PHÂN LUỒNG 2: CHỦ GIA ĐÌNH / QUẢN TRỊ VIÊN (BỐ BA) */
+  /* Giao diện Bàn Chỉ Huy Laptop Màn Hình Rộng (Master Command Center) */
+  /* ========================================================================= */
+  return (
+    <div className="min-h-screen w-full flex flex-col bg-slate-100 text-slate-900 font-sans">
+      
+      {/* KHÔNG GIAN BÀN CHỈ HUY LAPTOP */}
+      <div className="flex-1 flex overflow-hidden h-screen">
+        
+        {/* SIDEBAR BÊN TRÁI THU GỌN (WIDESCREEN DESKTOP) */}
+        <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col shrink-0">
+          
+          {/* Header Brand */}
+          <div className="h-16 px-5 border-b border-slate-100 flex items-center justify-between">
+            <Link href="/dashboard" className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                K
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="font-bold text-sm text-slate-900 tracking-tight">Kinetix OS</span>
+                <span className="text-[10px] font-mono text-red-600 font-bold uppercase">Master Desk</span>
+              </div>
+            </Link>
+
+            <button
+              onClick={handleCopyCode}
+              className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+              title="Sao chép Family Code"
+              type="button"
+            >
+              {copiedCode ? '✓ Copied' : currentWorkspace?.workspaceCode || 'KNTX-8888'}
+            </button>
+          </div>
+
+          {/* Workspace Selector */}
+          <div className="p-3 border-b border-slate-100 bg-slate-50/60">
+            <WorkspaceSwitcher />
+          </div>
+
+          {/* Navigation Spaces */}
+          <div className="flex-1 p-3 space-y-1.5 overflow-y-auto">
+            <span className="px-2 text-[10px] font-mono uppercase font-bold text-slate-400">
+              {language === 'vi' ? 'Quản Trị Các Hũ Tiền' : 'Vault Management'}
+            </span>
+
+            {adminSpaces.map((sp) => {
+              const isActive = activeTab === sp.id;
+              return (
+                <button
+                  key={sp.id}
+                  onClick={() => onTabChange(sp.id)}
+                  type="button"
+                  className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-red-50 text-red-950 font-bold border border-red-200 shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <span
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs ${
+                      isActive ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">{sp.icon}</span>
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs truncate font-bold">{sp.label}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Quick Action: Tạo Hũ Mới */}
+          <div className="p-3 border-t border-slate-100">
+            <button
+              onClick={() => setIsCreateVaultOpen(true)}
+              type="button"
+              className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
+            >
+              <span className="material-symbols-outlined text-[16px]">add_circle</span>
+              <span>{language === 'vi' ? '+ Khởi Tạo Hũ Mới' : '+ New Dynamic Vault'}</span>
+            </button>
+          </div>
+
+          {/* User Footer with Logout */}
+          <div className="p-3 border-t border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <img
+                src={user?.avatarUrl || currentMember?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150'}
+                alt="Avatar"
+                className="w-7 h-7 rounded-full object-cover border border-slate-200"
+              />
+              <div className="flex flex-col text-left min-w-0">
+                <span className="text-xs font-bold text-slate-800 truncate">
+                  {user?.fullName || 'Bố Ba (Chủ Hộ)'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">Admin Master</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors"
+                title="Cài đặt"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[16px]">settings</span>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-red-600 flex items-center justify-center transition-colors"
+                title="Đăng xuất"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[16px]">logout</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* MAIN WIDESCREEN WORKSPACE */}
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
+          
+          {/* Top Workspace Bar */}
+          <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 h-14 px-4 sm:px-6 flex items-center justify-between shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-800">
+                {language === 'vi' ? 'Bàn Điều Hành Chủ Gia Đình' : 'Family Master Command Center'}
+              </span>
+              <span className="text-xs text-slate-400">/</span>
+              <div className="hidden sm:flex items-center gap-1 text-[11px] font-mono text-slate-500">
+                <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  ⚡ Family L1
+                </span>
+                <span>⇄</span>
+                <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                  🌊 Fuji C-Chain (8% APY)
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCreateVaultOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span className="hidden sm:inline">{language === 'vi' ? 'Tạo Hũ' : 'New Vault'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsDepositModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[16px]">bolt</span>
+                <span>{language === 'vi' ? 'Nạp Quỹ' : 'Deposit'}</span>
+              </button>
+
+              <button
+                onClick={toggleLanguage}
+                className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-mono font-bold text-slate-800 transition-colors"
+                type="button"
+              >
+                {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
+              </button>
+
+              <button
+                onClick={handleLogout}
+                className="px-2.5 py-1 rounded-xl bg-red-50 hover:bg-red-100 text-xs font-bold text-red-600 transition-colors flex items-center gap-1"
+                title="Đăng xuất"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[15px]">logout</span>
+                <span className="hidden sm:inline">{language === 'vi' ? 'Thoát' : 'Exit'}</span>
+              </button>
+            </div>
+          </header>
+
+          {/* Content Canvas */}
+          <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+            {children}
+          </main>
+        </div>
+
       </div>
 
-      {/* ========================================================================= */}
-      {/* 4. MOBILE BOTTOM NAVIGATION BAR */}
-      {/* ========================================================================= */}
-      <MobileNavBar
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-        onOpenDeposit={() => setIsDepositModalOpen(true)}
-      />
-
-      {/* ========================================================================= */}
-      {/* 5. GLOBAL UNIVERSAL MODALS */}
-      {/* ========================================================================= */}
+      {/* MODALS QUẢN TRỊ */}
       <DepositVaultModal
         isOpen={isDepositModalOpen}
         onClose={() => setIsDepositModalOpen(false)}
@@ -518,20 +378,6 @@ export const AppShell: React.FC<AppShellProps> = ({
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
       />
-
-      {currentMember && (
-        <RoleSwitcherModal
-          isOpen={isRoleModalOpen}
-          onClose={() => setIsRoleModalOpen(false)}
-          currentMember={currentMember}
-          onSelectMember={(m: DemoMember) => {
-            setCurrentMember(m);
-            if (m.role === 'ELDERLY') onTabChange('kinetix-shield');
-            else if (m.role === 'CHILD') onTabChange('kinetix-kids');
-            else onTabChange('quan-tri-cha-me');
-          }}
-        />
-      )}
     </div>
   );
 };
