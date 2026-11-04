@@ -1,21 +1,25 @@
-'use client';
-
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { parseEther, formatEther } from 'viem';
-import { FamilyMember, INITIAL_MEMBERS, WorkspaceItem, DynamicVaultItem } from '@/types';
+"use client";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  ReactNode,
+} from "react";
+import { parseEther } from "viem";
+import { FamilyMember, WorkspaceItem, DynamicVaultItem } from "@/types";
+import { hubChain, avalancheFuji } from "@/contracts/config";
+import { FAMILY_HUB_ABI, FAMILY_YIELD_VAULT_ABI } from "@/contracts/abis";
 import {
-  CONTRACT_ADDRESSES,
-  RuleTemplate,
-  VaultType,
-  avalancheFuji,
-  SNOWTRACE_TESTNET_URL,
-} from '@/contracts/config';
-import {
-  FAMILY_HUB_ABI,
-  FAMILY_YIELD_VAULT_ABI,
-} from '@/contracts/abis';
-import { getWalletClient, publicClientL1, publicClientFuji, switchNetwork } from '@/lib/web3/client';
-import { apiClient } from '@/lib/api/apiClient';
+  getWalletClient,
+  publicClientL1,
+  publicClientFuji,
+  setTransactionWorkspace,
+  setWalletUseEnabled,
+  queueTransactionSync,
+} from "@/lib/web3/client";
+import { useAuth, authRequest } from "@/hooks/useAuth";
 
 export interface WithdrawalRequestItem {
   id: string;
@@ -29,9 +33,13 @@ export interface WithdrawalRequestItem {
   reason: string;
   approvalsCount: number;
   requiredApprovals: number;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXECUTED';
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXECUTED";
   createdAt: string;
-  guardianSignatures: { guardianName: string; signed: boolean; signedAt?: string }[];
+  guardianSignatures: {
+    guardianName: string;
+    signed: boolean;
+    signedAt?: string;
+  }[];
 }
 
 export interface ChoreItem {
@@ -41,8 +49,10 @@ export interface ChoreItem {
   title: string;
   description?: string;
   rewardAmount: number;
-  status: 'TODO' | 'SUBMITTED' | 'VERIFIED' | 'REWARDED';
+  status: "TODO" | "SUBMITTED" | "VERIFIED" | "REWARDED";
   proofImageUrl?: string | null;
+  onchainTaskId?: number;
+  childId?: string;
   childName?: string;
   childAvatar?: string;
   deadline?: string;
@@ -52,7 +62,12 @@ export interface NotificationItem {
   id: string;
   title: string;
   message: string;
-  type: 'ALERT_SCAM' | 'TASK_COMPLETED' | 'YIELD_PAYOUT' | 'FAST_WITHDRAW' | 'APPROVAL_NEEDED';
+  type:
+    | "ALERT_SCAM"
+    | "TASK_COMPLETED"
+    | "YIELD_PAYOUT"
+    | "FAST_WITHDRAW"
+    | "APPROVAL_NEEDED";
   createdAt: string;
   isRead: boolean;
 }
@@ -75,90 +90,15 @@ interface VaultBalance {
   total: number;
 }
 
-const DEFAULT_VAULTS = {
-  retirementShield: {
-    localBuffer: 120,
-    remoteYield: 1080,
-    accruedYield: 86.4,
-    total: 1200,
-  },
-  kidsSavings: {
-    localBuffer: 90,
-    remoteYield: 360,
-    accruedYield: 28.8,
-    total: 450,
-  },
-  familyRosca: {
-    localBuffer: 0,
-    remoteYield: 3000,
-    accruedYield: 240,
-    total: 3000,
-  },
-};
-
-const DEFAULT_DYNAMIC_VAULTS: DynamicVaultItem[] = [
-  {
-    id: 'v-shield',
-    workspaceId: 'ws-1',
-    onchainVaultId: 0,
-    name: 'Hũ Báo Hiếu & Dưỡng Già Ông Bà',
-    description: 'Bộ quy tắc SHIELD: Rút nhanh thường nhật từ đệm L1, rút lớn cần 2 Guardians duyệt.',
-    ruleTemplate: 'SHIELD',
-    bufferRatioBps: 1000,
-    fastWithdrawLimit: 50,
-    requiredApprovals: 2,
-    cachedTotalBalance: 1200,
-    cachedL1Buffer: 120,
-    cachedCChainYield: 86.4,
-    totalBalance: 1200,
-    l1BufferBalance: 120,
-    cChainPrincipal: 1080,
-    isActive: true,
-  },
-  {
-    id: 'v-milestone',
-    workspaceId: 'ws-1',
-    onchainVaultId: 1,
-    name: 'Hũ Tiết Kiệm Khởi Nghiệp Trẻ Nhỏ',
-    description: 'Bộ quy tắc MILESTONE: Quỹ việc nhà Chore-to-Earn, vốn sinh lời 8% APY trên C-Chain.',
-    ruleTemplate: 'MILESTONE',
-    bufferRatioBps: 2000,
-    fastWithdrawLimit: 20,
-    requiredApprovals: 2,
-    cachedTotalBalance: 450,
-    cachedL1Buffer: 90,
-    cachedCChainYield: 28.8,
-    totalBalance: 450,
-    l1BufferBalance: 90,
-    cChainPrincipal: 360,
-    isActive: true,
-  },
-  {
-    id: 'v-rosca',
-    workspaceId: 'ws-1',
-    onchainVaultId: 2,
-    name: 'Hũ Tương Trợ Dòng Họ Nguyễn',
-    description: 'Bộ quy tắc ROSCA: Góp vốn xoay vòng 4 kỳ, vốn nhàn rỗi sinh lời DeFi trên C-Chain.',
-    ruleTemplate: 'ROSCA',
-    bufferRatioBps: 0,
-    fastWithdrawLimit: 1000,
-    requiredApprovals: 3,
-    cachedTotalBalance: 3000,
-    cachedL1Buffer: 0,
-    cachedCChainYield: 240,
-    totalBalance: 3000,
-    l1BufferBalance: 0,
-    cChainPrincipal: 3000,
-    isActive: true,
-  },
-];
-
 interface FamilyContextType {
   // Workspaces & Multi-Space
   workspaces: WorkspaceItem[];
   currentWorkspace: WorkspaceItem | null;
   switchWorkspace: (workspaceId: string) => Promise<void>;
-  createWorkspace: (name: string, type?: string) => Promise<{ success: boolean; workspace?: any; error?: string }>;
+  createWorkspace: (
+    name: string,
+    type?: string,
+  ) => Promise<{ success: boolean; workspace?: any; error?: string }>;
 
   // Dynamic Vaults
   dynamicVaults: DynamicVaultItem[];
@@ -167,7 +107,7 @@ interface FamilyContextType {
   createCustomVault: (params: {
     name: string;
     description?: string;
-    ruleTemplate: 'SHIELD' | 'MILESTONE' | 'ROSCA' | 'SHARED_GOAL';
+    ruleTemplate: "SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL";
     bufferRatioBps: number;
     fastWithdrawLimit: number;
     requiredApprovals: number;
@@ -180,13 +120,13 @@ interface FamilyContextType {
   }) => Promise<{ success: boolean; vault?: any; error?: string }>;
   depositToVault: (
     vaultId: number,
-    amount: number
+    amount: number,
   ) => Promise<{ success: boolean; txHash?: string; error?: string }>;
   fastWithdrawFromVault: (vaultId: number, amount: number) => Promise<boolean>;
   requestVaultWithdrawal: (
     vaultId: number,
     amount: number,
-    reason: string
+    reason: string,
   ) => Promise<{ success: boolean; requestId?: number }>;
   payoutRoscaRound: (vaultId: number, dbVaultId?: string) => Promise<boolean>;
 
@@ -198,9 +138,10 @@ interface FamilyContextType {
   refreshMembers: () => Promise<void>;
   addMemberToFamily: (memberData: {
     fullName: string;
-    role: 'ADMIN' | 'GUARDIAN' | 'ELDERLY' | 'CHILD';
+    role: "ELDERLY" | "CHILD";
     phoneNumber?: string;
-    pinCode?: string;
+    username?: string;
+    temporaryPassword?: string;
     walletAddress?: string;
   }) => Promise<{ success: boolean; error?: string }>;
   isWalletConnected: boolean;
@@ -223,17 +164,29 @@ interface FamilyContextType {
   requestLargeWithdraw: (
     vault: any,
     amount: number,
-    reason: string
+    reason: string,
   ) => Promise<{ success: boolean; requestId?: number }>;
-  approveWithdrawal: (requestId: string | number, onchainRequestId?: number) => Promise<boolean>;
+  approveWithdrawal: (
+    requestId: string | number,
+    onchainRequestId?: number,
+  ) => Promise<boolean>;
 
   // Chores
   chores: ChoreItem[];
   kidsBalance: number;
   kidsXp: number;
-  submitChoreProof: (choreId: string | number, proofUrl: string) => Promise<boolean>;
+  submitChoreProof: (
+    choreId: string | number,
+    proofUrl: string,
+  ) => Promise<boolean>;
   verifyAndRewardChore: (choreId: string | number) => Promise<boolean>;
-  createChore: (params: { title: string; rewardAmount: number; childName?: string; childId?: string; vaultId?: string }) => Promise<boolean>;
+  createChore: (params: {
+    title: string;
+    rewardAmount: number;
+    childName?: string;
+    childId?: string;
+    vaultId?: string;
+  }) => Promise<boolean>;
 
   // Notifications
   notifications: NotificationItem[];
@@ -249,952 +202,669 @@ interface FamilyContextType {
 }
 
 const FamilyContext = createContext<FamilyContextType | undefined>(undefined);
-
-export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentMember, setCurrentMember] = useState<FamilyMember>(INITIAL_MEMBERS[0]);
-  const [members, setMembers] = useState<FamilyMember[]>(INITIAL_MEMBERS);
-  const [familyInfo, setFamilyInfo] = useState<{ id: string; name: string; familyCode: string } | null>(null);
-  
-  // Workspaces
+const emptyMember: FamilyMember = {
+  id: "",
+  name: "",
+  role: "CHILD",
+  title: "",
+  walletAddress: "",
+  address: "",
+  avatar: "",
+  defaultTab: "kinetix-kids",
+};
+export function FamilyProvider({ children }: { children: ReactNode }) {
+  const auth = useAuth();
+  const [currentMember, setCurrentMember] = useState<FamilyMember>(emptyMember);
+  const [members, setMembers] = useState<FamilyMember[]>([]);
   const [workspaces, setWorkspaces] = useState<WorkspaceItem[]>([]);
-  const [currentWorkspace, setCurrentWorkspace] = useState<WorkspaceItem | null>(null);
-
-  // Dynamic Vaults
-  const [dynamicVaults, setDynamicVaults] = useState<DynamicVaultItem[]>(DEFAULT_DYNAMIC_VAULTS);
-  const [selectedVault, setSelectedVault] = useState<DynamicVaultItem | null>(DEFAULT_DYNAMIC_VAULTS[0]);
-
-  const [isWalletConnected, setIsWalletConnected] = useState<boolean>(true);
-  const [connectedWalletAddress, setConnectedWalletAddress] = useState<string | null>(
-    INITIAL_MEMBERS[0].walletAddress
+  const [currentWorkspace, setCurrentWorkspace] =
+    useState<WorkspaceItem | null>(null);
+  const [dynamicVaults, setDynamicVaults] = useState<DynamicVaultItem[]>([]);
+  const [selectedVault, setSelectedVault] = useState<DynamicVaultItem | null>(
+    null,
   );
-
-  const [isLiveWeb3, setIsLiveWeb3] = useState<boolean>(false);
-  const [isLiveBackend, setIsLiveBackend] = useState<boolean>(false);
-
-  // Số dư 3 hũ ngân sách (đồng bộ linh hoạt)
-  const [vaults, setVaults] = useState(DEFAULT_VAULTS);
-
-  // Yêu cầu rút tiền
-  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequestItem[]>([]);
-
-  // Việc nhà Chore-to-Earn
+  const [withdrawalRequests, setWithdrawalRequests] = useState<
+    WithdrawalRequestItem[]
+  >([]);
   const [chores, setChores] = useState<ChoreItem[]>([]);
-  const [kidsBalance, setKidsBalance] = useState<number>(15);
-  const [kidsXp, setKidsXp] = useState<number>(300);
-
-  // Thông báo
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: 'notif-1',
-      title: '🚨 Cảnh báo rút tiền lớn',
-      message: 'Ông Nội đã yêu cầu rút 150 AVAX (Viện phí). Cần 2/3 chữ ký bảo hộ phê duyệt.',
-      type: 'ALERT_SCAM',
-      createdAt: '10 phút trước',
-      isRead: false,
-    },
-    {
-      id: 'notif-2',
-      title: '🎉 Bé Na đã nộp việc nhà',
-      message: 'Bé Na vừa gửi minh chứng nhiệm vụ "Tưới cây cảnh ban công". Chờ duyệt thưởng 8 AVAX.',
-      type: 'TASK_COMPLETED',
-      createdAt: '25 phút trước',
-      isRead: false,
-    },
-    {
-      id: 'notif-3',
-      title: '💰 Lợi tức DeFi 8% APY',
-      message: 'Các hũ tiền trên C-Chain đã tích lũy thêm lợi nhuận nhàn rỗi.',
-      type: 'YIELD_PAYOUT',
-      createdAt: '1 giờ trước',
-      isRead: true,
-    },
-  ]);
-
-  // Lịch sử giao dịch nạp tiền on-chain (có txHash thật kiểm tra trên SnowTrace Fuji)
-  const [depositHistory, setDepositHistory] = useState<DepositHistoryItem[]>([
-    {
-      id: 'dep-init-1',
-      vaultId: 1,
-      vaultName: 'Hũ Báo Hiếu (SHIELD)',
-      amount: 0.05,
-      txHash: '0x6c7fd884636e93dc340448a39177c3c6712a9eac48b8ebf3ed184cc7c2f3ef61',
-      senderAddress: '0xaE99976eEd7D65BfedCAD26D1aF41deCe7004238',
-      senderName: 'Thế Anh (Admin)',
-      timestamp: 'Hôm nay',
-    },
-    {
-      id: 'dep-init-2',
-      vaultId: 0,
-      vaultName: 'FamilyHub Fuji Contract Deploy',
-      amount: 0.1,
-      txHash: '0x00e1d6a273ca08a02dbb94dc207b6e2be8830e091af7134422d246775888738b',
-      senderAddress: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-      senderName: 'Avalanche Deployer',
-      timestamp: 'Hôm nay',
-    },
-  ]);
-
-  // Load initial data
-  useEffect(() => {
-    let isMounted = true;
-
-    const initData = async () => {
-      try {
-        const meRes = await fetch('/api/auth/me', { cache: 'no-store' });
-        const meData = await meRes.json();
-
-        if (!isMounted) return;
-
-        if (meData.success && meData.isAuthenticated) {
-          setIsLiveBackend(true);
-
-          if (meData.workspaces && Array.isArray(meData.workspaces) && meData.workspaces.length > 0) {
-            setWorkspaces(meData.workspaces);
-            const activeWs = meData.family || meData.workspaces[0];
-            setCurrentWorkspace(activeWs);
-            setFamilyInfo({
-              id: activeWs.id,
-              name: activeWs.name,
-              familyCode: activeWs.workspaceCode || activeWs.familyCode || 'KNTX-8888',
-            });
-            await loadWorkspaceData(activeWs.id, meData.user.id);
-          } else if (meData.family) {
-            setCurrentWorkspace(meData.family);
-            setWorkspaces([meData.family]);
-            setFamilyInfo({
-              id: meData.family.id,
-              name: meData.family.name,
-              familyCode: meData.family.familyCode || meData.family.workspaceCode || 'KNTX-8888',
-            });
-            await loadWorkspaceData(meData.family.id, meData.user.id);
-          }
-        }
-      } catch (err) {
-        console.warn('Lỗi kết nối /api/auth/me:', err);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [depositHistory, setDepositHistory] = useState<DepositHistoryItem[]>(
+    [],
+  );
+  const [isLiveBackend, setIsLiveBackend] = useState(false);
+  const generation = useRef(0);
+  const familyInfo = currentWorkspace
+    ? {
+        id: currentWorkspace.id,
+        name: currentWorkspace.name,
+        familyCode: currentWorkspace.workspaceCode || "",
       }
-    };
-
-    initData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Tải dữ liệu toàn diện của 1 Workspace
-  const loadWorkspaceData = async (workspaceId: string, currentUserId?: string) => {
-    try {
-      // 1. Nạp danh sách Dynamic Vaults
-      const vaultsRes = await fetch(`/api/vaults?workspaceId=${workspaceId}`, { cache: 'no-store' });
-      const vaultsData = await vaultsRes.json();
-      if (vaultsData.success && Array.isArray(vaultsData.vaults)) {
-        const loadedVaults: DynamicVaultItem[] = vaultsData.vaults.map((v: any) => ({
-          id: String(v.id),
-          workspaceId: v.workspaceId,
-          onchainVaultId: Number(v.onchainVaultId),
-          name: v.name,
-          description: v.description,
-          ruleTemplate: v.ruleTemplate,
-          bufferRatioBps: Number(v.bufferRatioBps || 1000),
-          fastWithdrawLimit: Number(v.fastWithdrawLimit || 50),
-          requiredApprovals: Number(v.requiredApprovals || 2),
-          cachedTotalBalance: Number(v.cachedTotalBalance || 0),
-          cachedL1Buffer: Number(v.cachedL1Buffer || 0),
-          cachedCChainYield: Number(v.cachedCChainYield || 0),
-          totalBalance: Number(v.cachedTotalBalance || 0),
-          l1BufferBalance: Number(v.cachedL1Buffer || 0),
-          cChainPrincipal: Number(v.cachedTotalBalance || 0) > Number(v.cachedL1Buffer || 0)
-            ? Number(v.cachedTotalBalance || 0) - Number(v.cachedL1Buffer || 0)
-            : Number(v.cachedCChainYield || 0),
-          isActive: v.isActive ?? true,
-          targetGoalAmount: Number(v.targetGoalAmount || 0),
-          targetDeadline: v.targetDeadline ? String(v.targetDeadline) : null,
-          roscaRoundDuration: Number(v.roscaRoundDuration || 0),
-          roscaRoundContribution: Number(v.roscaRoundContribution || 0),
-          roscaCurrentRound: Number(v.roscaCurrentRound || 0),
-          roscaLastRoundTimestamp: v.roscaLastRoundTimestamp ? String(v.roscaLastRoundTimestamp) : null,
-        }));
-        setDynamicVaults(loadedVaults);
-        if (loadedVaults.length > 0 && !selectedVault) {
-          setSelectedVault(loadedVaults[0]);
-        }
-
-        // Map sang legacy 3 hũ để duy trì tương thích các widget cũ dựa 100% trên dữ liệu thật
-        const shield = loadedVaults.find((v) => v.ruleTemplate === 'SHIELD');
-        const milestone = loadedVaults.find((v) => v.ruleTemplate === 'MILESTONE');
-        const rosca = loadedVaults.find((v) => v.ruleTemplate === 'ROSCA' || v.ruleTemplate === 'SHARED_GOAL');
-
-        const shieldTotal = shield ? Number(shield.cachedTotalBalance) : 0;
-        const shieldL1 = shield ? Number(shield.cachedL1Buffer) : 0;
-        const shieldYield = shield ? Number(shield.cachedCChainYield) : 0;
-
-        const milestoneTotal = milestone ? Number(milestone.cachedTotalBalance) : 0;
-        const milestoneL1 = milestone ? Number(milestone.cachedL1Buffer) : 0;
-        const milestoneYield = milestone ? Number(milestone.cachedCChainYield) : 0;
-
-        const roscaTotal = rosca ? Number(rosca.cachedTotalBalance) : 0;
-        const roscaL1 = rosca ? Number(rosca.cachedL1Buffer) : 0;
-        const roscaYield = rosca ? Number(rosca.cachedCChainYield) : 0;
-
-        setVaults({
-          retirementShield: {
-            localBuffer: shieldL1,
-            remoteYield: Math.max(0, shieldTotal - shieldL1),
-            accruedYield: shieldYield,
-            total: shieldTotal,
-          },
-          kidsSavings: {
-            localBuffer: milestoneL1,
-            remoteYield: Math.max(0, milestoneTotal - milestoneL1),
-            accruedYield: milestoneYield,
-            total: milestoneTotal,
-          },
-          familyRosca: {
-            localBuffer: roscaL1,
-            remoteYield: Math.max(0, roscaTotal - roscaL1),
-            accruedYield: roscaYield,
-            total: roscaTotal,
-          },
-        });
-      }
-
-      // 2. Nạp thành viên
-      const membersRes = await fetch(`/api/workspaces/${workspaceId}`, { cache: 'no-store' });
-      const membersData = await membersRes.json();
-      let mappedMembers: FamilyMember[] = [];
-      if (membersData.success && Array.isArray(membersData.members) && membersData.members.length > 0) {
-        mappedMembers = membersData.members.map((u: any) => ({
-          id: u.id,
-          name: u.fullName,
-          role: u.role,
-          title:
-            u.role === 'ADMIN'
-              ? 'Quản trị viên Không gian'
-              : u.role === 'GUARDIAN'
-              ? 'Bảo hộ tài chính • Ký duyệt 2/3'
-              : u.role === 'ELDERLY'
-              ? 'Người cao tuổi • Thụ hưởng Quỹ An Sinh'
-              : 'Thế hệ trẻ • Học tài chính Chore-to-Earn',
-          walletAddress: u.walletAddress,
-          address: u.walletAddress,
-          avatar:
-            u.avatarUrl ||
-            (u.role === 'ELDERLY'
-              ? 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150'
-              : u.role === 'CHILD'
-              ? 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150'
-              : 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150'),
-          defaultTab:
-            u.role === 'ELDERLY'
-              ? 'kinetix-shield'
-              : u.role === 'CHILD'
-              ? 'kinetix-kids'
-              : 'quan-tri-cha-me',
-          phoneNumber: u.phoneNumber,
-        }));
-        setMembers(mappedMembers);
-
-        if (currentUserId) {
-          const found = mappedMembers.find((m) => m.id === currentUserId);
-          if (found) {
-            setCurrentMember(found);
-            setConnectedWalletAddress(found.walletAddress);
-          }
-        }
-      }
-
-      // 3. Nạp danh sách yêu cầu rút tiền
-      const withdrawalsRes = await fetch(`/api/withdrawals/${workspaceId}`, { cache: 'no-store' });
-      const withdrawalsData = await withdrawalsRes.json();
-      if (withdrawalsData.success && Array.isArray(withdrawalsData.data)) {
-        const guardianList = mappedMembers.filter((m) => m.role === 'GUARDIAN' || m.role === 'ADMIN');
-        const mappedWithdrawals: WithdrawalRequestItem[] = withdrawalsData.data.map((w: any) => ({
-          id: String(w.id),
-          onchainRequestId: w.onchainRequestId ?? 1,
-          vaultId: w.vaultId,
-          vaultName: w.vaultName || w.vault || 'Quỹ Chung',
-          requesterName: w.requesterName || 'Thành viên',
-          requesterAddress: w.requesterAddress || '0x...',
-          amount: Number(w.amount),
-          vault: w.vaultName || w.vault || 'Quỹ Bảo Vệ',
-          reason: w.reason || '',
-          approvalsCount: Number(w.approvalsCount ?? 0),
-          requiredApprovals: Number(w.requiredApprovals ?? 2),
-          status: w.status,
-          createdAt: new Date(w.createdAt).toLocaleString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            day: '2-digit',
-            month: '2-digit',
-          }),
-          guardianSignatures: guardianList.map((g, idx) => ({
-            guardianName: g.name,
-            signed: idx < (w.approvalsCount ?? 0),
-            signedAt: idx < (w.approvalsCount ?? 0) ? 'Đã duyệt' : undefined,
-          })),
-        }));
-        setWithdrawalRequests(mappedWithdrawals);
-      }
-
-      // 4. Nạp chores
-      const choresRes = await fetch(`/api/chores/${workspaceId}`, { cache: 'no-store' });
-      const choresData = await choresRes.json();
-      if (choresData.success && Array.isArray(choresData.data)) {
-        const mappedChores: ChoreItem[] = choresData.data.map((c: any) => ({
-          id: c.id,
-          vaultId: c.vaultId,
-          vaultName: c.vaultName,
-          title: c.title,
-          description: c.description,
-          rewardAmount: Number(c.rewardAmount),
-          status: c.status,
-          proofImageUrl: c.proofImageUrl,
-          childName: c.childName || 'Bé',
-          childAvatar: c.childAvatar,
-          deadline: 'Hôm nay',
-        }));
-        setChores(mappedChores);
-        const rewardedSum = mappedChores
-          .filter((c) => c.status === 'REWARDED')
-          .reduce((sum, c) => sum + c.rewardAmount, 0);
-        setKidsBalance(rewardedSum);
-        setKidsXp(mappedChores.filter((c) => c.status === 'REWARDED').length * 150);
-      }
-    } catch (err) {
-      console.warn('Lỗi loadWorkspaceData:', err);
-    }
+    : null;
+  const connectedWalletAddress = auth.connectedAddress;
+  const isWalletConnected = !!auth.connectedAddress;
+  const isLiveWeb3 = isWalletConnected && auth.walletMatches;
+  const kidsBalance = chores
+    .filter((chore) => chore.status === "REWARDED")
+    .reduce((sum, chore) => sum + chore.rewardAmount, 0);
+  const kidsXp =
+    chores.filter((chore) => chore.status === "REWARDED").length * 150;
+  const clearWorkspace = () => {
+    setCurrentMember(emptyMember);
+    setMembers([]);
+    setDynamicVaults([]);
+    setSelectedVault(null);
+    setWithdrawalRequests([]);
+    setChores([]);
+    setNotifications([]);
+    setDepositHistory([]);
+    setIsLiveBackend(false);
   };
-
-  // Chuyển đổi Workspace
-  const switchWorkspace = async (workspaceId: string) => {
-    const ws = workspaces.find((w) => w.id === workspaceId);
-    if (ws) {
-      setCurrentWorkspace(ws);
-      setFamilyInfo({
-        id: ws.id,
-        name: ws.name,
-        familyCode: ws.workspaceCode || 'KNTX-8888',
-      });
-      await loadWorkspaceData(workspaceId, currentMember.id);
-    }
-  };
-
-  // Tạo Workspace mới
-  const createWorkspace = async (name: string, type: string = 'FAMILY') => {
-    try {
-      const res = await fetch('/api/workspaces', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          type,
-          creatorWallet: connectedWalletAddress || currentMember.walletAddress,
-        }),
-      });
-      const data = await res.json();
-      if (data.success && data.workspace) {
-        setWorkspaces((prev) => [...prev, data.workspace]);
-        await switchWorkspace(data.workspace.id);
-        return { success: true, workspace: data.workspace };
-      }
-      return { success: false, error: data.error || 'Lỗi tạo Workspace' };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  };
-
-  // Tạo Dynamic Vault mới
-  const createCustomVault = async (params: {
-    name: string;
-    description?: string;
-    ruleTemplate: 'SHIELD' | 'MILESTONE' | 'ROSCA' | 'SHARED_GOAL';
-    bufferRatioBps: number;
-    fastWithdrawLimit: number;
-    requiredApprovals: number;
-    guardianWallets?: string[];
-    beneficiaryWallets?: string[];
-    targetGoalAmount?: number;
-    targetDeadline?: string;
-    roscaRoundDuration?: number;
-    roscaRoundContribution?: number;
-  }) => {
-    if (!currentWorkspace) {
-      return { success: false, error: 'Chưa chọn Không gian chung' };
-    }
-
-    try {
-      // 1. Thử gọi On-Chain nếu có ví
-      const walletClient = getWalletClient();
-      let onchainVaultId = dynamicVaults.length + 1;
-
-      if (walletClient && connectedWalletAddress) {
-        try {
-          const ruleTypeIndex =
-            params.ruleTemplate === 'SHIELD'
-              ? 0
-              : params.ruleTemplate === 'MILESTONE'
-              ? 1
-              : params.ruleTemplate === 'ROSCA'
-              ? 2
-              : 3;
-
-          const guardians = (params.guardianWallets && params.guardianWallets.length > 0)
-            ? params.guardianWallets
-            : [connectedWalletAddress];
-          const beneficiaries = (params.beneficiaryWallets && params.beneficiaryWallets.length > 0)
-            ? params.beneficiaryWallets
-            : [connectedWalletAddress];
-
-          let tx;
-          if (params.ruleTemplate === 'ROSCA' || params.ruleTemplate === 'SHARED_GOAL') {
-            tx = await (walletClient as any).writeContract({
-              address: CONTRACT_ADDRESSES.familyHub,
-              abi: FAMILY_HUB_ABI,
-              functionName: 'createAdvancedVault',
-              args: [
-                params.name,
-                ruleTypeIndex,
-                BigInt(params.bufferRatioBps),
-                parseEther((params.fastWithdrawLimit || 0).toString()),
-                BigInt(params.requiredApprovals),
-                guardians as `0x${string}`[],
-                beneficiaries as `0x${string}`[],
-                parseEther((params.targetGoalAmount || 0).toString()),
-                BigInt(params.targetDeadline ? Math.floor(new Date(params.targetDeadline).getTime() / 1000) : 0),
-                BigInt(params.roscaRoundDuration || 0),
-                parseEther((params.roscaRoundContribution || 0).toString()),
-              ],
-              account: connectedWalletAddress as `0x${string}`,
-            });
-          } else {
-            tx = await (walletClient as any).writeContract({
-              address: CONTRACT_ADDRESSES.familyHub,
-              abi: FAMILY_HUB_ABI,
-              functionName: 'createCustomVault',
-              args: [
-                params.name,
-                ruleTypeIndex,
-                BigInt(params.bufferRatioBps),
-                parseEther((params.fastWithdrawLimit || 0).toString()),
-                BigInt(params.requiredApprovals),
-                guardians as `0x${string}`[],
-                beneficiaries as `0x${string}`[],
-              ],
-              account: connectedWalletAddress as `0x${string}`,
-            });
-          }
-          console.log('Tạo Hũ On-Chain thành công, TX:', tx);
-        } catch (onchainErr) {
-          console.warn('Onchain createCustomVault warning (fallback DB):', onchainErr);
-        }
-      }
-
-      // 2. Lưu vào Neon Database
-      const res = await fetch('/api/vaults', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workspaceId: currentWorkspace.id,
-          onchainVaultId,
-          ...params,
-        }),
-      });
-      const data = await res.json();
-
-      if (data.success && data.vault) {
-        await loadWorkspaceData(currentWorkspace.id, currentMember.id);
-        return { success: true, vault: data.vault };
-      }
-      return { success: false, error: data.error || 'Lỗi tạo Hũ' };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  };
-
-  // Giải ngân kỳ hụi xoay vòng (ROSCA Round Payout)
-  const payoutRoscaRound = async (vaultId: number, dbVaultId?: string): Promise<boolean> => {
-    const walletClient = getWalletClient();
-    if (walletClient && connectedWalletAddress) {
-      try {
-        await (walletClient as any).writeContract({
-          address: CONTRACT_ADDRESSES.familyHub,
-          abi: FAMILY_HUB_ABI,
-          functionName: 'payoutRoscaRound',
-          args: [BigInt(vaultId)],
-          account: connectedWalletAddress as `0x${string}`,
-        });
-      } catch (err) {
-        console.warn('payoutRoscaRound onchain warning (fallback local):', err);
-      }
-    }
-
-    if (dbVaultId) {
-      try {
-        await fetch('/api/vaults/rosca-payout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vaultId: dbVaultId }),
-        });
-        if (currentWorkspace) {
-          await loadWorkspaceData(currentWorkspace.id, currentMember.id);
-        }
-      } catch (err) {
-        console.warn('payoutRoscaRound API error:', err);
-      }
-    }
-
-    setNotifications((prev) => [
-      {
-        id: `notif-${Date.now()}`,
-        title: '🤝 Giải ngân kỳ Hụi thành công',
-        message: `Đã kích hoạt giải ngân kỳ Hụi của Hũ #${vaultId} cho thành viên đến lượt xoay vòng!`,
-        type: 'YIELD_PAYOUT',
-        createdAt: 'Vừa xong',
-        isRead: false,
-      },
-      ...prev,
-    ]);
-
-    return true;
-  };
-
-  // Nạp tiền vào Hũ Động qua ký duyệt Core Wallet thật trên Avalanche Fuji
-  const depositToVault = async (
-    vaultId: number,
-    amount: number
-  ): Promise<{ success: boolean; txHash?: string; error?: string }> => {
-    if (amount <= 0) return { success: false, error: 'Số tiền nạp phải lớn hơn 0' };
-
-    let txHash: string | undefined;
-    const walletClient = getWalletClient(avalancheFuji);
-
-    if (walletClient) {
-      try {
-        // Đảm bảo ví đang kết nối Avalanche Fuji Testnet (43113)
-        await switchNetwork(43113);
-
-        const accounts = await (walletClient as any).requestAddresses();
-        const account = (accounts && accounts.length > 0) ? accounts[0] : connectedWalletAddress;
-
-        if (!account) {
-          return { success: false, error: 'Chưa phát hiện tài khoản ví kết nối.' };
-        }
-
-        // Gọi on-chain writeContract ký duyệt chuyển AVAX
-        txHash = await (walletClient as any).writeContract({
-          address: CONTRACT_ADDRESSES.familyHub,
-          abi: FAMILY_HUB_ABI,
-          functionName: 'depositToVault',
-          args: [BigInt(vaultId)],
-          value: parseEther(amount.toString()),
-          account: account as `0x${string}`,
-          chain: avalancheFuji,
-        });
-
-        console.log(`🚀 [DEPOSIT FUJI] Giao dịch đã phát sóng lên mạng Avalanche. TxHash: ${txHash}`);
-
-        // Đợi khối xác nhận on-chain
-        try {
-          await publicClientFuji.waitForTransactionReceipt({
-            hash: txHash as `0x${string}`,
-          });
-          console.log(`✅ [DEPOSIT CONFIRMED] Giao dịch nạp tiền đã xác nhận on-chain: ${txHash}`);
-        } catch (waitErr) {
-          console.warn('Đang xử lý khối xác nhận giao dịch:', waitErr);
-        }
-      } catch (err: any) {
-        console.error('Lỗi khi ký/gửi giao dịch nạp tiền:', err);
-        if (
-          err?.code === 4001 ||
-          err?.message?.includes('rejected') ||
-          err?.message?.includes('User rejected')
-        ) {
-          return { success: false, error: 'Bạn đã từ chối ký giao dịch trên ví Avalanche Core.' };
-        }
-        return {
-          success: false,
-          error: err?.shortMessage || err?.message || 'Giao dịch nạp tiền on-chain thất bại',
-        };
-      }
-    } else {
-      return { success: false, error: 'Không tìm thấy tiện ích ví Avalanche Core. Vui lòng kết nối ví.' };
-    }
-
-    // Cập nhật state local
-    setDynamicVaults((prev) =>
-      prev.map((v) => {
-        if (v.onchainVaultId === vaultId) {
-          const toBridge = (amount * (10000 - v.bufferRatioBps)) / 10000;
-          const toBuffer = amount - toBridge;
-          return {
-            ...v,
-            cachedTotalBalance: v.cachedTotalBalance + amount,
-            cachedL1Buffer: v.cachedL1Buffer + toBuffer,
-          };
-        }
-        return v;
-      })
+  const loadWorkspaceData = async (workspaceId: string) => {
+    const requestGeneration = ++generation.current;
+    const [roster, vaultData, withdrawalsData, choresData, notices] =
+      await Promise.all([
+        authRequest(`/api/families/${workspaceId}/members`, undefined, "GET"),
+        authRequest(`/api/vaults?workspaceId=${workspaceId}`, undefined, "GET"),
+        authRequest(`/api/withdrawals/${workspaceId}`, undefined, "GET"),
+        authRequest(`/api/chores/${workspaceId}`, undefined, "GET"),
+        authRequest(`/api/notifications/${auth.user!.id}`, undefined, "GET"),
+      ]);
+    if (requestGeneration !== generation.current) return;
+    const mappedMembers: FamilyMember[] = roster.members.map((user: any) => ({
+      id: user.id,
+      name: user.fullName,
+      role: user.role,
+      title: user.role,
+      walletAddress: user.walletAddress || "",
+      address: user.walletAddress || "",
+      avatar: user.avatarUrl || "",
+      defaultTab:
+        user.role === "ELDERLY"
+          ? "kinetix-shield"
+          : user.role === "CHILD"
+            ? "kinetix-kids"
+            : "quan-tri-cha-me",
+    }));
+    setMembers(mappedMembers);
+    setCurrentMember(
+      mappedMembers.find((member) => member.id === auth.user!.id) ||
+        emptyMember,
     );
-
-    // Lưu dữ liệu thật vào Neon Database kèm TxHash
+    const mappedVaults: DynamicVaultItem[] = vaultData.vaults.map(
+      (vault: any) => ({
+        ...vault,
+        onchainVaultId: Number(vault.onchainVaultId),
+        bufferRatioBps: Number(vault.bufferRatioBps),
+        fastWithdrawLimit: Number(vault.fastWithdrawLimit),
+        requiredApprovals: Number(vault.requiredApprovals),
+        cachedTotalBalance: Number(vault.cachedTotalBalance),
+        cachedL1Buffer: Number(vault.cachedL1Buffer),
+        cachedCChainYield: Number(vault.cachedCChainYield),
+        totalBalance: Number(vault.cachedTotalBalance),
+        l1BufferBalance: Number(vault.cachedL1Buffer),
+        cChainPrincipal: Math.max(
+          0,
+          Number(vault.cachedTotalBalance) - Number(vault.cachedL1Buffer),
+        ),
+      }),
+    );
+    setDynamicVaults(mappedVaults);
+    setSelectedVault(
+      (previous) =>
+        mappedVaults.find((vault) => vault.id === previous?.id) ||
+        mappedVaults[0] ||
+        null,
+    );
+    setWithdrawalRequests(
+      withdrawalsData.data.map((request: any) => ({
+        ...request,
+        amount: Number(request.amount),
+        requesterName: request.requesterName || "Thành viên",
+        requesterAddress: request.requesterAddress || "",
+        guardianSignatures: [],
+        createdAt: new Date(request.createdAt).toLocaleString("vi-VN"),
+      })),
+    );
+    setChores(
+      choresData.data.map((chore: any) => ({
+        ...chore,
+        rewardAmount: Number(chore.rewardAmount),
+      })),
+    );
+    setNotifications(
+      notices.data.filter((notice: any) => notice.familyId === workspaceId),
+    );
+    setIsLiveBackend(true);
+  };
+  useEffect(() => {
+    if (!auth.user || auth.onboarding !== "READY") return;
+    setWorkspaces(auth.workspaces);
+    const first =
+      auth.workspaces.find((workspace) => workspace.id === auth.family?.id) ||
+      auth.workspaces[0];
+    if (!first) return;
+    setCurrentWorkspace(first);
+    setTransactionWorkspace(first.id);
+    void loadWorkspaceData(first.id).catch(() => {
+      clearWorkspace();
+    });
+    return () => {
+      generation.current++;
+      setTransactionWorkspace(null);
+    };
+    // Memberships are refreshed by the shared auth provider; preserve the selected workspace where possible.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.user?.id, auth.onboarding]);
+  useEffect(() => {
+    if (!currentWorkspace || !auth.user || auth.onboarding !== "READY") return;
+    setWorkspaces(auth.workspaces);
+    const stillAllowed = auth.workspaces.some(
+      (workspace) => workspace.id === currentWorkspace.id,
+    );
+    if (!stillAllowed) {
+      generation.current++;
+      clearWorkspace();
+      setCurrentWorkspace(null);
+      setTransactionWorkspace(null);
+    }
+  }, [auth.workspaces, auth.user, auth.onboarding, currentWorkspace]);
+  const switchWorkspace = async (workspaceId: string) => {
+    const target = workspaces.find((workspace) => workspace.id === workspaceId);
+    if (!target) return;
+    generation.current++;
+    clearWorkspace();
+    setCurrentWorkspace(target);
+    setTransactionWorkspace(target.id);
     try {
-      await fetch('/api/vaults', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          onchainVaultId: vaultId,
-          action: 'DEPOSIT',
+      await loadWorkspaceData(target.id);
+    } catch {
+      clearWorkspace();
+    }
+  };
+  const refreshBalances = async () => {
+    if (currentWorkspace) await loadWorkspaceData(currentWorkspace.id);
+  };
+  const createWorkspace = async (name: string, type = "FAMILY") => {
+    try {
+      const data = await authRequest("/api/workspaces", { name, type });
+      await auth.checkSession();
+      setWorkspaces((previous) => [...previous, data.workspace]);
+      setCurrentWorkspace(data.workspace);
+      setTransactionWorkspace(data.workspace.id);
+      clearWorkspace();
+      await loadWorkspaceData(data.workspace.id);
+      return { success: true, workspace: data.workspace };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  };
+  const contractAddress = (yieldContract = false) => {
+    const address = (currentWorkspace as any)?.[
+      yieldContract ? "cchainVaultAddress" : "l1HubAddress"
+    ];
+    if (!address) throw new Error("Không gian chưa được cấu hình hợp đồng.");
+    return address as `0x${string}`;
+  };
+  const write = async (
+    functionName: string,
+    args: unknown[],
+    value?: bigint,
+    yieldContract = false,
+    reconciliation?: { path: string; body: object; method?: string },
+  ) => {
+    const wallet = getWalletClient(yieldContract ? avalancheFuji : hubChain);
+    if (!wallet) throw new Error("Hãy kết nối đúng Core Wallet đã liên kết.");
+    return (wallet as any).writeContract({
+      address: contractAddress(yieldContract),
+      abi: yieldContract ? FAMILY_YIELD_VAULT_ABI : FAMILY_HUB_ABI,
+      functionName,
+      args,
+      __kinetixSync: reconciliation,
+      ...(value !== undefined ? { value } : {}),
+    }) as Promise<`0x${string}`>;
+  };
+  const vaultByChainId = (id: number) => {
+    const vault = dynamicVaults.find((item) => item.onchainVaultId === id);
+    if (!vault) throw new Error("Không tìm thấy hũ được phép truy cập.");
+    return vault;
+  };
+  const sync = async (path: string, body: object, method = "POST") => {
+    // Receipt confirmation is already complete in the wallet adapter. API verifies the event independently.
+    const data = await queueTransactionSync(
+      auth.user!.id,
+      (body as { txHash: string }).txHash,
+      path,
+      body,
+      method,
+    );
+    await refreshBalances();
+    return data;
+  };
+  const createCustomVault: FamilyContextType["createCustomVault"] = async (
+    params,
+  ) => {
+    try {
+      if (!currentWorkspace) throw new Error("Hãy chọn không gian.");
+      const guardians = params.guardianWallets || [];
+      const beneficiaries = params.beneficiaryWallets || [];
+      const type = ["SHIELD", "MILESTONE", "ROSCA", "SHARED_GOAL"].indexOf(
+        params.ruleTemplate,
+      );
+      const args: unknown[] = [
+        params.name,
+        type,
+        BigInt(params.bufferRatioBps),
+        parseEther(params.fastWithdrawLimit.toString()),
+        BigInt(params.requiredApprovals),
+        guardians,
+        beneficiaries,
+      ];
+      const advanced = type >= 2;
+      if (advanced)
+        args.push(
+          parseEther((params.targetGoalAmount || 0).toString()),
+          BigInt(
+            params.targetDeadline
+              ? Math.floor(new Date(params.targetDeadline).getTime() / 1000)
+              : 0,
+          ),
+          BigInt(params.roscaRoundDuration || 0),
+          parseEther((params.roscaRoundContribution || 0).toString()),
+        );
+      const txHash = await write(
+        advanced ? "createAdvancedVault" : "createCustomVault",
+        args,
+        undefined,
+        false,
+        { path: "/api/vaults", body: { workspaceId: currentWorkspace.id } },
+      );
+      const data = await sync("/api/vaults", {
+        workspaceId: currentWorkspace.id,
+        txHash,
+      });
+      await refreshBalances();
+      return { success: true, vault: data.vault };
+    } catch (error: any) {
+      return { success: false, error: error.shortMessage || error.message };
+    }
+  };
+  const depositToVault = async (vaultId: number, amount: number) => {
+    try {
+      if (!Number.isFinite(amount) || amount <= 0)
+        throw new Error("Số tiền phải lớn hơn 0.");
+      const vault = vaultByChainId(vaultId);
+      const txHash = await write(
+        "depositToVault",
+        [BigInt(vaultId)],
+        parseEther(amount.toString()),
+        false,
+        {
+          path: "/api/vaults",
+          body: { vaultId: vault.id, action: "DEPOSIT" },
+          method: "PATCH",
+        },
+      );
+      await sync(
+        "/api/vaults",
+        { vaultId: vault.id, action: "DEPOSIT", txHash },
+        "PATCH",
+      );
+      setDepositHistory((previous) => [
+        {
+          id: txHash,
+          vaultId,
+          vaultName: vault.name,
           amount,
           txHash,
-        }),
-      });
-    } catch (dbErr) {
-      console.warn('Lỗi lưu số dư nạp tiền vào database:', dbErr);
+          senderAddress: auth.linkedWallet!.address,
+          senderName: auth.user!.fullName,
+          timestamp: new Date().toLocaleString("vi-VN"),
+        },
+        ...previous,
+      ]);
+      return { success: true, txHash };
+    } catch (error: any) {
+      return { success: false, error: error.shortMessage || error.message };
     }
-
-    const shortHash = txHash ? `${txHash.slice(0, 10)}...${txHash.slice(-8)}` : '';
-    if (txHash) {
-      const targetVault = dynamicVaults.find((v) => v.onchainVaultId === vaultId);
-      const newHistoryItem: DepositHistoryItem = {
-        id: `dep-${Date.now()}`,
-        vaultId,
-        vaultName: targetVault ? targetVault.name : `Hũ #${vaultId}`,
-        amount,
-        txHash,
-        senderAddress: connectedWalletAddress || '',
-        senderName: currentMember.name,
-        timestamp: 'Vừa xong',
-      };
-      setDepositHistory((prev) => [newHistoryItem, ...prev]);
-    }
-
-    setNotifications((prev) => [
-      {
-        id: `notif-${Date.now()}`,
-        title: 'Nạp quỹ on-chain thành công',
-        message: `Đã nạp ${amount} AVAX vào Hũ #${vaultId}. TxHash: ${shortHash}. Hệ thống tự động phân bổ đệm thanh khoản và sinh lời DeFi 8% APY.`,
-        type: 'YIELD_PAYOUT',
-        createdAt: 'Vừa xong',
-        isRead: false,
-      },
-      ...prev,
-    ]);
-
-    return { success: true, txHash };
   };
-
-  // Rút tiền nhanh từ Hũ Động (<= fastWithdrawLimit)
-  const fastWithdrawFromVault = async (vaultId: number, amount: number): Promise<boolean> => {
-    const target = dynamicVaults.find((v) => v.onchainVaultId === vaultId);
-    if (target && amount > target.fastWithdrawLimit) {
+  const fastWithdrawFromVault = async (vaultId: number, amount: number) => {
+    try {
+      const vault = vaultByChainId(vaultId);
+      if (!Number.isFinite(amount) || amount <= 0) return false;
+      const txHash = await write(
+        "fastWithdraw",
+        [BigInt(vaultId), parseEther(amount.toString())],
+        undefined,
+        false,
+        {
+          path: "/api/vaults",
+          body: { vaultId: vault.id, action: "WITHDRAW" },
+          method: "PATCH",
+        },
+      );
+      await sync(
+        "/api/vaults",
+        { vaultId: vault.id, action: "WITHDRAW", txHash },
+        "PATCH",
+      );
+      return true;
+    } catch (error) {
+      window.dispatchEvent(
+        new CustomEvent("kinetix-operation-error", {
+          detail:
+            error instanceof Error
+              ? error.message
+              : "Không thể hoàn tất giao dịch.",
+        }),
+      );
       return false;
     }
-
-    const walletClient = getWalletClient();
-    if (walletClient && connectedWalletAddress) {
-      try {
-        await (walletClient as any).writeContract({
-          address: CONTRACT_ADDRESSES.familyHub,
-          abi: FAMILY_HUB_ABI,
-          functionName: 'fastWithdraw',
-          args: [BigInt(vaultId), parseEther(amount.toString())],
-          account: connectedWalletAddress as `0x${string}`,
-        });
-      } catch (err) {
-        console.warn('fastWithdraw fallback local:', err);
-      }
-    }
-
-    setDynamicVaults((prev) =>
-      prev.map((v) => {
-        if (v.onchainVaultId === vaultId) {
-          return {
-            ...v,
-            cachedTotalBalance: Math.max(0, v.cachedTotalBalance - amount),
-            cachedL1Buffer: Math.max(0, v.cachedL1Buffer - amount),
-          };
-        }
-        return v;
-      })
-    );
-
-    // Lưu dữ liệu thật vào Neon Database
-    try {
-      await fetch('/api/vaults', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          onchainVaultId: vaultId,
-          action: 'WITHDRAW',
-          amount,
-        }),
-      });
-    } catch (dbErr) {
-      console.warn('Lỗi lưu số dư rút tiền vào database:', dbErr);
-    }
-
-    setNotifications((prev) => [
-      {
-        id: `notif-${Date.now()}`,
-        title: 'Rút tiền nhanh thành công (<1s, 0 gas)',
-        message: `${currentMember.name} vừa rút ${amount} AVAX từ đệm L1 của Hũ #${vaultId}.`,
-        type: 'FAST_WITHDRAW',
-        createdAt: 'Vừa xong',
-        isRead: false,
-      },
-      ...prev,
-    ]);
-
-    return true;
   };
-
-  // Yêu cầu rút tiền lớn từ Hũ Động
   const requestVaultWithdrawal = async (
     vaultId: number,
     amount: number,
-    reason: string
-  ): Promise<{ success: boolean; requestId?: number }> => {
-    const onchainReqId = Math.floor(Math.random() * 1000) + 10;
-    const target = dynamicVaults.find((v) => v.onchainVaultId === vaultId);
-
-    const walletClient = getWalletClient();
-    if (walletClient && connectedWalletAddress) {
-      try {
-        await (walletClient as any).writeContract({
-          address: CONTRACT_ADDRESSES.familyHub,
-          abi: FAMILY_HUB_ABI,
-          functionName: 'requestLargeWithdrawal',
-          args: [BigInt(vaultId), parseEther(amount.toString()), reason],
-          account: connectedWalletAddress as `0x${string}`,
-        });
-      } catch (err) {
-        console.warn('requestLargeWithdrawal fallback local:', err);
-      }
+    reason: string,
+  ) => {
+    try {
+      const vault = vaultByChainId(vaultId);
+      if (!Number.isFinite(amount) || amount <= 0 || !reason.trim())
+        return { success: false };
+      const txHash = await write(
+        "requestLargeWithdrawal",
+        [BigInt(vaultId), parseEther(amount.toString()), reason],
+        undefined,
+        false,
+        { path: "/api/withdrawals/create", body: { vaultId: vault.id } },
+      );
+      const data = await sync("/api/withdrawals/create", {
+        vaultId: vault.id,
+        txHash,
+      });
+      await refreshBalances();
+      return { success: true, requestId: data.data.request.onchainRequestId };
+    } catch (error) {
+      window.dispatchEvent(
+        new CustomEvent("kinetix-operation-error", {
+          detail:
+            error instanceof Error
+              ? error.message
+              : "Không thể hoàn tất giao dịch.",
+        }),
+      );
+      return { success: false };
     }
-
-    if (currentWorkspace) {
-      try {
-        await fetch('/api/withdrawals/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            familyId: currentWorkspace.id,
-            vaultId: target?.id,
-            requesterId: currentMember.id,
-            amount,
-            reason,
-            vault: target?.name || 'SHIELD',
-            onchainRequestId: onchainReqId,
-          }),
-        });
-        await loadWorkspaceData(currentWorkspace.id, currentMember.id);
-      } catch (e) {
-        console.warn('API withdrawal create error:', e);
-      }
-    }
-
-    return { success: true, requestId: onchainReqId };
   };
-
-  // Ký duyệt đa chữ ký (Multisig Approval)
   const approveWithdrawal = async (
     requestId: string | number,
-    onchainRequestId?: number
-  ): Promise<boolean> => {
-    const walletClient = getWalletClient();
-    if (walletClient && connectedWalletAddress && onchainRequestId) {
-      try {
-        await (walletClient as any).writeContract({
-          address: CONTRACT_ADDRESSES.familyHub,
-          abi: FAMILY_HUB_ABI,
-          functionName: 'approveWithdrawal',
-          args: [BigInt(onchainRequestId)],
-          account: connectedWalletAddress as `0x${string}`,
-        });
-      } catch (err) {
-        console.warn('approveWithdrawal on-chain warning:', err);
-      }
-    }
-
+    onchainRequestId?: number,
+  ) => {
     try {
-      const res = await fetch('/api/withdrawals/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requestId: String(requestId),
-          guardianWallet: connectedWalletAddress || currentMember.walletAddress,
-        }),
-      });
-      const data = await res.json();
-      if (data.success && currentWorkspace) {
-        await loadWorkspaceData(currentWorkspace.id, currentMember.id);
-        return true;
-      }
-    } catch (e) {
-      console.warn('Lỗi approveWithdrawal API:', e);
-    }
-
-    // Fallback state update
-    setWithdrawalRequests((prev) =>
-      prev.map((req) => {
-        if (req.id === String(requestId)) {
-          const nextCount = req.approvalsCount + 1;
-          const isDone = nextCount >= req.requiredApprovals;
-          return {
-            ...req,
-            approvalsCount: nextCount,
-            status: isDone ? 'APPROVED' : 'PENDING',
-          };
-        }
-        return req;
-      })
-    );
-    return true;
-  };
-
-  // Nộp minh chứng việc nhà
-  const submitChoreProof = async (choreId: string | number, proofUrl: string): Promise<boolean> => {
-    try {
-      await fetch('/api/chores/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ choreId, proofImageUrl: proofUrl }),
-      });
-      if (currentWorkspace) {
-        await loadWorkspaceData(currentWorkspace.id, currentMember.id);
-      }
-      return true;
-    } catch (err) {
-      console.warn('submitChoreProof fallback:', err);
-      setChores((prev) =>
-        prev.map((c) => (c.id === choreId ? { ...c, status: 'SUBMITTED', proofImageUrl: proofUrl } : c))
+      const request = withdrawalRequests.find(
+        (item) => item.id === String(requestId),
       );
-      return true;
-    }
-  };
-
-  // Bố mẹ duyệt thưởng việc nhà
-  const verifyAndRewardChore = async (choreId: string | number): Promise<boolean> => {
-    try {
-      await fetch('/api/chores/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ choreId }),
-      });
-      if (currentWorkspace) {
-        await loadWorkspaceData(currentWorkspace.id, currentMember.id);
-      }
-      return true;
-    } catch (err) {
-      console.warn('verifyAndRewardChore fallback:', err);
-      setChores((prev) =>
-        prev.map((c) => (c.id === choreId ? { ...c, status: 'REWARDED' } : c))
+      const chainId = onchainRequestId ?? request?.onchainRequestId;
+      if (chainId === undefined) return false;
+      const txHash = await write(
+        "approveWithdrawal",
+        [BigInt(chainId)],
+        undefined,
+        false,
+        {
+          path: "/api/withdrawals/approve",
+          body: { requestId: String(requestId) },
+        },
       );
-      return true;
-    }
-  };
-
-  // Tạo việc nhà mới
-  const createChore = async (params: {
-    title: string;
-    rewardAmount: number;
-    childName?: string;
-    childId?: string;
-    vaultId?: string;
-  }): Promise<boolean> => {
-    if (!currentWorkspace) return false;
-    try {
-      await fetch('/api/chores/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          familyId: currentWorkspace.id,
-          vaultId: params.vaultId,
-          childId: params.childId,
-          title: params.title,
-          rewardAmount: params.rewardAmount,
-        }),
+      await sync("/api/withdrawals/approve", {
+        requestId: String(requestId),
+        txHash,
       });
-      await loadWorkspaceData(currentWorkspace.id, currentMember.id);
       return true;
-    } catch (err) {
-      console.warn('createChore fallback:', err);
+    } catch (error) {
+      window.dispatchEvent(
+        new CustomEvent("kinetix-operation-error", {
+          detail:
+            error instanceof Error
+              ? error.message
+              : "Không thể hoàn tất giao dịch.",
+        }),
+      );
       return false;
     }
   };
-
-  // Đánh dấu thông báo đã đọc
+  const payoutRoscaRound = async (vaultId: number, dbVaultId?: string) => {
+    try {
+      const vault = vaultByChainId(vaultId);
+      const txHash = await write(
+        "payoutRoscaRound",
+        [BigInt(vaultId)],
+        undefined,
+        false,
+        {
+          path: "/api/vaults/rosca-payout",
+          body: { vaultId: dbVaultId || vault.id },
+        },
+      );
+      await sync("/api/vaults/rosca-payout", {
+        vaultId: dbVaultId || vault.id,
+        txHash,
+      });
+      return true;
+    } catch (error) {
+      window.dispatchEvent(
+        new CustomEvent("kinetix-operation-error", {
+          detail:
+            error instanceof Error
+              ? error.message
+              : "Không thể hoàn tất giao dịch.",
+        }),
+      );
+      return false;
+    }
+  };
+  const createChore: FamilyContextType["createChore"] = async (params) => {
+    try {
+      const vault = dynamicVaults.find((item) => item.id === params.vaultId);
+      const child = members.find((item) => item.id === params.childId);
+      if (
+        !vault ||
+        !child?.walletAddress ||
+        !Number.isFinite(params.rewardAmount) ||
+        params.rewardAmount <= 0
+      )
+        return false;
+      const txHash = await write(
+        "createChore",
+        [
+          BigInt(vault.onchainVaultId),
+          params.title,
+          parseEther(params.rewardAmount.toString()),
+          child.walletAddress,
+        ],
+        undefined,
+        false,
+        { path: "/api/chores/create", body: { vaultId: vault.id } },
+      );
+      await sync("/api/chores/create", { vaultId: vault.id, txHash });
+      return true;
+    } catch (error) {
+      window.dispatchEvent(
+        new CustomEvent("kinetix-operation-error", {
+          detail:
+            error instanceof Error
+              ? error.message
+              : "Không thể hoàn tất giao dịch.",
+        }),
+      );
+      return false;
+    }
+  };
+  const submitChoreProof = async (
+    choreId: string | number,
+    proofUrl: string,
+  ) => {
+    try {
+      const chore = chores.find((item) => item.id === choreId);
+      if (chore?.onchainTaskId === undefined) return false;
+      const txHash = await write(
+        "claimChoreCompleted",
+        [BigInt(chore.onchainTaskId)],
+        undefined,
+        false,
+        {
+          path: "/api/chores/submit",
+          body: { choreId, proofImageUrl: proofUrl },
+        },
+      );
+      await sync("/api/chores/submit", {
+        choreId,
+        txHash,
+        proofImageUrl: proofUrl,
+      });
+      return true;
+    } catch (error) {
+      window.dispatchEvent(
+        new CustomEvent("kinetix-operation-error", {
+          detail:
+            error instanceof Error
+              ? error.message
+              : "Không thể hoàn tất giao dịch.",
+        }),
+      );
+      return false;
+    }
+  };
+  const verifyAndRewardChore = async (choreId: string | number) => {
+    try {
+      const chore = chores.find((item) => item.id === choreId);
+      if (chore?.onchainTaskId === undefined) return false;
+      const txHash = await write(
+        "verifyAndRewardChore",
+        [BigInt(chore.onchainTaskId)],
+        undefined,
+        false,
+        { path: "/api/chores/verify", body: { choreId } },
+      );
+      await sync("/api/chores/verify", { choreId, txHash });
+      return true;
+    } catch (error) {
+      window.dispatchEvent(
+        new CustomEvent("kinetix-operation-error", {
+          detail:
+            error instanceof Error
+              ? error.message
+              : "Không thể hoàn tất giao dịch.",
+        }),
+      );
+      return false;
+    }
+  };
   const markNotificationRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
+    void authRequest(`/api/notifications/${id}/read`, {}, "PATCH")
+      .then(() =>
+        setNotifications((previous) =>
+          previous.map((item) =>
+            item.id === id ? { ...item, isRead: true } : item,
+          ),
+        ),
+      )
+      .catch(() => {});
   };
-
-  // Backward compatibility alias methods
-  const quickWithdraw = async (vault: any, amount: number) => {
-    return fastWithdrawFromVault(1, amount);
-  };
-
-  const requestLargeWithdraw = async (vault: any, amount: number, reason: string) => {
-    return requestVaultWithdrawal(1, amount, reason);
-  };
-
-  const depositFunds = async (vaultType: any, amount: number) => {
-    const vId = vaultType === 1 ? 2 : vaultType === 2 ? 3 : 1;
-    const res = await depositToVault(vId, amount);
-    return res.success;
-  };
-
   const compoundYield = async (vaultType: any) => {
-    const vId = vaultType === 1 ? 2 : vaultType === 2 ? 3 : 1;
-    const walletClient = getWalletClient();
-    if (walletClient && connectedWalletAddress) {
-      try {
-        await (walletClient as any).writeContract({
-          address: CONTRACT_ADDRESSES.familyYieldVault,
-          abi: FAMILY_YIELD_VAULT_ABI,
-          functionName: 'compoundYield',
-          args: [BigInt(vId)],
-          account: connectedWalletAddress as `0x${string}`,
-        });
-      } catch (e) {
-        console.warn('compoundYield error:', e);
-      }
+    try {
+      const vault = dynamicVaults.find(
+        (item) =>
+          item.ruleTemplate ===
+          (vaultType === 1
+            ? "MILESTONE"
+            : vaultType === 2
+              ? "ROSCA"
+              : "SHIELD"),
+      );
+      if (!vault) return false;
+      await write(
+        "compoundYield",
+        [BigInt(vault.onchainVaultId)],
+        undefined,
+        true,
+      );
+      await refreshBalances();
+      return true;
+    } catch (error) {
+      window.dispatchEvent(
+        new CustomEvent("kinetix-operation-error", {
+          detail:
+            error instanceof Error
+              ? error.message
+              : "Không thể hoàn tất giao dịch.",
+        }),
+      );
+      return false;
     }
-    return true;
   };
-
-  const refreshBalances = async () => {
-    if (currentWorkspace) {
-      await loadWorkspaceData(currentWorkspace.id, currentMember.id);
+  const addMemberToFamily: FamilyContextType["addMemberToFamily"] = async (
+    input,
+  ) => {
+    try {
+      if (!currentWorkspace) throw new Error("Chưa chọn không gian.");
+      const response = await fetch(
+        `/api/workspaces/${currentWorkspace.id}/managed-members`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": crypto.randomUUID(),
+          },
+          body: JSON.stringify(input),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      await refreshBalances();
+      return data;
+    } catch (error: any) {
+      return { success: false, error: error.message };
     }
   };
-
-  const refreshMembers = async () => {
-    if (currentWorkspace) {
-      await loadWorkspaceData(currentWorkspace.id, currentMember.id);
-    }
+  const quickWithdraw = async (vaultType: any, amount: number) => {
+    const vault = dynamicVaults.find((item) => item.ruleTemplate === "SHIELD");
+    return vault ? fastWithdrawFromVault(vault.onchainVaultId, amount) : false;
   };
-
-  const addMemberToFamily = async (memberData: any) => {
-    return { success: true };
+  const requestLargeWithdraw = async (
+    vaultType: any,
+    amount: number,
+    reason: string,
+  ) => {
+    const vault = dynamicVaults.find((item) => item.ruleTemplate === "SHIELD");
+    return vault
+      ? requestVaultWithdrawal(vault.onchainVaultId, amount, reason)
+      : { success: false };
   };
-
-  const connectWallet = async () => {
-    setIsWalletConnected(true);
+  const depositFunds = async (vaultType: any, amount: number) => {
+    const vault = dynamicVaults.find(
+      (item) =>
+        item.ruleTemplate ===
+        (vaultType === 1 ? "MILESTONE" : vaultType === 2 ? "ROSCA" : "SHIELD"),
+    );
+    return vault
+      ? (await depositToVault(vault.onchainVaultId, amount)).success
+      : false;
   };
-
-  const disconnectWallet = () => {
-    setIsWalletConnected(false);
+  const balance = (type: string): VaultBalance => {
+    const items = dynamicVaults.filter((vault) => vault.ruleTemplate === type);
+    return {
+      localBuffer: items.reduce((sum, item) => sum + item.cachedL1Buffer, 0),
+      remoteYield: items.reduce(
+        (sum, item) =>
+          sum + Math.max(0, item.cachedTotalBalance - item.cachedL1Buffer),
+        0,
+      ),
+      accruedYield: items.reduce(
+        (sum, item) => sum + item.cachedCChainYield,
+        0,
+      ),
+      total: items.reduce((sum, item) => sum + item.cachedTotalBalance, 0),
+    };
   };
-
-  // Tính tổng tài sản
-  const totalFamilyWealth = dynamicVaults.length > 0
-    ? dynamicVaults.reduce((sum, v) => sum + v.cachedTotalBalance, 0)
-    : vaults.retirementShield.total + vaults.kidsSavings.total + vaults.familyRosca.total;
-
-  const unreadNotificationCount = notifications.filter((n) => !n.isRead).length;
-
   return (
     <FamilyContext.Provider
       value={{
@@ -1214,14 +884,27 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         members,
         familyInfo,
         setCurrentMember,
-        refreshMembers,
+        refreshMembers: refreshBalances,
         addMemberToFamily,
         isWalletConnected,
         connectedWalletAddress,
-        connectWallet,
-        disconnectWallet,
-        vaults,
-        totalFamilyWealth,
+        connectWallet: async () => {
+          setWalletUseEnabled(true);
+          await auth.connectWallet();
+        },
+        disconnectWallet: () => {
+          setWalletUseEnabled(false);
+          auth.disconnectWallet();
+        },
+        vaults: {
+          retirementShield: balance("SHIELD"),
+          kidsSavings: balance("MILESTONE"),
+          familyRosca: balance("ROSCA"),
+        },
+        totalFamilyWealth: dynamicVaults.reduce(
+          (sum, vault) => sum + vault.cachedTotalBalance,
+          0,
+        ),
         refreshBalances,
         withdrawalRequests,
         quickWithdraw,
@@ -1234,7 +917,9 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         verifyAndRewardChore,
         createChore,
         notifications,
-        unreadNotificationCount,
+        unreadNotificationCount: notifications.filter(
+          (notice) => !notice.isRead,
+        ).length,
         markNotificationRead,
         isLiveWeb3,
         isLiveBackend,
@@ -1246,12 +931,9 @@ export const FamilyProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       {children}
     </FamilyContext.Provider>
   );
-};
-
-export const useFamily = (): FamilyContextType => {
-  const context = useContext(FamilyContext);
-  if (!context) {
-    throw new Error('useFamily must be used within a FamilyProvider');
-  }
-  return context;
-};
+}
+export function useFamily() {
+  const value = useContext(FamilyContext);
+  if (!value) throw new Error("useFamily requires FamilyProvider");
+  return value;
+}
