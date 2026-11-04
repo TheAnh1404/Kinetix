@@ -8,6 +8,7 @@ import { MemberManagementModal } from '@/components/dashboard/MemberManagementMo
 import { CreateChoreModal } from '@/components/dashboard/CreateChoreModal';
 import { CreateVaultModal } from '@/components/vaults/CreateVaultModal';
 import { DepositVaultModal } from '@/components/vaults/DepositVaultModal';
+import { ChoreProofModal } from '@/components/dashboard/ChoreProofModal';
 import { DynamicVaultItem } from '@/types';
 
 export const GuardianView: React.FC = () => {
@@ -29,6 +30,7 @@ export const GuardianView: React.FC = () => {
   const [isChoreModalOpen, setIsChoreModalOpen] = useState(false);
   const [isCreateVaultOpen, setIsCreateVaultOpen] = useState(false);
   const [depositModalVault, setDepositModalVault] = useState<DynamicVaultItem | null>(null);
+  const [inspectingChore, setInspectingChore] = useState<any | null>(null);
 
   // Yêu cầu rút tiền đang chờ duyệt (Pending Multisig Request)
   const pendingRequests = withdrawalRequests.filter((r) => r.status === 'PENDING');
@@ -100,85 +102,89 @@ export const GuardianView: React.FC = () => {
             <button
               onClick={() => setIsCreateVaultOpen(true)}
               type="button"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer active:scale-95"
+              className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-xs"
             >
-              <span className="material-symbols-outlined text-[16px]">add_circle</span>
-              <span>+ Tạo Hũ Mới</span>
+              <span className="material-symbols-outlined text-[15px]">add</span>
+              <span>Tạo Hũ Mới</span>
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Lưới các Hũ tiền */}
+          <div className="space-y-3">
             {dynamicVaults.map((vault) => {
-              const bufferPct = (vault.bufferRatioBps / 100).toFixed(0);
-              const cChainPct = (100 - Number(bufferPct)).toFixed(0);
+              const bufferRatio = vault.bufferRatioBps / 100;
+              const yieldRatio = 100 - bufferRatio;
+              const total = vault.cachedTotalBalance ?? vault.totalBalance ?? 0;
+              const l1Buffer = vault.cachedL1Buffer ?? vault.l1BufferBalance ?? (total * bufferRatio) / 100;
+              const cChainYield = total - l1Buffer;
 
               return (
                 <div
-                  key={vault.id || vault.onchainVaultId}
-                  className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 group"
+                  key={vault.id}
+                  className="p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 hover:shadow-xs transition-all flex flex-col gap-3.5"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-                        {vault.ruleTemplate} • Hũ #{vault.onchainVaultId}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl">{vault.icon || '🏦'}</span>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-slate-900">{vault.name}</h3>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
+                            #{vault.onchainVaultId}
+                          </span>
+                        </div>
+                        <span className="text-xs text-slate-500">{vault.description}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold font-mono">
+                        {vault.ruleTemplate}
                       </span>
-                      <h3 className="text-sm font-bold text-slate-900 truncate mt-0.5" title={vault.name}>
-                        {vault.name}
-                      </h3>
+                      <button
+                        onClick={() => setDepositModalVault(vault)}
+                        type="button"
+                        className="px-3 py-1 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+                      >
+                        + Nạp Quỹ
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Thanh trượt tỷ lệ đệm thanh khoản L1 / C-Chain */}
+                  <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-emerald-700 flex items-center gap-1">
+                        <span>⚡ Đệm Family L1: {bufferRatio}%</span>
+                        <span className="text-[10px] text-slate-400 font-normal">({l1Buffer.toFixed(2)} AVAX)</span>
+                      </span>
+                      <span className="text-blue-700 flex items-center gap-1">
+                        <span className="text-[10px] text-slate-400 font-normal">({cChainYield.toFixed(2)} AVAX)</span>
+                        <span>🌊 C-Chain 8% APY: {yieldRatio}%</span>
+                      </span>
                     </div>
 
-                    <span
-                      className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border ${
-                        vault.ruleTemplate === 'SHIELD'
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : vault.ruleTemplate === 'MILESTONE'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : vault.ruleTemplate === 'ROSCA'
-                          ? 'bg-purple-50 text-purple-700 border-purple-200'
-                          : 'bg-blue-50 text-blue-700 border-blue-200'
-                      }`}
-                    >
-                      {vault.ruleTemplate}
+                    <div className="w-full h-2.5 bg-blue-500 rounded-full overflow-hidden flex shadow-inner">
+                      <div
+                        style={{ width: `${bufferRatio}%` }}
+                        className="bg-emerald-500 h-full transition-all duration-500"
+                        title={`Đệm Family L1 (${bufferRatio}%)`}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mt-0.5">
+                      <span>Rút nhanh &le; {vault.fastWithdrawLimit} AVAX (0 gas)</span>
+                      <span>Multisig: {vault.requiredApprovals}/{vault.guardianCount || 3} Guardians</span>
+                    </div>
+                  </div>
+
+                  {/* Chi tiết người thụ hưởng & tổng số dư */}
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                    <span className="text-slate-500">
+                      Người thụ hưởng: <strong className="text-slate-800">{vault.beneficiaryName}</strong>
                     </span>
-                  </div>
-
-                  <div>
-                    <div className="text-xl font-extrabold text-slate-900 font-mono">
-                      {vault.cachedTotalBalance.toFixed(2)}{' '}
-                      <span className="text-xs font-sans font-bold text-slate-500">AVAX</span>
-                    </div>
-
-                    {/* Thanh Trượt Tỷ Lệ Đệm Thanh Khoản L1 / C-Chain */}
-                    <div className="mt-2.5">
-                      <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 mb-1">
-                        <span>L1 Đệm: {bufferPct}%</span>
-                        <span>C-Chain: {cChainPct}%</span>
-                      </div>
-                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex">
-                        <div
-                          style={{ width: `${bufferPct}%` }}
-                          className="bg-red-500 h-full"
-                          title={`Bộ đệm L1: ${bufferPct}%`}
-                        />
-                        <div
-                          style={{ width: `${cChainPct}%` }}
-                          className="bg-emerald-500 h-full"
-                          title={`Gửi C-Chain 8% APY: ${cChainPct}%`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                    <button
-                      onClick={() => setDepositModalVault(vault)}
-                      type="button"
-                      className="flex-1 py-1.5 rounded-xl bg-slate-50 hover:bg-red-50 text-slate-700 hover:text-red-600 text-xs font-bold transition-all border border-slate-200 cursor-pointer"
-                    >
-                      Nạp Quỹ
-                    </button>
-                    <span className="text-[10px] font-mono text-slate-400">
-                      Duyệt {vault.requiredApprovals}/3
+                    <span className="font-mono font-bold text-slate-900">
+                      Tổng: <span className="text-base text-red-600 font-black">{total.toFixed(2)}</span> AVAX
                     </span>
                   </div>
                 </div>
@@ -187,16 +193,18 @@ export const GuardianView: React.FC = () => {
           </div>
         </div>
 
-        {/* CỘT PHẢI (5 CỘT): BÀN PHÊ DUYỆT ĐA CHỮ KÝ M/N (MULTISIG ACTION DESK) */}
+        {/* CỘT PHẢI (5 CỘT): MULTISIG PENDING APPROVALS & CHORE-TO-EARN */}
         <div className="lg:col-span-5 flex flex-col gap-4">
+          
+          {/* MULTISIG COMMAND PANEL */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
                 ✍️
               </span>
               <div>
-                <h2 className="text-base font-bold text-slate-900">Bàn Ký Duyệt Đa Chữ Ký</h2>
-                <p className="text-xs text-slate-500">Các yêu cầu rút tiền lớn cần Guardians ký duyệt</p>
+                <h2 className="text-base font-bold text-slate-900">Bàn Ký Duyệt Đa Chữ Ký (M/N)</h2>
+                <p className="text-xs text-slate-500">Giải ngân các khoản rút lớn an toàn</p>
               </div>
             </div>
 
@@ -252,7 +260,7 @@ export const GuardianView: React.FC = () => {
                   onClick={() => handleApprove(activeRequest.id)}
                   disabled={isSigning}
                   type="button"
-                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
                 >
                   <span className="material-symbols-outlined text-[18px]">draw</span>
                   <span>{isSigning ? 'Đang xác nhận on-chain...' : 'Ký Duyệt Lệnh Rút (Bố Ba)'}</span>
@@ -301,13 +309,24 @@ export const GuardianView: React.FC = () => {
                           Thưởng: {chore.rewardAmount} AVAX
                         </span>
                       </div>
-                      <button
-                        onClick={() => handleVerifyChore(chore.id, chore.rewardAmount)}
-                        type="button"
-                        className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer shrink-0"
-                      >
-                        Duyệt Thưởng
-                      </button>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => setInspectingChore(chore)}
+                          type="button"
+                          className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-all"
+                        >
+                          <span className="material-symbols-outlined text-[13px]">visibility</span>
+                          <span>Xem Ảnh</span>
+                        </button>
+                        <button
+                          onClick={() => handleVerifyChore(chore.id, chore.rewardAmount)}
+                          type="button"
+                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer transition-all active:scale-95"
+                        >
+                          Duyệt Thưởng
+                        </button>
+                      </div>
                     </div>
                   ))
               )}
@@ -337,6 +356,14 @@ export const GuardianView: React.FC = () => {
       <MemberManagementModal
         isOpen={isMemberModalOpen}
         onClose={() => setIsMemberModalOpen(false)}
+      />
+
+      {/* Modal Xem Minh Chứng Báo Cáo Việc Nhà */}
+      <ChoreProofModal
+        isOpen={Boolean(inspectingChore)}
+        chore={inspectingChore}
+        onClose={() => setInspectingChore(null)}
+        onApprove={handleVerifyChore}
       />
 
     </div>

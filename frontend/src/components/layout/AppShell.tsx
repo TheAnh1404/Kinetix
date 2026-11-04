@@ -11,6 +11,8 @@ import { DepositVaultModal } from '@/components/vaults/DepositVaultModal';
 import { CreateVaultModal } from '@/components/vaults/CreateVaultModal';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import { MobilePhoneContainer } from '@/components/layout/MobilePhoneContainer';
+import { NotificationDropdown } from '@/components/dashboard/NotificationDropdown';
+import { TransactionLedgerModal } from '@/components/dashboard/TransactionLedgerModal';
 import { ActiveTab } from '@/types';
 
 interface AppShellProps {
@@ -37,6 +39,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [isCreateVaultOpen, setIsCreateVaultOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isLedgerOpen, setIsLedgerOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
   const handleCopyCode = () => {
@@ -319,6 +322,16 @@ export const AppShell: React.FC<AppShellProps> = ({
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={() => setIsLedgerOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                title="Xem Sổ Cái Lịch Sử Giao Dịch Dual-Chain"
+              >
+                <span className="material-symbols-outlined text-[16px]">receipt_long</span>
+                <span className="hidden md:inline">{language === 'vi' ? 'Sổ Cái On-Chain' : 'Ledger'}</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setIsCreateVaultOpen(true)}
                 className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
               >
@@ -334,6 +347,9 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <span className="material-symbols-outlined text-[16px]">bolt</span>
                 <span>{language === 'vi' ? 'Nạp Quỹ' : 'Deposit'}</span>
               </button>
+
+              {/* Chuông Thông Báo Thời Gian Thực */}
+              <NotificationDropdown />
 
               <button
                 onClick={toggleLanguage}
@@ -377,6 +393,11 @@ export const AppShell: React.FC<AppShellProps> = ({
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+
+      <TransactionLedgerModal
+        isOpen={isLedgerOpen}
+        onClose={() => setIsLedgerOpen(false)}
       />
     </div>
   );

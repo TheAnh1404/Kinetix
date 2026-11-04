@@ -93,6 +93,9 @@ export interface DynamicVaultItem {
   onchainVaultId: number;
   name: string;
   description?: string;
+  icon?: string;
+  beneficiaryName?: string;
+  guardianCount?: number;
   ruleTemplate: "SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL";
   bufferRatioBps: number;
   fastWithdrawLimit: number;
