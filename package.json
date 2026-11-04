@@ -21,7 +21,10 @@
     "db:clear": "tsx scripts/clear-db.ts",
     "db:studio": "drizzle-kit studio --config=backend/drizzle.config.ts",
     "server:start": "tsx backend/src/server.ts",
-    "worker:listen": "tsx backend/src/workers/eventListener.ts"
+    "worker:listen": "tsx backend/src/workers/eventListener.ts",
+    "test:auth": "node scripts/run-auth-tests.cjs",
+    "test:auth:integration": "node scripts/run-auth-tests.cjs --integration",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "avalanche",
@@ -62,5 +65,8 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.10.5",
     "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=24.7.0"
   }
 }

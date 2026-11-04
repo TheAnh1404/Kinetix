@@ -1,306 +1,842 @@
-import { expect } from "chai";
-import { FamilyService } from "../backend/src/services/familyService";
-import { db } from "../backend/src/db";
-import { families, users, withdrawalRequests, chores, notifications, vaults, vaultMembers } from "../backend/src/db/schema";
-import { eq } from "drizzle-orm";
+﻿import { expect } from "chai";
+import { AddressInfo } from "net";
+import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
+import { and, eq, sql } from "drizzle-orm";
+import type { Server } from "http";
 
-describe("Kinetix Backend Services & Neon Database Integration", function () {
-  this.timeout(20000); // 20s cho cloud database roundtrips
+const { assertIsolatedDatabase } = require("../scripts/auth-test-safety.cjs");
+const testDatabaseUrl = process.env.TEST_DATABASE_URL;
+const originalDatabaseUrl = process.env.DATABASE_URL;
+if (testDatabaseUrl) assertIsolatedDatabase(testDatabaseUrl, originalDatabaseUrl, process.env.AUTH_TEST_ALLOW_RESET);
+// Never open the application's configured database during unit/HTTP guard tests.
+process.env.DATABASE_URL =
+  testDatabaseUrl ||
+  "postgresql://isolated:isolated@127.0.0.1:1/kinetix_auth_tests";
+process.env.NODE_ENV = "test";
+process.env.APP_ORIGIN = "http://localhost:3000";
+const app = require("../backend/src/server").default;
+const { db, pool } =
+  require("../backend/src/db") as typeof import("../backend/src/db");
+const schema =
+  require("../backend/src/db/schema") as typeof import("../backend/src/db/schema");
+let server: Server;
+let base: string;
+class Browser {
+  cookies = new Map<string, string>();
+  async request(
+    path: string,
+    body?: unknown,
+    method = "POST",
+    extraHeaders: Record<string, string> = {},
+  ) {
+    const response = await fetch(`${base}/api${path}`, {
+      method,
+      headers: {
+        Origin: process.env.APP_ORIGIN!,
+        "Content-Type": "application/json",
+        Cookie: [...this.cookies]
+          .map(([key, value]) => `${key}=${value}`)
+          .join("; "),
+        ...extraHeaders,
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+    for (const cookie of response.headers.getSetCookie()) {
+      const pair = cookie.split(";")[0];
+      const equal = pair.indexOf("=");
+      this.cookies.set(pair.slice(0, equal), pair.slice(equal + 1));
+    }
+    return {
+      status: response.status,
+      data: await response.json(),
+      headers: response.headers,
+    };
+  }
+}
+before(async () => {
+  server = await new Promise<Server>((resolve) => {
+    const listener = app.listen(0, "127.0.0.1", () => resolve(listener));
+  });
+  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+});
+after(async () => {
+  if (server)
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  await pool.end();
+});
 
-  let familyId: string;
-  let adminUserId: string;
-  let guardianUserId: string;
-  let elderlyUserId: string;
-  let childUserId: string;
-
-  let isTemporaryFixture = false;
-
-  const testAdminWallet = "0x1111111111111111111111111111111111111111";
-  const testGuardianWallet = "0x2222222222222222222222222222222222222222";
-  const testElderlyWallet = "0x3333333333333333333333333333333333333333";
-  const testChildWallet = "0x4444444444444444444444444444444444444444";
-
-  before(async function () {
-    // Khởi tạo một gia đình kiểm thử riêng biệt để đảm bảo cô lập 100%
-    isTemporaryFixture = true;
-    const [family] = await db
-      .insert(families)
-      .values({
-        name: `Gia đình Backend Test ${Date.now()}`,
-        familyCode: `BTST-${Math.floor(1000 + Math.random() * 9000)}`,
-        adminWallet: testAdminWallet,
-      })
-      .returning();
-
-    // Tạo các thành viên phục vụ kiểm thử
-    await db.insert(users).values([
-      {
-        familyId: family.id,
-        fullName: "Bố Ba (Admin)",
+describe("HTTP guards without a database", () => {
+  it("rejects direct unauthenticated and forged legacy-session access", async () => {
+    const browser = new Browser();
+    for (const path of [
+      "/workspaces",
+      "/vaults?workspaceId=anything",
+      "/notifications/another-user",
+      "/auth/me",
+    ])
+      expect((await browser.request(path, undefined, "GET")).status).to.equal(
+        401,
+      );
+    browser.cookies.set("kinetix_session", "eyJhbGciOiJIUzI1NiJ9.fake.jwt");
+    expect(
+      (await browser.request("/workspaces", undefined, "GET")).status,
+    ).to.equal(401);
+  });
+  it("retires PIN, family/role fallbacks and address-only wallet sync", async () => {
+    for (const path of [
+      "family-login",
+      "member-login",
+      "sync-wallet",
+      "join-family",
+      "check-wallet",
+      "nonce",
+    ]) {
+      const response = await new Browser().request(`/auth/${path}`, {
         role: "ADMIN",
-        walletAddress: testAdminWallet,
+        userId: "someone",
         pinCode: "1234",
-        isAllowlisted: true,
-      },
-      {
-        familyId: family.id,
-        fullName: "Cô Út (Guardian)",
-        role: "GUARDIAN",
-        walletAddress: testGuardianWallet,
-        pinCode: "1234",
-        isAllowlisted: true,
-      },
-      {
-        familyId: family.id,
-        fullName: "Ông Nội",
-        role: "ELDERLY",
-        walletAddress: testElderlyWallet,
-        pinCode: "1234",
-        isAllowlisted: true,
-      },
-      {
-        familyId: family.id,
-        fullName: "Bé Na",
-        role: "CHILD",
-        walletAddress: testChildWallet,
-        authMethod: "PASSKEY_EMBEDDED",
-        pinCode: "1234",
-        isAllowlisted: true,
-      },
-    ]);
-
-    familyId = family.id;
-    const allUsers = await db.select().from(users).where(eq(users.familyId, familyId));
-
-    const admin = allUsers.find((u) => u.role === "ADMIN");
-    const guardian = allUsers.find((u) => u.role === "GUARDIAN");
-    const elderly = allUsers.find((u) => u.role === "ELDERLY");
-    const child = allUsers.find((u) => u.role === "CHILD");
-
-    expect(admin).to.not.be.undefined;
-    expect(guardian).to.not.be.undefined;
-    expect(elderly).to.not.be.undefined;
-    expect(child).to.not.be.undefined;
-
-    adminUserId = admin!.id;
-    guardianUserId = guardian!.id;
-    elderlyUserId = elderly!.id;
-    childUserId = child!.id;
-  });
-
-  after(async function () {
-    if (isTemporaryFixture && familyId) {
-      await db.delete(notifications).where(eq(notifications.familyId, familyId));
-      await db.delete(chores).where(eq(chores.familyId, familyId));
-      await db.delete(withdrawalRequests).where(eq(withdrawalRequests.familyId, familyId));
-      await db.delete(users).where(eq(users.familyId, familyId));
-      await db.delete(families).where(eq(families.id, familyId));
-    }
-  });
-
-  it("1. syncWallet: Nhận diện ví Core Wallet đã có trong hệ thống", async function () {
-    const res = await FamilyService.syncWallet(testAdminWallet);
-
-    expect(res.user.role).to.equal("ADMIN");
-    expect(res.user.fullName).to.include("Bố Ba");
-    expect(res.family.id).to.equal(familyId);
-  });
-
-  it("2. syncWallet: Tự động đăng ký ví mới vào gia đình Kinetix", async function () {
-    const randomWallet = "0x" + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
-    const res = await FamilyService.syncWallet(randomWallet, "Người thân mới");
-
-    expect(res.user.walletAddress.toLowerCase()).to.equal(randomWallet.toLowerCase());
-    expect(res.user.fullName).to.equal("Người thân mới");
-    expect(res.family.id).to.be.a("string");
-
-    // Dọn dẹp user vừa tự động khởi tạo
-    await db.delete(users).where(eq(users.id, res.user.id));
-  });
-
-  it("3. createWithdrawalRequest: Rút nhỏ <= 50 USDC giải ngân tức thì (EXECUTED)", async function () {
-    const res = await FamilyService.createWithdrawalRequest({
-      familyId,
-      requesterId: elderlyUserId,
-      amount: 25,
-      vault: "RetirementShield",
-      reason: "Tiền mua thức ăn hàng ngày",
-    });
-
-    expect(res.isFastWithdraw).to.be.true;
-    expect(res.request.status).to.equal("EXECUTED");
-    expect(res.request.approvalsCount).to.equal(2);
-  });
-
-  it("4. createWithdrawalRequest & approveWithdrawal: Rút lớn > 50 USDC kích hoạt PENDING và đủ 2/3 chữ ký thành APPROVED", async function () {
-    // 1. Tạo khoản rút lớn 800 USDC
-    const res = await FamilyService.createWithdrawalRequest({
-      familyId,
-      requesterId: elderlyUserId,
-      amount: 800,
-      vault: "RetirementShield",
-      reason: "Mua thiết bị y tế",
-    });
-
-    expect(res.isFastWithdraw).to.be.false;
-    expect(res.request.status).to.equal("PENDING");
-    expect(res.request.approvalsCount).to.equal(0);
-
-    const requestId = res.request.id;
-
-    // 2. Chữ ký 1: Tăng approvalsCount lên 1
-    const step1 = await FamilyService.approveWithdrawal(requestId);
-    expect(step1.isReadyToExecute).to.be.false;
-    expect(step1.request.approvalsCount).to.equal(1);
-    expect(step1.request.status).to.equal("PENDING");
-
-    // 3. Chữ ký 2: Đạt 2/3 chữ ký -> APPROVED
-    const step2 = await FamilyService.approveWithdrawal(requestId);
-    expect(step2.isReadyToExecute).to.be.true;
-    expect(step2.request.approvalsCount).to.equal(2);
-    expect(step2.request.status).to.equal("APPROVED");
-  });
-
-  it("5. Chore-to-Earn: Chu trình nộp bài và nhận thưởng của con nhỏ", async function () {
-    // Tạo chore mới để test
-    const [chore] = await db
-      .insert(chores)
-      .values({
-        familyId,
-        childId: childUserId,
-        title: "Tưới cây ban công",
-        rewardAmount: "3.000000",
-        status: "TODO",
-      })
-      .returning();
-
-    // Bé nộp bằng chứng
-    const submitted = await FamilyService.submitChore(chore.id, "https://example.com/tree.jpg");
-    expect(submitted.status).to.equal("SUBMITTED");
-    expect(submitted.proofImageUrl).to.equal("https://example.com/tree.jpg");
-
-    // Bố mẹ xác nhận và trả thưởng
-    const rewarded = await FamilyService.verifyAndRewardChore(chore.id);
-    expect(rewarded.status).to.equal("REWARDED");
-  });
-
-  it("6. getUserNotifications: Lấy danh sách cảnh báo tức thời gửi tới Guardians", async function () {
-    const list = await FamilyService.getUserNotifications(guardianUserId);
-    expect(list.length).to.be.greaterThan(0);
-    expect(list[0].type).to.be.oneOf(["ALERT_SCAM", "APPROVAL_NEEDED", "TASK_COMPLETED", "YIELD_PAYOUT"]);
-  });
-
-  it("7. Dynamic Vaults: Tạo Hũ động mới với cấu hình tùy biến (RuleTemplate SHARED_GOAL)", async function () {
-    const vault = await FamilyService.createCustomVault({
-      workspaceId: familyId,
-      onchainVaultId: 99,
-      name: "Quỹ Đi Phượt Xuyên Việt",
-      description: "Tích lũy mua sắm đồ phượt và cắm trại",
-      ruleTemplate: "SHARED_GOAL",
-      bufferRatioBps: 1500, // 15% L1 / 85% C-Chain
-      fastWithdrawLimit: 100, // Rút nhanh lên tới 100 AVAX
-      requiredApprovals: 2,
-      guardianUserIds: [adminUserId, guardianUserId],
-      beneficiaryUserIds: [elderlyUserId],
-    });
-
-    expect(vault.name).to.equal("Quỹ Đi Phượt Xuyên Việt");
-    expect(vault.ruleTemplate).to.equal("SHARED_GOAL");
-    expect(vault.bufferRatioBps).to.equal(1500);
-    expect(Number(vault.fastWithdrawLimit)).to.equal(100);
-
-    const details = await FamilyService.getWorkspaceDetails(familyId);
-    expect(details).to.not.be.null;
-    expect(details?.vaults.some((v) => v.name === "Quỹ Đi Phượt Xuyên Việt")).to.be.true;
-  });
-
-  it("8. Dynamic Vault Withdrawal: Kiểm tra hạn mức rút nhanh lấy từ Dynamic Vault (<=100 EXECUTED, >100 PENDING)", async function () {
-    const details = await FamilyService.getWorkspaceDetails(familyId);
-    const customVault = details?.vaults.find((v) => v.name === "Quỹ Đi Phượt Xuyên Việt");
-    expect(customVault).to.not.be.undefined;
-
-    // Rút 80 AVAX (<= 100 AVAX limit của hũ này) -> giải ngân tức thì
-    const fastRes = await FamilyService.createWithdrawalRequest({
-      familyId,
-      vaultId: customVault!.id,
-      requesterId: elderlyUserId,
-      amount: 80,
-      reason: "Mua lều cắm trại",
-    });
-    expect(fastRes.isFastWithdraw).to.be.true;
-    expect(fastRes.request.status).to.equal("EXECUTED");
-
-    // Rút 120 AVAX (> 100 AVAX limit) -> kích hoạt Multisig PENDING
-    const slowRes = await FamilyService.createWithdrawalRequest({
-      familyId,
-      vaultId: customVault!.id,
-      requesterId: elderlyUserId,
-      amount: 120,
-      reason: "Mua xe máy cào cào",
-    });
-    expect(slowRes.isFastWithdraw).to.be.false;
-    expect(slowRes.request.status).to.equal("PENDING");
-  });
-
-  it("9. payoutRoscaRound: Giải ngân kỳ hụi xoay vòng cho Hũ ROSCA và chuyển sang vòng tiếp theo", async function () {
-    const roscaVault = await FamilyService.createCustomVault({
-      workspaceId: familyId,
-      onchainVaultId: 101,
-      name: "Quỹ Họ Hụi Backend Test",
-      ruleTemplate: "ROSCA",
-      bufferRatioBps: 0,
-      fastWithdrawLimit: 0,
-      requiredApprovals: 2,
-      guardianUserIds: [adminUserId, guardianUserId],
-      beneficiaryUserIds: [guardianUserId, elderlyUserId],
-      roscaRoundDuration: 7 * 86400,
-      roscaRoundContribution: 50,
-    });
-
-    const payout = await FamilyService.payoutRoscaRound(roscaVault.id);
-    expect(payout.roundIndex).to.equal(0);
-    expect(payout.vault.roscaCurrentRound).to.equal(1);
-    expect(payout.recipientUser).to.not.be.null;
-
-    // Dọn dẹp hũ vừa test
-    await db.delete(withdrawalRequests).where(eq(withdrawalRequests.vaultId, roscaVault.id));
-    await db.delete(vaultMembers).where(eq(vaultMembers.vaultId, roscaVault.id));
-    await db.delete(vaults).where(eq(vaults.id, roscaVault.id));
-  });
-
-  it("10. SHARED_GOAL Lock: Chặn yêu cầu rút tiền khi chưa gom đủ mục tiêu", async function () {
-    const goalVault = await FamilyService.createCustomVault({
-      workspaceId: familyId,
-      onchainVaultId: 102,
-      name: "Quỹ Du Lịch Tokyo",
-      ruleTemplate: "SHARED_GOAL",
-      bufferRatioBps: 1000,
-      fastWithdrawLimit: 0,
-      requiredApprovals: 2,
-      guardianUserIds: [adminUserId],
-      beneficiaryUserIds: [elderlyUserId],
-      targetGoalAmount: 500, // Mục tiêu 500 AVAX
-      targetDeadline: new Date(Date.now() + 30 * 86400 * 1000), // Hạn 30 ngày
-    });
-
-    // Thử rút tiền khi cachedTotalBalance = 0 (< 500 AVAX)
-    let errorCaught = false;
-    try {
-      await FamilyService.createWithdrawalRequest({
-        familyId,
-        vaultId: goalVault.id,
-        requesterId: elderlyUserId,
-        amount: 50,
-        reason: "Rút đi du lịch trước",
       });
-    } catch (err: any) {
-      errorCaught = true;
-      expect(err.message.toLowerCase()).to.include("chưa đạt số tiền mục tiêu 500 avax");
+      expect(response.status).to.equal(410);
+      expect(response.data).not.to.have.property("user");
     }
-    expect(errorCaught).to.be.true;
-
-    // Dọn dẹp
-    await db.delete(vaultMembers).where(eq(vaultMembers.vaultId, goalVault.id));
-    await db.delete(vaults).where(eq(vaults.id, goalVault.id));
+  });
+  it("rejects cross-origin, absent Origin and form posts before auth or database work", async () => {
+    const browser = new Browser();
+    expect(
+      (
+        await browser.request(
+          "/auth/login",
+          { username: "admin", password: "whatever" },
+          "POST",
+          { Origin: "https://attacker.example" },
+        )
+      ).status,
+    ).to.equal(403);
+    expect(
+      (await browser.request("/auth/login", {}, "POST", { Origin: "" })).status,
+    ).to.equal(403);
+    expect(
+      (
+        await browser.request("/auth/login", {}, "POST", {
+          "Content-Type": "text/plain",
+        })
+      ).status,
+    ).to.equal(415);
+  });
+  it("rejects malformed JSON without leaking internals", async () => {
+    const response = await fetch(`${base}/api/auth/login`, {
+      method: "POST",
+      headers: {
+        Origin: process.env.APP_ORIGIN!,
+        "Content-Type": "application/json",
+      },
+      body: "{",
+    });
+    expect(response.status).to.equal(400);
+    expect(await response.text()).not.to.include("SyntaxError");
   });
 });
+
+(testDatabaseUrl ? describe : describe.skip)(
+  "Isolated PostgreSQL HTTP acceptance",
+  function () {
+    this.timeout(60000);
+    let admin: Browser;
+    let otherAdmin: Browser;
+    let adminAccount: ReturnType<typeof privateKeyToAccount>;
+    let workspaceId: string;
+    let otherWorkspaceId: string;
+    let memberId: string;
+    let member: Browser;
+    let memberAccount: ReturnType<typeof privateKeyToAccount>;
+    let temporaryPassword: string;
+    const password = "A private member phrase 2026";
+    const signedChallenge = async (
+      browser: Browser,
+      purpose: string,
+      account: ReturnType<typeof privateKeyToAccount>,
+    ) => {
+      const response = await browser.request("/auth/wallet/challenge", {
+        purpose,
+        address: account.address,
+        chainId: 43113,
+      });
+      expect(response.status).to.equal(200);
+      return {
+        challengeId: response.data.challengeId,
+        signature: await account.signMessage({
+          message: response.data.message,
+        }),
+        message: response.data.message,
+      };
+    };
+    const register = async (name: string) => {
+      const browser = new Browser();
+      const account = privateKeyToAccount(generatePrivateKey());
+      const proof = await signedChallenge(browser, "REGISTER", account);
+      const response = await browser.request("/auth/register-family", {
+        ...proof,
+        username: name,
+        password,
+        adminName: name,
+        familyName: `Test ${name}`,
+      });
+      expect(response.status).to.equal(200);
+      expect(response.headers.getSetCookie().join(";"))
+        .to.include("HttpOnly")
+        .and.include("SameSite=Lax");
+      return { browser, account, workspaceId: response.data.family.id };
+    };
+    const createMember = async (name: string) => {
+      const response = await admin.request(
+        `/workspaces/${workspaceId}/managed-members`,
+        { fullName: name, username: name, role: "CHILD" },
+        "POST",
+        { "Idempotency-Key": require("crypto").randomUUID() },
+      );
+      expect(response.status).to.equal(201);
+      return response.data;
+    };
+    before(async () => {
+      const { migrate } = require("drizzle-orm/neon-serverless/migrator");
+      await migrate(db, {
+        migrationsFolder: require("path").resolve("backend/drizzle"),
+      });
+      // Explicit reset opt-in above is mandatory. Only a disposable database is accepted by the runner.
+      await db.execute(
+        sql`TRUNCATE workspaces, users, auth_rate_limits, auth_challenges CASCADE`,
+      );
+      const first = await register("guardian_a");
+      admin = first.browser;
+      adminAccount = first.account;
+      workspaceId = first.workspaceId;
+      const second = await register("guardian_b");
+      otherAdmin = second.browser;
+      otherWorkspaceId = second.workspaceId;
+    });
+    beforeEach(async () => {
+      await db.delete(schema.authRateLimits);
+    });
+    it("creates only dependent roles, with an idempotent transaction and one-time credential", async () => {
+      const key = require("crypto").randomUUID();
+      const body = {
+        fullName: "Grandma Lan",
+        username: "grandma.lan",
+        role: "ELDERLY",
+      };
+      const [first, second] = await Promise.all([
+        admin.request(
+          `/workspaces/${workspaceId}/managed-members`,
+          body,
+          "POST",
+          { "Idempotency-Key": key },
+        ),
+        admin.request(
+          `/workspaces/${workspaceId}/managed-members`,
+          body,
+          "POST",
+          { "Idempotency-Key": key },
+        ),
+      ]);
+      expect(first.status).to.equal(201);
+      expect(second.status).to.equal(201);
+      const created = first.data.credential ? first.data : second.data;
+      const replayed = first.data.credential ? second.data : first.data;
+      expect(replayed.replayed).to.equal(true);
+      expect(replayed).not.to.have.property("credential");
+      memberId = created.memberId;
+      temporaryPassword = created.credential.temporaryPassword;
+      expect(first.data.memberId).to.equal(second.data.memberId);
+      const [record] = await db
+        .select()
+        .from(schema.userCredentials)
+        .where(eq(schema.userCredentials.userId, memberId));
+      expect(record.passwordHash)
+        .to.include("$argon2id$")
+        .and.not.to.equal(temporaryPassword);
+      const forbidden = await admin.request(
+        `/workspaces/${workspaceId}/managed-members`,
+        { ...body, username: "bad_admin", role: "ADMIN" },
+        "POST",
+        { "Idempotency-Key": require("crypto").randomUUID() },
+      );
+      expect(forbidden.status).to.equal(400);
+    });
+    it("enforces workspace and assigned-manager boundaries", async () => {
+      expect(
+        (
+          await otherAdmin.request(
+            `/workspaces/${workspaceId}/managed-members`,
+            undefined,
+            "GET",
+          )
+        ).status,
+      ).to.equal(403);
+      expect(
+        (
+          await otherAdmin.request(
+            `/workspaces/${workspaceId}/managed-members/${memberId}/access`,
+            { disabled: true },
+            "PATCH",
+          )
+        ).status,
+      ).to.equal(403);
+      expect(
+        (
+          await admin.request(
+            `/workspaces/${otherWorkspaceId}`,
+            undefined,
+            "GET",
+          )
+        ).status,
+      ).to.equal(403);
+      const [plainGuardian] = await db
+        .insert(schema.users)
+        .values({ fullName: "Vault guardian only", role: "GUARDIAN" })
+        .returning();
+      await db
+        .insert(schema.workspaceMembers)
+        .values({ userId: plainGuardian.id, workspaceId, role: "GUARDIAN" });
+      const {
+        hashPassword,
+        digest,
+        randomToken,
+      } = require("../backend/src/auth/security");
+      await db.insert(schema.userCredentials).values({
+        userId: plainGuardian.id,
+        username: "plain_guardian",
+        passwordHash: await hashPassword(password),
+        mustChangePassword: false,
+      });
+      await db.insert(schema.userWallets).values({
+        userId: plainGuardian.id,
+        address:
+          privateKeyToAccount(generatePrivateKey()).address.toLowerCase(),
+      });
+      const browser = new Browser();
+      expect(
+        (
+          await browser.request("/auth/login", {
+            username: "plain_guardian",
+            password,
+          })
+        ).status,
+      ).to.equal(200);
+      expect(
+        (
+          await browser.request(
+            `/workspaces/${workspaceId}/managed-members`,
+            undefined,
+            "GET",
+          )
+        ).status,
+      ).to.equal(403);
+    });
+    it("requires exact credentials and restricts onboarding at the API", async () => {
+      member = new Browser();
+      expect(
+        (
+          await member.request("/auth/login", {
+            username: "Grandma Lan",
+            password: temporaryPassword,
+          })
+        ).status,
+      ).to.equal(401);
+      const response = await member.request("/auth/login", {
+        username: " GRANDMA.LAN ",
+        password: temporaryPassword,
+      });
+      expect(response.status).to.equal(200);
+      expect(response.data.onboarding).to.equal("CHANGE_PASSWORD");
+      expect(
+        (
+          await member.request(
+            `/vaults?workspaceId=${workspaceId}`,
+            undefined,
+            "GET",
+          )
+        ).status,
+      ).to.equal(403);
+      expect(
+        (await member.request("/user/profile", { fullName: "bypass" }, "PUT"))
+          .status,
+      ).to.equal(403);
+      const oldCookie = member.cookies.get("kinetix_session")!;
+      const changed = await member.request("/auth/change-password", {
+        currentPassword: temporaryPassword,
+        newPassword: password,
+      });
+      expect(changed.status).to.equal(200);
+      expect(changed.data.onboarding).to.equal("LINK_WALLET");
+      const stale = new Browser();
+      stale.cookies.set("kinetix_session", oldCookie);
+      expect(
+        (await stale.request("/auth/me", undefined, "GET")).status,
+      ).to.equal(401);
+      expect(
+        (
+          await new Browser().request("/auth/login", {
+            username: "grandma.lan",
+            password: temporaryPassword,
+          })
+        ).status,
+      ).to.equal(401);
+    });
+    it("does not link from connection/address alone, rejects incorrect signature/domain/session/chain/expiry", async () => {
+      memberAccount = privateKeyToAccount(generatePrivateKey());
+      expect(
+        (
+          await member.request("/auth/wallet/link", {
+            address: memberAccount.address,
+          })
+        ).status,
+      ).to.equal(400);
+      expect(
+        (
+          await member.request("/auth/wallet/challenge", {
+            purpose: "LINK",
+            address: memberAccount.address,
+            chainId: 1,
+          })
+        ).status,
+      ).to.equal(400);
+      const proof = await signedChallenge(member, "LINK", memberAccount);
+      const wrong = await memberAccount.signMessage({
+        message: proof.message.replace("localhost:3000", "evil.example"),
+      });
+      expect(
+        (
+          await member.request("/auth/wallet/link", {
+            ...proof,
+            signature: wrong,
+          })
+        ).status,
+      ).to.equal(401);
+      const anotherSession = new Browser();
+      await anotherSession.request("/auth/login", {
+        username: "grandma.lan",
+        password,
+      });
+      expect(
+        (await anotherSession.request("/auth/wallet/link", proof)).status,
+      ).to.equal(401);
+      await db
+        .update(schema.authChallenges)
+        .set({ expiresAt: new Date(Date.now() - 1000) })
+        .where(eq(schema.authChallenges.id, proof.challengeId));
+      expect(
+        (await member.request("/auth/wallet/link", proof)).status,
+      ).to.equal(401);
+      const me = await member.request("/auth/me", undefined, "GET");
+      expect(me.data.linkedWallet).to.equal(null);
+    });
+    it("atomically consumes a challenge under concurrent link attempts and rotates the session", async () => {
+      const proof = await signedChallenge(member, "LINK", memberAccount);
+      const cookie = member.cookies.get("kinetix_session")!;
+      const one = new Browser();
+      one.cookies = new Map(member.cookies);
+      const two = new Browser();
+      two.cookies = new Map(member.cookies);
+      const responses = await Promise.all([
+        one.request("/auth/wallet/link", proof),
+        two.request("/auth/wallet/link", proof),
+      ]);
+      expect(
+        responses.filter((result) => result.status === 200),
+      ).to.have.length(1);
+      member = responses[0].status === 200 ? one : two;
+      expect(
+        (await member.request("/auth/me", undefined, "GET")).data.onboarding,
+      ).to.equal("READY");
+      const stale = new Browser();
+      stale.cookies.set("kinetix_session", cookie);
+      expect(
+        (await stale.request("/auth/me", undefined, "GET")).status,
+      ).to.equal(401);
+      expect(
+        (await member.request("/auth/wallet/link", proof)).status,
+      ).not.to.equal(200);
+      const wallets = await db
+        .select()
+        .from(schema.userWallets)
+        .where(eq(schema.userWallets.userId, memberId));
+      expect(wallets).to.have.length(1);
+    });
+    it("allows password-only login on a new device and keeps the linked wallet", async () => {
+      const device = new Browser();
+      const response = await device.request("/auth/login", {
+        username: "grandma.lan",
+        password,
+      });
+      expect(response.status).to.equal(200);
+      expect(response.data.onboarding).to.equal("READY");
+      expect(response.data.linkedWallet.address).to.equal(
+        memberAccount.address.toLowerCase(),
+      );
+      expect(
+        (
+          await device.request(
+            `/vaults?workspaceId=${workspaceId}`,
+            undefined,
+            "GET",
+          )
+        ).status,
+      ).to.equal(200);
+      const browser = new Browser();
+      const proof = await signedChallenge(browser, "LOGIN", memberAccount);
+      expect(
+        (await browser.request("/auth/verify-siwe", proof)).status,
+      ).to.equal(403);
+    });
+    it("never leaks hashes/secrets or changes linked wallets through profile", async () => {
+      const response = await admin.request(
+        `/workspaces/${workspaceId}/managed-members`,
+        undefined,
+        "GET",
+      );
+      const output = JSON.stringify(response.data);
+      for (const forbidden of [
+        "passwordHash",
+        "password_hash",
+        "temporaryPassword",
+        "tokenHash",
+        temporaryPassword,
+      ])
+        expect(output).not.to.include(forbidden);
+      await member.request(
+        "/user/profile",
+        {
+          fullName: "Grandma Lan",
+          walletAddress: privateKeyToAccount(generatePrivateKey()).address,
+          role: "ADMIN",
+          pinCode: "1234",
+        },
+        "PUT",
+      );
+      const current = await member.request("/auth/me", undefined, "GET");
+      expect(current.data.user.role).to.equal("ELDERLY");
+      expect(current.data.linkedWallet.address).to.equal(
+        memberAccount.address.toLowerCase(),
+      );
+    });
+    it("requires Core reauthentication for reset, revokes sessions and preserves the wallet", async () => {
+      expect(
+        (
+          await admin.request(
+            `/workspaces/${workspaceId}/managed-members/${memberId}/reset-password`,
+            {},
+          )
+        ).status,
+      ).to.equal(403);
+      const proof = await signedChallenge(admin, "REAUTH", adminAccount);
+      expect(
+        (await admin.request("/auth/reauthenticate", proof)).status,
+      ).to.equal(200);
+      const reset = await admin.request(
+        `/workspaces/${workspaceId}/managed-members/${memberId}/reset-password`,
+        {},
+      );
+      expect(reset.status).to.equal(200);
+      temporaryPassword = reset.data.credential.temporaryPassword;
+      expect(
+        (await member.request("/auth/me", undefined, "GET")).status,
+      ).to.equal(401);
+      member = new Browser();
+      expect(
+        (
+          await member.request("/auth/login", {
+            username: "grandma.lan",
+            password: temporaryPassword,
+          })
+        ).data.onboarding,
+      ).to.equal("CHANGE_PASSWORD");
+      expect(
+        (
+          await member.request("/auth/change-password", {
+            currentPassword: temporaryPassword,
+            newPassword: password,
+          })
+        ).data.onboarding,
+      ).to.equal("READY");
+      expect(
+        (await member.request("/auth/me", undefined, "GET")).data.linkedWallet
+          .address,
+      ).to.equal(memberAccount.address.toLowerCase());
+    });
+    it("blocks duplicate wallets racing across two users", async () => {
+      const first = await createMember("racing_member_one");
+      const second = await createMember("racing_member_two");
+      const account = privateKeyToAccount(generatePrivateKey());
+      const clients = await Promise.all(
+        [first, second].map(async (created) => {
+          const browser = new Browser();
+          await browser.request("/auth/login", {
+            username: created.credential.username,
+            password: created.credential.temporaryPassword,
+          });
+          await browser.request("/auth/change-password", {
+            currentPassword: created.credential.temporaryPassword,
+            newPassword: password,
+          });
+          return browser;
+        }),
+      );
+      const proofs = await Promise.all(
+        clients.map((client) => signedChallenge(client, "LINK", account)),
+      );
+      const responses = await Promise.all(
+        clients.map((client, index) =>
+          client.request("/auth/wallet/link", proofs[index]),
+        ),
+      );
+      expect(
+        responses.filter((result) => result.status === 200),
+      ).to.have.length(1);
+      expect(
+        responses.filter((result) => result.status === 409),
+      ).to.have.length(1);
+      const wallets = await db
+        .select()
+        .from(schema.userWallets)
+        .where(eq(schema.userWallets.address, account.address.toLowerCase()));
+      expect(wallets).to.have.length(1);
+    });
+    it("blocks expired temporary credentials and enforces a shared account rate limit", async () => {
+      const created = await createMember("expired_member");
+      await db
+        .update(schema.userCredentials)
+        .set({ temporaryExpiresAt: new Date(Date.now() - 1000) })
+        .where(eq(schema.userCredentials.userId, created.memberId));
+      expect(
+        (
+          await new Browser().request("/auth/login", {
+            username: created.credential.username,
+            password: created.credential.temporaryPassword,
+          })
+        ).status,
+      ).to.equal(401);
+      const client = new Browser();
+      for (let attempt = 0; attempt < 10; attempt++)
+        expect(
+          (
+            await client.request("/auth/login", {
+              username: "nonexistent_member",
+              password,
+            })
+          ).status,
+        ).to.equal(401);
+      expect(
+        (
+          await client.request("/auth/login", {
+            username: "nonexistent_member",
+            password,
+          })
+        ).status,
+      ).to.equal(429);
+    });
+    it("accepts Guardian invitations only for the nominated wallet and grants management separately", async () => {
+      const invitedAccount = privateKeyToAccount(generatePrivateKey());
+      const proof = await signedChallenge(admin, "REAUTH", adminAccount);
+      expect(
+        (await admin.request("/auth/reauthenticate", proof)).status,
+      ).to.equal(200);
+      const invite = await admin.request(
+        `/workspaces/${workspaceId}/invitations`,
+        { address: invitedAccount.address },
+      );
+      expect(invite.status).to.equal(201);
+      const thief = new Browser();
+      const wrong = await signedChallenge(
+        thief,
+        "REGISTER",
+        privateKeyToAccount(generatePrivateKey()),
+      );
+      expect(
+        (
+          await thief.request("/auth/register-family", {
+            ...wrong,
+            username: "wrong_invitee",
+            password,
+            adminName: "Wrong wallet",
+            invitationToken: invite.data.invitation.token,
+          })
+        ).status,
+      ).to.equal(403);
+      const invited = new Browser();
+      const registration = await signedChallenge(
+        invited,
+        "REGISTER",
+        invitedAccount,
+      );
+      const result = await invited.request("/auth/register-family", {
+        ...registration,
+        username: "invited_guardian",
+        password,
+        adminName: "Invited guardian",
+        invitationToken: invite.data.invitation.token,
+      });
+      expect(result.status).to.equal(200);
+      expect(result.data.user.role).to.equal("GUARDIAN");
+      expect(result.data.workspaces[0].canManageMembers).to.equal(false);
+      expect(
+        (
+          await invited.request(
+            `/workspaces/${workspaceId}/managed-members`,
+            undefined,
+            "GET",
+          )
+        ).status,
+      ).to.equal(403);
+      expect(
+        (
+          await admin.request(
+            `/workspaces/${workspaceId}/management-permissions/${result.data.user.id}`,
+            { enabled: true },
+            "PATCH",
+          )
+        ).status,
+      ).to.equal(200);
+      const listing = await invited.request(
+        `/workspaces/${workspaceId}/managed-members`,
+        undefined,
+        "GET",
+      );
+      expect(listing.status).to.equal(200);
+      expect(listing.data.members).to.have.length(0);
+      expect(
+        (
+          await invited.request(
+            `/workspaces/${workspaceId}/managed-members/${memberId}/access`,
+            { disabled: true },
+            "PATCH",
+          )
+        ).status,
+      ).to.equal(403);
+      expect(
+        (
+          await admin.request(
+            `/workspaces/${workspaceId}/management-permissions/${result.data.user.id}`,
+            { enabled: false },
+            "PATCH",
+          )
+        ).status,
+      ).to.equal(200);
+      expect(
+        (
+          await invited.request(
+            `/workspaces/${workspaceId}/managed-members`,
+            undefined,
+            "GET",
+          )
+        ).status,
+      ).to.equal(403);
+    });
+    it("enrolls legacy credentials after explicit manager assignment and never replaces an old wallet silently", async () => {
+      const oldWallet = privateKeyToAccount(generatePrivateKey());
+      const [legacy] = await db
+        .insert(schema.users)
+        .values({
+          fullName: "Legacy member",
+          familyId: workspaceId,
+          walletAddress: oldWallet.address,
+          authMethod: "PASSKEY_EMBEDDED",
+          role: "CHILD",
+        })
+        .returning();
+      await db
+        .insert(schema.workspaceMembers)
+        .values({ userId: legacy.id, workspaceId, role: "CHILD" });
+      const identity = await admin.request("/auth/me", undefined, "GET");
+      expect(
+        (
+          await admin.request(
+            `/workspaces/${workspaceId}/managed-members/${legacy.id}/enroll`,
+            { username: "legacy_member" },
+          )
+        ).status,
+      ).to.equal(403);
+      expect(
+        (
+          await admin.request(
+            `/workspaces/${workspaceId}/managed-members/${legacy.id}/manager`,
+            { guardianId: identity.data.user.id },
+            "PATCH",
+          )
+        ).status,
+      ).to.equal(200);
+      const enrolled = await admin.request(
+        `/workspaces/${workspaceId}/managed-members/${legacy.id}/enroll`,
+        { username: "legacy_member" },
+      );
+      expect(enrolled.status).to.equal(200);
+      const browser = new Browser();
+      await browser.request("/auth/login", {
+        username: "legacy_member",
+        password: enrolled.data.credential.temporaryPassword,
+      });
+      await browser.request("/auth/change-password", {
+        currentPassword: enrolled.data.credential.temporaryPassword,
+        newPassword: password,
+      });
+      const proof = await signedChallenge(
+        browser,
+        "LINK",
+        privateKeyToAccount(generatePrivateKey()),
+      );
+      const rejected = await browser.request("/auth/wallet/link", proof);
+      expect(rejected.status).to.equal(409);
+      expect(rejected.data.code).to.equal("LEGACY_WALLET_REVIEW_REQUIRED");
+      const [unchanged] = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, legacy.id));
+      expect(unchanged.walletAddress).to.equal(oldWallet.address);
+    });
+    it("locks only one workspace and respects session revocation/logout", async () => {
+      await db.insert(schema.workspaceMembers).values({
+        workspaceId: otherWorkspaceId,
+        userId: memberId,
+        role: "ELDERLY",
+      });
+      expect(
+        (
+          await admin.request(
+            `/workspaces/${workspaceId}/managed-members/${memberId}/access`,
+            { disabled: true },
+            "PATCH",
+          )
+        ).status,
+      ).to.equal(200);
+      expect(
+        (await member.request(`/workspaces/${workspaceId}`, undefined, "GET"))
+          .status,
+      ).to.equal(403);
+      expect(
+        (
+          await member.request(
+            `/workspaces/${otherWorkspaceId}`,
+            undefined,
+            "GET",
+          )
+        ).status,
+      ).to.equal(200);
+      const list = await member.request("/auth/sessions", undefined, "GET");
+      expect(list.status).to.equal(200);
+      expect(list.data.sessions.length).to.be.greaterThan(0);
+      const current = list.data.currentSessionId;
+      expect(
+        (await member.request(`/auth/sessions/${current}`, {}, "DELETE"))
+          .status,
+      ).to.equal(200);
+      expect(
+        (await member.request("/auth/me", undefined, "GET")).status,
+      ).to.equal(401);
+      expect((await otherAdmin.request("/auth/logout", {})).status).to.equal(
+        200,
+      );
+      expect(
+        (await otherAdmin.request("/auth/me", undefined, "GET")).status,
+      ).to.equal(401);
+    });
+  },
+);
