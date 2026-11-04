@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { createWalletClient, custom } from "viem";
 import {
@@ -13,8 +14,12 @@ import {
   setTransactionWorkspace,
   setWalletUseEnabled,
   switchNetwork,
+  disconnectSessionProvider,
+  clearPrivateTransactions,
+  registerTransactionAccount,
 } from "@/lib/web3/client";
 import { avalancheFamilyL1 } from "@/contracts/config";
+import { shareReadRequest, clearReadRequests } from "@/lib/api/readRequests";
 
 export interface AuthUser {
   id: string;
@@ -39,19 +44,24 @@ export async function authRequest(
   body?: unknown,
   method = "POST",
 ) {
-  const response = await fetch(path, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    cache: "no-store",
-  });
-  const data = await response.json();
-  if (!response.ok)
-    throw Object.assign(new Error(data.error || "Không thể xử lý yêu cầu."), {
-      code: data.code,
-      status: response.status,
+  const request = async () => {
+    const response = await fetch(path, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      cache: "no-store",
     });
-  return data;
+    const data = await response.json();
+    if (!response.ok)
+      throw Object.assign(new Error(data.error || "Không thể xử lý yêu cầu."), {
+        code: data.code,
+        status: response.status,
+      });
+    return data;
+  };
+  return method.toUpperCase() === "GET" && body === undefined
+    ? shareReadRequest(path, request)
+    : request();
 }
 async function signChallenge(
   purpose: "REGISTER" | "LOGIN" | "LINK" | "REAUTH",
@@ -59,7 +69,7 @@ async function signChallenge(
   const provider = getCoreProvider();
   if (!provider)
     throw new Error(
-      "Hãy cài Core tại core.app và tạo ví cá nhân trước khi tiếp tục.",
+      "Chưa có kết nối Core. Trên máy tính hãy mở Core Extension. Kết nối Core Mobile cần WalletConnect được cấu hình cho môi trường này.",
     );
   const accounts: string[] = await provider.request({
     method: "eth_requestAccounts",
@@ -112,7 +122,23 @@ function useAuthState() {
   const [chainId, setChainId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [providerVersion, setProviderVersion] = useState(0);
+  const acceptedUserId = useRef<string | null>(null);
+  useEffect(() => {
+    const changed = () => setProviderVersion((value) => value + 1);
+    window.addEventListener("kinetix-provider-changed", changed);
+    return () =>
+      window.removeEventListener("kinetix-provider-changed", changed);
+  }, []);
   const accept = useCallback((data: any) => {
+    if (acceptedUserId.current !== (data.user?.id || null)) clearReadRequests();
+    if (acceptedUserId.current && acceptedUserId.current !== data.user?.id) {
+      clearPrivateTransactions(acceptedUserId.current);
+      setWalletUseEnabled(false);
+      void disconnectSessionProvider().catch(() => {});
+    }
+    acceptedUserId.current = data.user?.id || null;
+    if (data.user?.id) registerTransactionAccount(data.user.id);
     setUser(data.user);
     setFamily(data.family || null);
     setWorkspaces(data.workspaces || []);
@@ -122,6 +148,11 @@ function useAuthState() {
     setSessionError(null);
   }, []);
   const clear = useCallback(() => {
+    clearReadRequests();
+    if (acceptedUserId.current)
+      clearPrivateTransactions(acceptedUserId.current);
+    acceptedUserId.current = null;
+    setSessionError(null);
     setUser(null);
     setFamily(null);
     setWorkspaces([]);
@@ -130,6 +161,8 @@ function useAuthState() {
     setLinkedWallet(null);
     setConnectedAddress(null);
     setTransactionWorkspace(null);
+    setWalletUseEnabled(false);
+    void disconnectSessionProvider().catch(() => {});
     sessionStorage.clear();
     window.dispatchEvent(new Event("kinetix-session-cleared"));
   }, []);
@@ -178,7 +211,7 @@ function useAuthState() {
       provider.removeListener?.("chainChanged", chainChanged);
       provider.removeListener?.("disconnect", disconnected);
     };
-  }, [user?.id]);
+  }, [user?.id, providerVersion]);
   const finish = async (data: any) => {
     accept(data);
     window.location.assign(data.redirectUrl || "/dashboard");
@@ -235,12 +268,16 @@ function useAuthState() {
     authRequest("/api/auth/reauthenticate", await signChallenge("REAUTH"));
   const logout = async () => {
     await authRequest("/api/auth/logout", {});
+    if (user) clearPrivateTransactions(user.id);
     clear();
     window.location.assign("/login");
   };
   const connectWallet = async () => {
     const provider = getCoreProvider();
-    if (!provider) throw new Error("Hãy cài Core Wallet tại core.app.");
+    if (!provider)
+      throw new Error(
+        "Chưa có kết nối Core. Máy tính: mở Core Extension. Điện thoại: môi trường cần cấu hình WalletConnect; có thể xem dữ liệu mà không mở ví.",
+      );
     setWalletUseEnabled(true);
     const accounts = await provider.request({ method: "eth_requestAccounts" });
     setConnectedAddress(accounts[0] || null);

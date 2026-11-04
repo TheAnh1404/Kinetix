@@ -67,7 +67,8 @@ async function proxy(
     const response = new NextResponse(upstream.body, {
       status: upstream.status,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": upstream.headers.get("content-type") || "application/json",
+        "X-Content-Type-Options": "nosniff",
         "Cache-Control": "no-store",
       },
     });

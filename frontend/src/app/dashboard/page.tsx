@@ -1,147 +1,204 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { ActiveTab } from "@/types";
+import React, { Suspense, useEffect, useRef } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ActiveTab, RoleType } from "@/types";
 import { AppShell } from "@/components/layout/AppShell";
-import { ElderlyView } from "@/components/views/ElderlyView";
 import { GuardianView } from "@/components/views/GuardianView";
-import { KidsView } from "@/components/views/KidsView";
 import { RoscaView } from "@/components/views/RoscaView";
 import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { AccountStatus } from "@/components/auth/AccountStatus";
+import { MemberResponsiveShell } from "@/components/layout/MemberResponsiveShell";
+import { ElderlyPortal } from "@/components/member/ElderlyPortal";
+import { KidsPortal } from "@/components/member/KidsPortal";
+import { memberHome } from "@/lib/member";
 
-const VALID_FUNCTIONAL_TABS: ActiveTab[] = [
-  "quan-tri-cha-me",
-  "kinetix-shield",
-  "kinetix-kids",
-  "quy-rosca",
-];
-
+const tabRoutes: Record<string, string> = {
+  "quan-tri-cha-me": "/dashboard/guardian",
+  "kinetix-shield": "/dashboard/elderly",
+  "kinetix-kids": "/dashboard/kids",
+  "quy-rosca": "/dashboard/rosca",
+};
 function DashboardContent() {
-  const searchParams = useSearchParams();
+  const auth = useAuth();
+  const family = useFamily();
   const router = useRouter();
-  const tabQuery = searchParams.get("tab") as ActiveTab | null;
-
-  const { user, isAuthenticated, isLoading, onboarding } = useAuth();
-  const { currentMember, setCurrentMember, members } = useFamily();
-
-  // Xác định tab chính xác tương ứng với vai trò đăng nhập
-  const getTabForUserRole = (): ActiveTab => {
-    const role =
-      currentMember.id === user?.id ? currentMember.role : user?.role;
-    if (role === "ELDERLY") return "kinetix-shield";
-    if (role === "CHILD") return "kinetix-kids";
-    if (role === "GUARDIAN") return "quan-tri-cha-me";
-    if (tabQuery && VALID_FUNCTIONAL_TABS.includes(tabQuery)) {
-      return tabQuery;
-    }
-    return "quan-tri-cha-me";
-  };
-
-  const [activeTab, setActiveTab] = useState<ActiveTab>(getTabForUserRole);
-
-  // Bảo vệ Auth Guard: Chưa đăng nhập sẽ chuyển hướng sang /login
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const membership = auth.workspaces.find(
+    (item) => item.id === family.currentWorkspace?.id,
+  );
+  const role = membership?.role as RoleType | undefined;
+  const admin = role === "ADMIN" || role === "GUARDIAN";
+  const group = pathname.split("/")[2];
+  const previousWorkspace = useRef(family.currentWorkspace?.id);
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      const returnUrl = tabQuery ? `/dashboard?tab=${tabQuery}` : "/dashboard";
-      router.replace(`/login?from=${encodeURIComponent(returnUrl)}`);
-    }
-    if (!isLoading && isAuthenticated && onboarding !== "READY")
-      router.replace("/activate");
-  }, [isLoading, isAuthenticated, onboarding, router, tabQuery]);
-
-  // Đồng bộ vai trò người dùng vào FamilyContext để các hook contract lấy đúng địa chỉ ví
-  useEffect(() => {
-    if (user && members.length > 0) {
-      const matched = members.find((member) => member.id === user.id);
-      if (matched && matched.id !== currentMember?.id) {
-        setCurrentMember(matched);
-      }
-    }
-  }, [user, members, currentMember, setCurrentMember]);
-
-  // Khóa phân luồng theo vai trò: Thành viên thường không bị chuyển sang tab admin
-  useEffect(() => {
-    if (user) {
-      const role =
-        currentMember.id === user.id ? currentMember.role : user.role;
-      if (role === "ELDERLY" && activeTab !== "kinetix-shield") {
-        setActiveTab("kinetix-shield");
-      } else if (role === "CHILD" && activeTab !== "kinetix-kids") {
-        setActiveTab("kinetix-kids");
-      } else if (
-        ["ADMIN", "GUARDIAN"].includes(role) &&
-        tabQuery &&
-        VALID_FUNCTIONAL_TABS.includes(tabQuery)
-      ) {
-        if (tabQuery !== activeTab) {
-          setActiveTab(tabQuery);
-        }
-      }
-    }
-  }, [user, currentMember, tabQuery, activeTab]);
-
-  // Cập nhật tab cho Admin
-  const handleTabChange = (tab: ActiveTab) => {
-    if (tab === "trang-chu") {
-      router.push("/");
+    if (auth.isLoading) return;
+    if (!auth.isAuthenticated) {
+      if (!auth.sessionError)
+        router.replace(
+          `/login?from=${encodeURIComponent(pathname + (search.toString() ? `?${search}` : ""))}`,
+        );
       return;
     }
-    setActiveTab(tab);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("tab", tab);
-      window.history.replaceState({}, "", url.toString());
+    if (auth.onboarding !== "READY") {
+      router.replace("/activate");
+      return;
     }
-  };
-
-  // Màn hình chờ xác thực phiên đăng nhập an toàn
-  if (isLoading || !isAuthenticated || onboarding !== "READY") {
+    if (!role) return;
+    const switched =
+      previousWorkspace.current &&
+      previousWorkspace.current !== family.currentWorkspace?.id;
+    previousWorkspace.current = family.currentWorkspace?.id;
+    if (
+      switched ||
+      (!admin && group !== (role === "ELDERLY" ? "elderly" : "kids"))
+    ) {
+      router.replace(memberHome(role));
+      return;
+    }
+    if (!group) {
+      router.replace(
+        (admin && tabRoutes[search.get("tab") || ""]) || memberHome(role),
+      );
+      return;
+    }
+    const aliases: Record<string, string> = {
+      shield: "elderly",
+      chores: "kids/chores",
+      chore: "kids/chores",
+      hui: "rosca",
+      admin: "guardian",
+    };
+    if (aliases[group]) router.replace(`/dashboard/${aliases[group]}`);
+    else if (!["elderly", "kids", "guardian", "rosca"].includes(group))
+      router.replace(memberHome(role));
+  }, [
+    auth.isLoading,
+    auth.isAuthenticated,
+    auth.onboarding,
+    auth.sessionError,
+    role,
+    admin,
+    group,
+    pathname,
+    search,
+    family.currentWorkspace?.id,
+    router,
+  ]);
+  if (auth.sessionError && !auth.user)
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-          <div className="text-center">
-            <h2 className="text-base font-bold text-white tracking-wide">
-              Kinetix Family Vault OS
-            </h2>
-            <p className="text-xs text-slate-400 font-mono mt-1">
-              Đang xác thực và phân luồng giao diện gia đình...
-            </p>
-          </div>
-        </div>
+      <div className="member-startup">
+        <h1>Chưa kiểm tra được phiên đăng nhập</h1>
+        <p role="alert">{auth.sessionError}</p>
+        <button
+          className="member-primary"
+          onClick={() => void auth.checkSession()}
+        >
+          Kiểm tra lại
+        </button>
       </div>
     );
-  }
-
-  // KHÔNG GIAN ỨNG DỤNG ĐÃ PHÂN LUỒNG HOÀN TOÀN
-  return (
-    <AppShell activeTab={activeTab} onTabChange={handleTabChange}>
+  if (auth.isLoading || !auth.isAuthenticated || auth.onboarding !== "READY")
+    return <Loading />;
+  if (!family.currentWorkspace || !role)
+    return (
+      <div className="member-startup">
+        <h1>Chưa có không gian đang hoạt động</h1>
+        <p>Liên hệ quản trị gia đình để kiểm tra quyền thành viên.</p>
+        <button
+          className="member-secondary"
+          onClick={() => void auth.checkSession()}
+        >
+          Kiểm tra lại
+        </button>
+        <button className="member-secondary" onClick={() => void auth.logout()}>
+          Đăng xuất
+        </button>
+      </div>
+    );
+  // Membership của workspace quyết định quyền, không dùng vai trò toàn cục hoặc nút preview.
+  if (!group || (!admin && group !== (role === "ELDERLY" ? "elderly" : "kids")))
+    return <Loading />;
+  const notices = (
+    <>
       <AccountStatus />
-      {activeTab === "quan-tri-cha-me" && <GuardianView />}
-      {activeTab === "kinetix-shield" && <ElderlyView />}
-      {activeTab === "kinetix-kids" && <KidsView />}
-      {activeTab === "quy-rosca" && <RoscaView currentMember={currentMember} />}
+      {family.dataErrors.length > 0 && (
+        <div className="member-error" role="alert">
+          <p>Một số dữ liệu chưa cập nhật. Kiểm tra lại trước khi giao dịch.</p>
+          <ul>
+            {family.dataErrors.map((error) => (
+              <li key={error}>{error}</li>
+            ))}
+          </ul>
+          <button
+            className="member-secondary"
+            disabled={family.isDataLoading}
+            onClick={() => void family.refreshBalances()}
+          >
+            Tải lại dữ liệu
+          </button>
+        </div>
+      )}
+    </>
+  );
+  const memberView =
+    group === "elderly" ? (
+      <ElderlyPortal preview={admin} />
+    ) : (
+      <KidsPortal preview={admin} />
+    );
+  if (!admin)
+    return (
+      <MemberResponsiveShell elderly={role === "ELDERLY"}>
+        <div key={`${auth.user?.id}:${family.currentWorkspace.id}`}>
+          {notices}
+          {memberView}
+        </div>
+      </MemberResponsiveShell>
+    );
+  const activeTab: ActiveTab =
+    group === "elderly"
+      ? "kinetix-shield"
+      : group === "kids"
+        ? "kinetix-kids"
+        : group === "rosca"
+          ? "quy-rosca"
+          : "quan-tri-cha-me";
+  return (
+    <AppShell
+      activeTab={activeTab}
+      onTabChange={(tab) =>
+        router.push(tabRoutes[tab] || "/dashboard/guardian")
+      }
+    >
+      {notices}
+      {activeTab === "quan-tri-cha-me" ? (
+        <GuardianView />
+      ) : activeTab === "quy-rosca" ? (
+        <RoscaView currentMember={family.currentMember} />
+      ) : (
+        <div
+          className={`member-preview ${group === "elderly" ? "elderly-theme" : "kids-theme"}`}
+        >
+          {memberView}
+        </div>
+      )}
     </AppShell>
   );
 }
-
+function Loading() {
+  return (
+    <div className="member-startup" role="status">
+      <span className="member-loader" />
+      <p>Đang mở không gian gia đình…</p>
+    </div>
+  );
+}
 export default function DashboardPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-xs font-mono font-bold text-slate-400">
-              Đang khởi tạo không gian Kinetix...
-            </span>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<Loading />}>
       <DashboardContent />
     </Suspense>
   );

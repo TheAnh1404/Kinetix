@@ -19,9 +19,37 @@ declare global {
     avalanche?: any;
   }
 }
+let sessionProvider: any | null = null;
+// Adapter EIP-1193 cho session mobile; tích hợp SDK gọi hàm này sau khi pairing hợp lệ.
+export function registerSessionProvider(provider: any) {
+  sessionProvider = provider;
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new Event("kinetix-provider-changed"));
+}
+export async function disconnectSessionProvider() {
+  const provider = sessionProvider;
+  sessionProvider = null;
+  await provider?.disconnect?.();
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new Event("kinetix-provider-changed"));
+}
+export function clearPrivateTransactions(userId: string) {
+  clearedAccountIds.add(userId);
+  transactionMemory.delete(userId);
+  try {
+    localStorage.removeItem(`kinetix-pending:${userId}`);
+  } catch {
+    /* không có storage */
+  }
+}
+const clearedAccountIds = new Set<string>();
+export function registerTransactionAccount(userId: string) {
+  clearedAccountIds.delete(userId);
+}
 export function getCoreProvider(): any | null {
   if (typeof window === "undefined") return null;
   return (
+    sessionProvider ||
     window.avalanche ||
     (window.ethereum?.isAvalanche
       ? window.ethereum
@@ -41,6 +69,7 @@ export const publicClientFuji: PublicClient = createPublicClient({
 });
 let transactionWorkspace: string | null = null;
 let walletUseEnabled = true;
+const activeWrites = new Set<string>();
 export const setTransactionWorkspace = (id: string | null) => {
   transactionWorkspace = id;
 };
@@ -59,33 +88,49 @@ export interface PendingTransaction {
     status: "PENDING" | "DONE" | "BLOCKED";
   };
 }
+const transactionMemory = new Map<string, PendingTransaction[]>();
 function saveTransaction(userId: string, transaction: PendingTransaction) {
+  if (clearedAccountIds.has(userId)) return;
+  const records = [
+    transaction,
+    ...pendingTransactions(userId).filter(
+      (record) => record.hash !== transaction.hash,
+    ),
+  ].slice(0, 30);
+  transactionMemory.set(userId, records);
   try {
     const key = `kinetix-pending:${userId}`;
-    const records: PendingTransaction[] = JSON.parse(
-      localStorage.getItem(key) || "[]",
-    );
-    localStorage.setItem(
-      key,
-      JSON.stringify(
-        [
-          transaction,
-          ...records.filter((record) => record.hash !== transaction.hash),
-        ].slice(0, 30),
-      ),
-    );
-    window.dispatchEvent(new Event("kinetix-transactions-changed"));
+    localStorage.setItem(key, JSON.stringify(records));
   } catch {
     /* receipt tracking continues even when local storage is unavailable */
   }
+  window.dispatchEvent(new Event("kinetix-transactions-changed"));
 }
 export function pendingTransactions(userId: string): PendingTransaction[] {
+  if (clearedAccountIds.has(userId)) return [];
+  const valid = (items: any) =>
+    Array.isArray(items)
+      ? (items
+          .filter(
+            (item) =>
+              /^0x[0-9a-f]{64}$/i.test(item?.hash) &&
+              Date.parse(item.submittedAt) > Date.now() - 7 * 86400000,
+          )
+          .slice(0, 30) as PendingTransaction[])
+      : [];
   try {
-    return JSON.parse(
+    const parsed = JSON.parse(
       localStorage.getItem(`kinetix-pending:${userId}`) || "[]",
     );
+    const memory = valid(transactionMemory.get(userId));
+    return [
+      ...memory,
+      ...valid(parsed).filter(
+        (item) => !memory.some((record) => record.hash === item.hash),
+      ),
+    ].slice(0, 30);
   } catch {
-    return [];
+    return valid(transactionMemory.get(userId));
   }
 }
 const syncPaths = new Set([
@@ -129,6 +174,7 @@ async function syncRecord(userId: string, transaction: PendingTransaction) {
     throw new Error(
       "Giao dịch đã xác nhận, cần đồng bộ dữ liệu. Không gửi lại giao dịch.",
     );
+  window.dispatchEvent(new Event("kinetix-sync-complete"));
   return data;
 }
 export async function queueTransactionSync(
@@ -217,179 +263,211 @@ export function getWalletClient(
   const safe = {
     ...wallet,
     writeContract: async (args: any) => {
-      if (!walletUseEnabled)
-        throw new Error("Hãy kết nối lại Core để giao dịch.");
-      const { __kinetixSync: reconciliation, ...contractArgs } = args;
-      const workspaceId = transactionWorkspace;
-      if (!workspaceId)
-        throw new Error("Hãy chọn không gian trước khi giao dịch.");
-      const identity = await apiGet("/api/auth/me");
-      if (identity.onboarding !== "READY" || !identity.linkedWallet?.address)
-        throw new Error("Hãy hoàn tất kích hoạt tài khoản.");
-      const workspace = await apiGet(
-        `/api/workspaces/${encodeURIComponent(workspaceId)}`,
-      );
-      const contextUrl = `/api/workspaces/${encodeURIComponent(workspaceId)}/transaction-context?functionName=${encodeURIComponent(args.functionName)}&resourceId=${encodeURIComponent(String(args.args?.[0] ?? ""))}`;
-      await apiGet(contextUrl);
-      if (Number(workspace.hubChainId) !== hubChain.id)
+      const writeKey = `${transactionWorkspace}:${args.address}:${args.functionName}:${String(args.args?.[0] ?? "")}`;
+      if (activeWrites.has(writeKey))
         throw new Error(
-          "Cấu hình mạng chưa đồng nhất. Hãy liên hệ quản trị viên.",
+          "Thao tác này đang chờ xác nhận. Hãy kiểm tra Core và trạng thái giao dịch.",
         );
-      const hub = workspace.workspace.l1HubAddress;
-      const yieldVault = workspace.workspace.cchainVaultAddress;
-      const requested = String(args.address).toLowerCase();
-      const isHub = requested === hub?.toLowerCase();
-      if (!isHub && requested !== yieldVault?.toLowerCase())
-        throw new Error("Hợp đồng không thuộc không gian hiện tại.");
-      if ((isHub ? hubChain.id : avalancheFuji.id) !== targetChain.id)
-        throw new Error("Mạng giao dịch không khớp hợp đồng.");
-      if (
-        ["createCustomVault", "createAdvancedVault"].includes(args.functionName)
-      ) {
-        const permission = identity.workspaces.find(
-          (item: any) => item.id === workspaceId,
-        );
-        if (!["ADMIN", "GUARDIAN"].includes(permission?.role))
-          throw new Error("Bạn không có quyền tạo hũ.");
-      } else if (args.functionName !== "setAllowlistStatus") {
-        // Request/task IDs are checked by the contract simulation; vault-ID operations also require a scoped API mapping.
-        const vaultFunctions = [
-          "depositToVault",
-          "fastWithdraw",
-          "requestLargeWithdrawal",
-          "payoutRoscaRound",
-          "createChore",
-          "compoundYield",
-        ];
-        if (
-          vaultFunctions.includes(args.functionName) &&
-          !workspace.vaults.some(
-            (vault: any) =>
-              vault.onchainVaultId === Number(args.args?.[0]) &&
-              vault.onchainHub === hub?.toLowerCase() &&
-              vault.onchainChainId === hubChain.id,
-          )
-        )
-          throw new Error("Bạn chưa có quyền trên hũ đã được đối soát này.");
-      }
-      let accounts: string[] = await provider.request({
-        method: "eth_accounts",
-      });
-      if (!accounts.length)
-        accounts = await provider.request({ method: "eth_requestAccounts" });
-      const address = accounts[0];
-      if (
-        address?.toLowerCase() !== identity.linkedWallet.address.toLowerCase()
-      )
-        throw new Error(
-          "Ví đang kết nối không khớp ví đã liên kết. Hãy đổi đúng tài khoản trong Core.",
-        );
-      if (!(await switchNetwork(targetChain.id)))
-        throw new Error("Chưa chuyển được sang đúng mạng giao dịch.");
-      const publicClient = createPublicClient({
-        chain: targetChain,
-        transport: http(),
-      });
-      if ((await publicClient.getChainId()) !== targetChain.id)
-        throw new Error("RPC đang trỏ tới mạng khác.");
-      if (isHub && args.functionName !== "setAllowlistStatus") {
-        const allowed = await publicClient.readContract({
-          address: args.address,
-          abi: FAMILY_HUB_ABI,
-          functionName: "isAllowlisted",
-          args: [address],
-        } as any);
-        if (allowed !== true)
-          throw new Error(
-            "Ví chưa được cấp quyền trên FamilyHub. Hãy liên hệ người quản trị mạng hoặc người bảo hộ.",
-          );
-      }
-      if (isHub && workspace.networkAllowlistRequired) {
-        const networkRole = await publicClient.readContract({
-          address: TRANSACTION_ALLOWLIST_ADDRESS,
-          abi: TRANSACTION_ALLOWLIST_ABI,
-          functionName: "readAllowList",
-          args: [address as `0x${string}`],
-        });
-        if (networkRole === 0n)
-          throw new Error(
-            "Ví chưa có quyền gửi giao dịch trên mạng Transaction AllowList. Hãy liên hệ người quản trị mạng.",
-          );
-      }
-      const { request } = await publicClient.simulateContract({
-        ...contractArgs,
-        account: address,
-        chain: targetChain,
-      });
-      // Check again after asynchronous prompts and simulation to prevent stale account/workspace use.
-      const current = await provider.request({ method: "eth_accounts" });
-      const actualChain = Number.parseInt(
-        await provider.request({ method: "eth_chainId" }),
-        16,
-      );
-      if (
-        current[0]?.toLowerCase() !== address.toLowerCase() ||
-        actualChain !== targetChain.id ||
-        transactionWorkspace !== workspaceId ||
-        !walletUseEnabled
-      )
-        throw new Error(
-          "Ví, mạng hoặc không gian đã thay đổi. Vui lòng thử lại.",
-        );
-      const freshIdentity = await apiGet("/api/auth/me");
-      if (
-        freshIdentity.user.id !== identity.user.id ||
-        freshIdentity.onboarding !== "READY"
-      )
-        throw new Error("Phiên tài khoản đã thay đổi.");
-      // Recheck workspace access after wallet prompts, including application-level suspension.
-      await apiGet(`/api/workspaces/${encodeURIComponent(workspaceId)}`);
-      await apiGet(contextUrl);
-      const hash = await wallet.writeContract({
-        ...request,
-        account: address as `0x${string}`,
-        chain: targetChain,
-      } as any);
-      const transaction: PendingTransaction = {
-        hash,
-        chainId: targetChain.id,
-        submittedAt: new Date().toISOString(),
-        status: "PENDING",
-        ...(reconciliation && syncPaths.has(reconciliation.path)
-          ? {
-              sync: {
-                path: reconciliation.path,
-                body: { ...reconciliation.body, txHash: hash },
-                method: reconciliation.method || "POST",
-                status: "PENDING" as const,
-              },
-            }
-          : {}),
-      };
-      saveTransaction(identity.user.id, transaction);
+      activeWrites.add(writeKey);
       try {
-        const receipt = await publicClient.waitForTransactionReceipt({
-          hash,
-          confirmations: 1,
-          timeout: 120000,
-        });
-        saveTransaction(identity.user.id, {
-          ...transaction,
-          status: receipt.status === "success" ? "CONFIRMED" : "REVERTED",
-        });
-        if (receipt.status !== "success")
-          throw new Error(`Giao dịch đã bị revert: ${hash}`);
-        return hash;
-      } catch (error: any) {
+        if (!walletUseEnabled)
+          throw new Error("Hãy kết nối lại Core để giao dịch.");
+        const { __kinetixSync: reconciliation, ...contractArgs } = args;
+        const workspaceId = transactionWorkspace;
+        if (!workspaceId)
+          throw new Error("Hãy chọn không gian trước khi giao dịch.");
+        const identity = await apiGet("/api/auth/me");
+        if (identity.onboarding !== "READY" || !identity.linkedWallet?.address)
+          throw new Error("Hãy hoàn tất kích hoạt tài khoản.");
+        if (reconciliation) {
+          const unresolved = pendingTransactions(identity.user.id).find(
+            (item) =>
+              item.status !== "REVERTED" &&
+              (item.status === "PENDING" ||
+                (item.sync && item.sync.status !== "DONE")) &&
+              item.sync?.path === reconciliation.path &&
+              Object.entries(reconciliation.body)
+                .filter(([key]) => key !== "attachmentId")
+                .every(
+                  ([key, value]) =>
+                    (item.sync?.body as Record<string, unknown>)?.[key] ===
+                    value,
+                ),
+          );
+          if (unresolved)
+            throw new Error(
+              `Giao dịch ${unresolved.hash} đang chờ xác nhận hoặc cập nhật. Không gửi lại giao dịch.`,
+            );
+        }
+        const workspace = await apiGet(
+          `/api/workspaces/${encodeURIComponent(workspaceId)}`,
+        );
+        const contextUrl = `/api/workspaces/${encodeURIComponent(workspaceId)}/transaction-context?functionName=${encodeURIComponent(args.functionName)}&resourceId=${encodeURIComponent(String(args.args?.[0] ?? ""))}`;
+        await apiGet(contextUrl);
+        if (Number(workspace.hubChainId) !== hubChain.id)
+          throw new Error(
+            "Cấu hình mạng chưa đồng nhất. Hãy liên hệ quản trị viên.",
+          );
+        const hub = workspace.workspace.l1HubAddress;
+        const yieldVault = workspace.workspace.cchainVaultAddress;
+        const requested = String(args.address).toLowerCase();
+        const isHub = requested === hub?.toLowerCase();
+        if (!isHub && requested !== yieldVault?.toLowerCase())
+          throw new Error("Hợp đồng không thuộc không gian hiện tại.");
+        if ((isHub ? hubChain.id : avalancheFuji.id) !== targetChain.id)
+          throw new Error("Mạng giao dịch không khớp hợp đồng.");
         if (
-          pendingTransactions(identity.user.id).find(
-            (item) => item.hash === hash,
-          )?.status === "PENDING"
+          ["createCustomVault", "createAdvancedVault"].includes(
+            args.functionName,
+          )
+        ) {
+          const permission = identity.workspaces.find(
+            (item: any) => item.id === workspaceId,
+          );
+          if (!["ADMIN", "GUARDIAN"].includes(permission?.role))
+            throw new Error("Bạn không có quyền tạo hũ.");
+        } else if (args.functionName !== "setAllowlistStatus") {
+          // Request/task IDs are checked by the contract simulation; vault-ID operations also require a scoped API mapping.
+          const vaultFunctions = [
+            "depositToVault",
+            "fastWithdraw",
+            "requestLargeWithdrawal",
+            "payoutRoscaRound",
+            "createChore",
+            "compoundYield",
+          ];
+          if (
+            vaultFunctions.includes(args.functionName) &&
+            !workspace.vaults.some(
+              (vault: any) =>
+                vault.onchainVaultId === Number(args.args?.[0]) &&
+                vault.onchainHub === hub?.toLowerCase() &&
+                vault.onchainChainId === hubChain.id,
+            )
+          )
+            throw new Error("Bạn chưa có quyền trên hũ đã được đối soát này.");
+        }
+        let accounts: string[] = await provider.request({
+          method: "eth_accounts",
+        });
+        if (!accounts.length)
+          accounts = await provider.request({ method: "eth_requestAccounts" });
+        const address = accounts[0];
+        if (
+          address?.toLowerCase() !== identity.linkedWallet.address.toLowerCase()
         )
           throw new Error(
-            `Giao dịch đang chờ xác nhận: ${hash}. Bạn có thể theo dõi trong trạng thái giao dịch.`,
+            "Ví đang kết nối không khớp ví đã liên kết. Hãy đổi đúng tài khoản trong Core.",
           );
-        throw error;
+        if (!(await switchNetwork(targetChain.id)))
+          throw new Error("Chưa chuyển được sang đúng mạng giao dịch.");
+        const publicClient = createPublicClient({
+          chain: targetChain,
+          transport: http(),
+        });
+        if ((await publicClient.getChainId()) !== targetChain.id)
+          throw new Error("RPC đang trỏ tới mạng khác.");
+        if (isHub && args.functionName !== "setAllowlistStatus") {
+          const allowed = await publicClient.readContract({
+            address: args.address,
+            abi: FAMILY_HUB_ABI,
+            functionName: "isAllowlisted",
+            args: [address],
+          } as any);
+          if (allowed !== true)
+            throw new Error(
+              "Ví chưa được cấp quyền trên FamilyHub. Hãy liên hệ người quản trị mạng hoặc người bảo hộ.",
+            );
+        }
+        if (isHub && workspace.networkAllowlistRequired) {
+          const networkRole = await publicClient.readContract({
+            address: TRANSACTION_ALLOWLIST_ADDRESS,
+            abi: TRANSACTION_ALLOWLIST_ABI,
+            functionName: "readAllowList",
+            args: [address as `0x${string}`],
+          });
+          if (networkRole === 0n)
+            throw new Error(
+              "Ví chưa có quyền gửi giao dịch trên mạng Transaction AllowList. Hãy liên hệ người quản trị mạng.",
+            );
+        }
+        const { request } = await publicClient.simulateContract({
+          ...contractArgs,
+          account: address,
+          chain: targetChain,
+        });
+        // Check again after asynchronous prompts and simulation to prevent stale account/workspace use.
+        const current = await provider.request({ method: "eth_accounts" });
+        const actualChain = Number.parseInt(
+          await provider.request({ method: "eth_chainId" }),
+          16,
+        );
+        if (
+          current[0]?.toLowerCase() !== address.toLowerCase() ||
+          actualChain !== targetChain.id ||
+          transactionWorkspace !== workspaceId ||
+          !walletUseEnabled
+        )
+          throw new Error(
+            "Ví, mạng hoặc không gian đã thay đổi. Vui lòng thử lại.",
+          );
+        const freshIdentity = await apiGet("/api/auth/me");
+        if (
+          freshIdentity.user.id !== identity.user.id ||
+          freshIdentity.onboarding !== "READY"
+        )
+          throw new Error("Phiên tài khoản đã thay đổi.");
+        // Recheck workspace access after wallet prompts, including application-level suspension.
+        await apiGet(`/api/workspaces/${encodeURIComponent(workspaceId)}`);
+        await apiGet(contextUrl);
+        const hash = await wallet.writeContract({
+          ...request,
+          account: address as `0x${string}`,
+          chain: targetChain,
+        } as any);
+        const transaction: PendingTransaction = {
+          hash,
+          chainId: targetChain.id,
+          submittedAt: new Date().toISOString(),
+          status: "PENDING",
+          ...(reconciliation && syncPaths.has(reconciliation.path)
+            ? {
+                sync: {
+                  path: reconciliation.path,
+                  body: { ...reconciliation.body, txHash: hash },
+                  method: reconciliation.method || "POST",
+                  status: "PENDING" as const,
+                },
+              }
+            : {}),
+        };
+        saveTransaction(identity.user.id, transaction);
+        try {
+          const receipt = await publicClient.waitForTransactionReceipt({
+            hash,
+            confirmations: 1,
+            timeout: 120000,
+          });
+          saveTransaction(identity.user.id, {
+            ...transaction,
+            status: receipt.status === "success" ? "CONFIRMED" : "REVERTED",
+          });
+          if (receipt.status !== "success")
+            throw new Error(`Giao dịch đã bị revert: ${hash}`);
+          return hash;
+        } catch (error: any) {
+          if (
+            pendingTransactions(identity.user.id).find(
+              (item) => item.hash === hash,
+            )?.status === "PENDING"
+          )
+            throw new Error(
+              `Giao dịch đang chờ xác nhận: ${hash}. Bạn có thể theo dõi trong trạng thái giao dịch.`,
+            );
+          throw error;
+        }
+      } finally {
+        activeWrites.delete(writeKey);
       }
     },
   };

@@ -10,7 +10,7 @@ import { WorkspaceSwitcher } from "@/components/workspaces/WorkspaceSwitcher";
 import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
 import { CreateVaultModal } from "@/components/vaults/CreateVaultModal";
 import { SettingsModal } from "@/components/settings/SettingsModal";
-import { MobilePhoneContainer } from "@/components/layout/MobilePhoneContainer";
+import { MemberResponsiveShell } from "@/components/layout/MemberResponsiveShell";
 import { NotificationDropdown } from "@/components/dashboard/NotificationDropdown";
 import { TransactionLedgerModal } from "@/components/dashboard/TransactionLedgerModal";
 import { ActiveTab } from "@/types";
@@ -54,36 +54,10 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   const userRole =
-    (currentMember.id === user?.id ? currentMember.role : user?.role) ||
-    "CHILD";
+    currentWorkspace?.role || currentWorkspace?.userRole || "CHILD";
   const isAdmin = userRole === "ADMIN" || userRole === "GUARDIAN";
 
   // Thông tin hiển thị cho từng vai diễn thành viên
-  const memberRoleDetails: Record<
-    string,
-    { label: string; badge: string; icon: string }
-  > = {
-    ELDERLY: {
-      label: language === "vi" ? "Hũ An Sinh Ông Bà" : "Grandparent Shield",
-      badge: "0 Gas Fee",
-      icon: "shield",
-    },
-    CHILD: {
-      label: language === "vi" ? "Heo Đất Bé Na" : "Kids Piggy Bank",
-      badge: "Chore-to-Earn",
-      icon: "savings",
-    },
-    GUARDIAN: {
-      label: language === "vi" ? "Quỹ Họ Hụi Anh Cả" : "ROSCA Pool",
-      badge: "8% APY C-Chain",
-      icon: "groups",
-    },
-  };
-
-  const currentRoleInfo =
-    memberRoleDetails[userRole] || memberRoleDetails.ELDERLY;
-
-  // Danh mục menu điều hướng dành cho Admin trên Laptop
   const adminSpaces = [
     {
       id: "quan-tri-cha-me" as ActiveTab,
@@ -116,95 +90,12 @@ export const AppShell: React.FC<AppShellProps> = ({
   /* PHÂN LUỒNG 1: THÀNH VIÊN GIA ĐÌNH (ÔNG BÀ, CON TRẺ, ANH CẢ) */
   /* Giao diện Smartphone tối giản, không hiển thị thanh quản trị của Admin */
   /* ========================================================================= */
-  if (!isAdmin) {
+  if (!isAdmin)
     return (
-      <div className="min-h-screen w-full flex flex-col bg-slate-950 text-slate-100 font-sans">
-        {/* Top Header Tối Giản Cho Thiết Bị Di Động */}
-        <header className="w-full bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-2.5 flex items-center justify-between z-30 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <img
-              src={
-                user?.avatarUrl ||
-                currentMember?.avatar ||
-                "https://images.unsplash.com/photo-1544717305-2782549b5136?w=150"
-              }
-              alt={user?.fullName || "Thành viên"}
-              className="w-8 h-8 rounded-full object-cover border border-slate-700"
-            />
-            <div className="flex flex-col text-left">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-white leading-tight">
-                  {user?.fullName ||
-                    currentMember?.name ||
-                    "Thành viên Gia đình"}
-                </span>
-                <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold font-mono">
-                  {userRole}
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400 font-mono">
-                {language === "vi" ? "Không gian: " : "Space: "}
-                {currentWorkspace?.workspaceCode ||
-                  familyInfo?.familyCode ||
-                  "KNTX-8888"}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpen(true)}
-              className="p-2 rounded-lg bg-slate-800 text-slate-200"
-              aria-label="Hồ sơ và bảo mật"
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                settings
-              </span>
-            </button>
-            <button
-              onClick={toggleLanguage}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-mono font-bold text-slate-300 transition-colors"
-              type="button"
-            >
-              {language === "vi" ? "🇻🇳 VI" : "🇬🇧 EN"}
-            </button>
-
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-slate-700/60 text-xs font-bold transition-all cursor-pointer"
-              title="Đổi tài khoản hoặc đăng xuất"
-              type="button"
-            >
-              <span className="material-symbols-outlined text-[15px]">
-                logout
-              </span>
-              <span className="hidden sm:inline">
-                {language === "vi" ? "Đổi Vai" : "Switch"}
-              </span>
-            </button>
-          </div>
-        </header>
-        <div className="px-3 py-2 bg-white text-slate-900">
-          <WorkspaceSwitcher />
-        </div>
-
-        {/* Khung Màn Hình Điện Thoại Tối Giản */}
-        <div className="flex-1 w-full flex items-center justify-center p-2 sm:p-6 bg-radial from-slate-900 to-slate-950 overflow-y-auto">
-          <MobilePhoneContainer
-            title={currentRoleInfo.label}
-            roleBadge={currentRoleInfo.badge}
-          >
-            {children}
-          </MobilePhoneContainer>
-        </div>
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-        />
-      </div>
+      <MemberResponsiveShell elderly={userRole === "ELDERLY"}>
+        {children}
+      </MemberResponsiveShell>
     );
-  }
 
   /* ========================================================================= */
   /* PHÂN LUỒNG 2: CHỦ GIA ĐÌNH / QUẢN TRỊ VIÊN (BỐ BA) */
@@ -213,7 +104,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   return (
     <div className="min-h-screen w-full flex flex-col bg-slate-100 text-slate-900 font-sans">
       {/* KHÔNG GIAN BÀN CHỈ HUY LAPTOP */}
-      <div className="flex-1 flex overflow-hidden h-screen">
+      <div className="flex-1 flex min-h-screen">
         {/* SIDEBAR BÊN TRÁI THU GỌN (WIDESCREEN DESKTOP) */}
         <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col shrink-0">
           {/* Header Brand */}
@@ -355,7 +246,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         </aside>
 
         {/* MAIN WIDESCREEN WORKSPACE */}
-        <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
+        <div className="flex-1 flex flex-col min-w-0">
           {/* Top Workspace Bar */}
           <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 h-14 px-4 sm:px-6 flex items-center justify-between shadow-xs">
             <div className="flex items-center gap-2">
@@ -442,6 +333,32 @@ export const AppShell: React.FC<AppShellProps> = ({
             </div>
           </header>
 
+          <nav
+            aria-label="Điều hướng quản trị trên điện thoại"
+            className="lg:hidden flex flex-wrap gap-2 p-3 bg-white border-b border-slate-200"
+          >
+            <div className="w-full">
+              <WorkspaceSwitcher />
+            </div>
+            {adminSpaces.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                onClick={() => onTabChange(item.id)}
+                aria-pressed={activeTab === item.id}
+                className="min-h-12 rounded-xl bg-slate-100 px-3 text-sm font-semibold"
+              >
+                {item.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="min-h-12 rounded-xl px-3 border"
+              onClick={() => setIsSettingsOpen(true)}
+            >
+              Cài đặt
+            </button>
+          </nav>
           {/* Content Canvas */}
           <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
             {children}

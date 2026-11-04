@@ -8,6 +8,7 @@ import React, {
   ReactNode,
 } from "react";
 import { parseEther } from "viem";
+import { parseAmount } from "@/lib/member";
 import { FamilyMember, WorkspaceItem, DynamicVaultItem } from "@/types";
 import { hubChain, avalancheFuji } from "@/contracts/config";
 import { FAMILY_HUB_ABI, FAMILY_YIELD_VAULT_ABI } from "@/contracts/abis";
@@ -29,6 +30,10 @@ export interface WithdrawalRequestItem {
   requesterName: string;
   requesterAddress: string;
   amount: number;
+  exactAmount?: string;
+  deadline?: string | null;
+  txHash?: string;
+  requesterId?: string;
   vault: string;
   reason: string;
   approvalsCount: number;
@@ -49,6 +54,8 @@ export interface ChoreItem {
   title: string;
   description?: string;
   rewardAmount: number;
+  exactRewardAmount?: string;
+  createdAt?: string;
   status: "TODO" | "SUBMITTED" | "VERIFIED" | "REWARDED";
   proofImageUrl?: string | null;
   onchainTaskId?: number;
@@ -65,6 +72,7 @@ export interface NotificationItem {
   type:
     | "ALERT_SCAM"
     | "TASK_COMPLETED"
+    | "TASK_ASSIGNED"
     | "YIELD_PAYOUT"
     | "FAST_WITHDRAW"
     | "APPROVAL_NEEDED";
@@ -91,6 +99,8 @@ interface VaultBalance {
 }
 
 interface FamilyContextType {
+  dataErrors: string[];
+  isDataLoading: boolean;
   // Workspaces & Multi-Space
   workspaces: WorkspaceItem[];
   currentWorkspace: WorkspaceItem | null;
@@ -182,7 +192,7 @@ interface FamilyContextType {
   verifyAndRewardChore: (choreId: string | number) => Promise<boolean>;
   createChore: (params: {
     title: string;
-    rewardAmount: number;
+    rewardAmount: number | string;
     childName?: string;
     childId?: string;
     vaultId?: string;
@@ -233,6 +243,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   );
   const [isLiveBackend, setIsLiveBackend] = useState(false);
   const generation = useRef(0);
+  const activeWorkspaceRef = useRef<string | null>(null);
+  const [dataErrors, setDataErrors] = useState<string[]>([]);
+  const [isDataLoading, setIsDataLoading] = useState(false);
   const familyInfo = currentWorkspace
     ? {
         id: currentWorkspace.id,
@@ -260,39 +273,67 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     setIsLiveBackend(false);
   };
   const loadWorkspaceData = async (workspaceId: string) => {
+    setIsDataLoading(true);
     const requestGeneration = ++generation.current;
-    const [roster, vaultData, withdrawalsData, choresData, notices] =
-      await Promise.all([
-        authRequest(`/api/families/${workspaceId}/members`, undefined, "GET"),
-        authRequest(`/api/vaults?workspaceId=${workspaceId}`, undefined, "GET"),
-        authRequest(`/api/withdrawals/${workspaceId}`, undefined, "GET"),
-        authRequest(`/api/chores/${workspaceId}`, undefined, "GET"),
-        authRequest(`/api/notifications/${auth.user!.id}`, undefined, "GET"),
-      ]);
+    const results = await Promise.allSettled([
+      authRequest(`/api/families/${workspaceId}/members`, undefined, "GET"),
+      authRequest(`/api/vaults?workspaceId=${workspaceId}`, undefined, "GET"),
+      authRequest(`/api/withdrawals/${workspaceId}`, undefined, "GET"),
+      authRequest(`/api/chores/${workspaceId}`, undefined, "GET"),
+      authRequest(`/api/notifications/${auth.user!.id}`, undefined, "GET"),
+    ]);
     if (requestGeneration !== generation.current) return;
-    const mappedMembers: FamilyMember[] = roster.members.map((user: any) => ({
-      id: user.id,
-      name: user.fullName,
-      role: user.role,
-      title: user.role,
-      walletAddress: user.walletAddress || "",
-      address: user.walletAddress || "",
-      avatar: user.avatarUrl || "",
-      defaultTab:
-        user.role === "ELDERLY"
-          ? "kinetix-shield"
-          : user.role === "CHILD"
-            ? "kinetix-kids"
-            : "quan-tri-cha-me",
-    }));
-    setMembers(mappedMembers);
-    setCurrentMember(
-      mappedMembers.find((member) => member.id === auth.user!.id) ||
-        emptyMember,
+    setIsDataLoading(false);
+    const labels = [
+      "Thành viên",
+      "Hũ tiền",
+      "Yêu cầu",
+      "Việc nhà",
+      "Thông báo",
+    ];
+    setDataErrors(
+      results.flatMap((result, index) =>
+        result.status === "rejected"
+          ? [
+              `${labels[index]}: ${result.reason?.message || "Chưa cập nhật được"}`,
+            ]
+          : [],
+      ),
     );
-    const mappedVaults: DynamicVaultItem[] = vaultData.vaults.map(
+    const [roster, vaultData, withdrawalsData, choresData, notices] =
+      results.map((result) =>
+        result.status === "fulfilled" ? result.value : null,
+      );
+
+    const mappedMembers: FamilyMember[] = (roster?.members || []).map(
+      (user: any) => ({
+        id: user.id,
+        name: user.fullName,
+        role: user.role,
+        title: user.role,
+        walletAddress: user.walletAddress || "",
+        address: user.walletAddress || "",
+        avatar: user.avatarUrl || "",
+        defaultTab:
+          user.role === "ELDERLY"
+            ? "kinetix-shield"
+            : user.role === "CHILD"
+              ? "kinetix-kids"
+              : "quan-tri-cha-me",
+      }),
+    );
+    if (roster) setMembers(mappedMembers);
+    if (roster)
+      setCurrentMember(
+        mappedMembers.find((member) => member.id === auth.user!.id) ||
+          emptyMember,
+      );
+    const mappedVaults: DynamicVaultItem[] = (vaultData?.vaults || []).map(
       (vault: any) => ({
         ...vault,
+        exactFastWithdrawLimit: vault.fastWithdrawLimit,
+        exactTotalBalance: vault.cachedTotalBalance,
+        exactL1Buffer: vault.cachedL1Buffer,
         onchainVaultId: Number(vault.onchainVaultId),
         bufferRatioBps: Number(vault.bufferRatioBps),
         fastWithdrawLimit: Number(vault.fastWithdrawLimit),
@@ -308,41 +349,58 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         ),
       }),
     );
-    setDynamicVaults(mappedVaults);
-    setSelectedVault(
-      (previous) =>
-        mappedVaults.find((vault) => vault.id === previous?.id) ||
-        mappedVaults[0] ||
-        null,
-    );
-    setWithdrawalRequests(
-      withdrawalsData.data.map((request: any) => ({
-        ...request,
-        amount: Number(request.amount),
-        requesterName: request.requesterName || "Thành viên",
-        requesterAddress: request.requesterAddress || "",
-        guardianSignatures: [],
-        createdAt: new Date(request.createdAt).toLocaleString("vi-VN"),
-      })),
-    );
-    setChores(
-      choresData.data.map((chore: any) => ({
-        ...chore,
-        rewardAmount: Number(chore.rewardAmount),
-      })),
-    );
-    setNotifications(
-      notices.data.filter((notice: any) => notice.familyId === workspaceId),
-    );
-    setIsLiveBackend(true);
+    if (vaultData) setDynamicVaults(mappedVaults);
+    if (vaultData)
+      setSelectedVault(
+        (previous) =>
+          mappedVaults.find((vault) => vault.id === previous?.id) ||
+          mappedVaults[0] ||
+          null,
+      );
+    if (withdrawalsData)
+      setWithdrawalRequests(
+        withdrawalsData.data.map((request: any) => ({
+          ...request,
+          exactAmount: request.amount,
+          amount: Number(request.amount),
+          requesterName: request.requesterName || "Thành viên",
+          requesterAddress: request.requesterAddress || "",
+          guardianSignatures: [],
+          createdAt: request.createdAt,
+        })),
+      );
+    if (choresData)
+      setChores(
+        choresData.data.map((chore: any) => ({
+          ...chore,
+          exactRewardAmount: chore.rewardAmount,
+          rewardAmount: Number(chore.rewardAmount),
+        })),
+      );
+    if (notices)
+      setNotifications(
+        notices.data.filter((notice: any) => notice.familyId === workspaceId),
+      );
+    setIsLiveBackend(!!vaultData);
   };
   useEffect(() => {
     if (!auth.user || auth.onboarding !== "READY") return;
+    clearWorkspace();
     setWorkspaces(auth.workspaces);
+    let savedWorkspace: string | null = null;
+    try {
+      savedWorkspace = sessionStorage.getItem(
+        `kinetix-workspace:${auth.user.id}`,
+      );
+    } catch {
+      /* không có storage */
+    }
     const first =
+      auth.workspaces.find((workspace) => workspace.id === savedWorkspace) ||
       auth.workspaces.find((workspace) => workspace.id === auth.family?.id) ||
       auth.workspaces[0];
     if (!first) return;
+    activeWorkspaceRef.current = first.id;
     setCurrentWorkspace(first);
     setTransactionWorkspace(first.id);
     void loadWorkspaceData(first.id).catch(() => {
@@ -366,6 +424,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       clearWorkspace();
       setCurrentWorkspace(null);
       setTransactionWorkspace(null);
+      activeWorkspaceRef.current = null;
+    } else {
+      const latest = auth.workspaces.find(
+        (workspace) => workspace.id === currentWorkspace.id,
+      );
+      if (
+        latest &&
+        (latest.role !== currentWorkspace.role ||
+          latest.l1HubAddress !== currentWorkspace.l1HubAddress)
+      )
+        setCurrentWorkspace(latest);
     }
   }, [auth.workspaces, auth.user, auth.onboarding, currentWorkspace]);
   const switchWorkspace = async (workspaceId: string) => {
@@ -373,8 +442,15 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     if (!target) return;
     generation.current++;
     clearWorkspace();
+    activeWorkspaceRef.current = target.id;
+    setDataErrors([]);
     setCurrentWorkspace(target);
     setTransactionWorkspace(target.id);
+    try {
+      sessionStorage.setItem(`kinetix-workspace:${auth.user!.id}`, target.id);
+    } catch {
+      /* không có storage */
+    }
     try {
       await loadWorkspaceData(target.id);
     } catch {
@@ -382,14 +458,40 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     }
   };
   const refreshBalances = async () => {
-    if (currentWorkspace) await loadWorkspaceData(currentWorkspace.id);
+    if (activeWorkspaceRef.current)
+      await loadWorkspaceData(activeWorkspaceRef.current);
   };
+  useEffect(() => {
+    if (!auth.user) {
+      generation.current++;
+      activeWorkspaceRef.current = null;
+      clearWorkspace();
+      setCurrentWorkspace(null);
+      setWorkspaces([]);
+      setIsDataLoading(false);
+    }
+  }, [auth.user?.id]);
+  useEffect(() => {
+    if (!currentWorkspace || !auth.user) return;
+    const refresh = () => {
+      if (document.visibilityState === "visible") void refreshBalances();
+    };
+    const timer = window.setInterval(refresh, 20000);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("kinetix-sync-complete", refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("kinetix-sync-complete", refresh);
+    };
+  }, [currentWorkspace?.id, auth.user?.id]);
   const createWorkspace = async (name: string, type = "FAMILY") => {
     try {
       const data = await authRequest("/api/workspaces", { name, type });
       await auth.checkSession();
       setWorkspaces((previous) => [...previous, data.workspace]);
       setCurrentWorkspace(data.workspace);
+      activeWorkspaceRef.current = data.workspace.id;
       setTransactionWorkspace(data.workspace.id);
       clearWorkspace();
       await loadWorkspaceData(data.workspace.id);
@@ -665,19 +767,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     try {
       const vault = dynamicVaults.find((item) => item.id === params.vaultId);
       const child = members.find((item) => item.id === params.childId);
-      if (
-        !vault ||
-        !child?.walletAddress ||
-        !Number.isFinite(params.rewardAmount) ||
-        params.rewardAmount <= 0
-      )
-        return false;
+      if (!vault || !child?.walletAddress) return false;
       const txHash = await write(
         "createChore",
         [
           BigInt(vault.onchainVaultId),
           params.title,
-          parseEther(params.rewardAmount.toString()),
+          parseAmount(params.rewardAmount.toString()),
           child.walletAddress,
         ],
         undefined,
@@ -700,7 +796,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   };
   const submitChoreProof = async (
     choreId: string | number,
-    proofUrl: string,
+    attachmentId: string,
   ) => {
     try {
       const chore = chores.find((item) => item.id === choreId);
@@ -712,13 +808,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         false,
         {
           path: "/api/chores/submit",
-          body: { choreId, proofImageUrl: proofUrl },
+          body: { choreId, attachmentId },
         },
       );
       await sync("/api/chores/submit", {
         choreId,
         txHash,
-        proofImageUrl: proofUrl,
+        attachmentId,
       });
       return true;
     } catch (error) {
@@ -868,6 +964,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   return (
     <FamilyContext.Provider
       value={{
+        dataErrors,
+        isDataLoading,
         workspaces,
         currentWorkspace,
         switchWorkspace,

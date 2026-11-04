@@ -92,14 +92,19 @@ export function AccountStatus() {
           <p className="flex gap-2 items-center text-xs font-bold text-amber-900">
             <Clock3 size={16} /> {pending.length} giao dịch đang chờ xác nhận
           </p>
-          {pending.map((transaction) => (
-            <p
-              key={transaction.hash}
-              className="text-[11px] text-amber-800 mt-2 break-all"
-            >
-              Mạng {transaction.chainId} · {transaction.hash}
-            </p>
-          ))}
+          <details>
+            <summary className="min-h-12 py-3 text-amber-900">
+              Chi tiết giao dịch để hỗ trợ
+            </summary>
+            {pending.map((transaction) => (
+              <p
+                key={transaction.hash}
+                className="text-[11px] text-amber-800 mt-2 break-all"
+              >
+                Mạng {transaction.chainId} · {transaction.hash}
+              </p>
+            ))}
+          </details>
           <p className="text-[11px] text-amber-800 mt-2">
             Tiếp tục theo dõi theo mã giao dịch khi đổi tài khoản hoặc ngắt
             Core. Không cần gửi lại.

@@ -70,9 +70,10 @@ export const GuardianView: React.FC = () => {
     const success = await verifyAndRewardChore(taskId);
     if (success) {
       setFeedback(
-        `🎉 ĐÃ DUYỆT BÀI VÀ THƯỞNG ${rewardAmount} AVAX CHO CON! Hợp đồng FamilyHub tự động chuyển từ Hũ MILESTONE sang heo đất của con với 0đ gas.`,
+        `Đã xác nhận duyệt và chi trả ${rewardAmount} AVAX về ví người được giao việc.`,
       );
     }
+    return success;
   };
 
   return (
