@@ -1,279 +1,582 @@
 "use client";
-
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  X,
+  Users,
+  UserPlus,
+  ShieldCheck,
+  Copy,
+  LockKeyhole,
+  Wallet,
+  LoaderCircle,
+  ArrowLeft,
+} from "lucide-react";
 import { useFamily } from "@/context/FamilyContext";
-import { useLanguage } from "@/context/LanguageContext";
+import { useAuth, authRequest } from "@/hooks/useAuth";
+import { ProvisioningConfirm } from "@/components/auth/ProvisioningConfirm";
+import { GuardianAccessPanel } from "@/components/auth/GuardianAccessPanel";
 
-interface MemberManagementModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
+type Credential = {
+  username: string;
+  temporaryPassword: string;
+  expiresAt: string;
+};
+type ManagedMember = {
+  id: string;
+  fullName: string;
+  role: "ELDERLY" | "CHILD";
+  username?: string;
+  phoneNumber?: string;
+  onboarding: string;
+  linkedWallet: string | null;
+  legacyWallet?: string | null;
+  accessDisabled: boolean;
+  guardians: string[];
+  onchainPermissions: {
+    id: string;
+    chainId: number;
+    status: string;
+    txHash: string | null;
+  }[];
+};
+export function MemberManagementModal({
   isOpen,
   onClose,
-}) => {
-  const { familyInfo, addMemberToFamily } = useFamily();
-  const { t, language } = useLanguage();
-
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const { currentWorkspace, refreshMembers, members } = useFamily();
+  const auth = useAuth();
+  const [list, setList] = useState<ManagedMember[]>([]);
+  const [tab, setTab] = useState<"list" | "create">("list");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<"ADMIN" | "GUARDIAN" | "ELDERLY" | "CHILD">("CHILD");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [pinCode, setPinCode] = useState("");
-  const [walletAddress, setWalletAddress] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-
+  const [username, setUsername] = useState("");
+  const [role, setRole] = useState<"ELDERLY" | "CHILD">("CHILD");
+  const [phone, setPhone] = useState("");
+  const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [credential, setCredential] = useState<Credential | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [activity, setActivity] = useState<
+    { action: string; createdAt: string }[] | null
+  >(null);
+  const key = useRef("");
+  const base = `/api/workspaces/${currentWorkspace?.id}/managed-members`;
+  const load = async () => {
+    if (currentWorkspace) {
+      const data = await authRequest(base, undefined, "GET");
+      setList(data.members);
+    }
+  };
+  useEffect(() => {
+    if (!isOpen) {
+      setCredential(null);
+      setError("");
+      setNotice("");
+      setActivity(null);
+      return;
+    }
+    setList([]);
+    setBusy(true);
+    load()
+      .catch((err) => setError(err.message))
+      .finally(() => setBusy(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, currentWorkspace?.id]);
   if (!isOpen) return null;
-
-  const handleCopyCode = () => {
-    if (familyInfo?.familyCode) {
-      navigator.clipboard.writeText(familyInfo.familyCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
     }
   };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    if (!fullName.trim()) {
-      setErrorMessage(language === "vi" ? "Vui lòng nhập họ và tên." : "Please enter full name.");
-      return;
-    }
-
-    if (pinCode && pinCode.length < 4) {
-      setErrorMessage(language === "vi" ? "Mã PIN phải từ 4-6 số." : "PIN must be 4-6 digits.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    const result = await addMemberToFamily({
-      fullName: fullName.trim(),
-      role,
-      phoneNumber: phoneNumber.trim() || undefined,
-      pinCode: pinCode.trim() || undefined,
-      walletAddress: walletAddress.trim() || undefined,
+  const create = async () => {
+    key.current ||= crypto.randomUUID();
+    const response = await fetch(base, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": key.current,
+      },
+      body: JSON.stringify({
+        fullName,
+        username,
+        role,
+        phoneNumber: phone || undefined,
+        temporaryPassword: temporaryPassword || undefined,
+      }),
     });
-    setIsSubmitting(false);
-
-    if (result.success) {
-      setSuccessMessage(
-        language === "vi"
-          ? `Đã thêm thành viên "${fullName}" thành công vào gia đình!`
-          : `Member "${fullName}" added to family successfully!`
-      );
-      setTimeout(() => {
-        onClose();
-        setSuccessMessage(null);
-        setFullName("");
-        setPhoneNumber("");
-        setPinCode("");
-        setWalletAddress("");
-      }, 1500);
-    } else {
-      setErrorMessage(result.error || (language === "vi" ? "Lỗi thêm thành viên" : "Failed to add member"));
-    }
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Không thể tạo tài khoản.");
+    setCredential(data.credential || null);
+    setNotice(
+      data.replayed
+        ? "Yêu cầu trước đã tạo tài khoản. Bí mật chỉ được hiển thị một lần; cấp lại mật khẩu nếu chưa bàn giao."
+        : "Tài khoản đã được tạo. Bàn giao trực tiếp credential bên dưới.",
+    );
+    key.current = "";
+    setFullName("");
+    setUsername("");
+    setPhone("");
+    setTemporaryPassword("");
+    setTab("list");
+    await load();
+    await refreshMembers();
   };
-
+  const access = async (member: ManagedMember) => {
+    await authRequest(
+      `${base}/${member.id}/access`,
+      { disabled: !member.accessDisabled },
+      "PATCH",
+    );
+    await load();
+    await refreshMembers();
+    setNotice(
+      "Đã cập nhật quyền truy cập ứng dụng của không gian này. Quyền blockchain được quản lý riêng.",
+    );
+  };
+  const reset = async (member: ManagedMember) => {
+    const legacy = member.onboarding === "CREDENTIAL_REQUIRED";
+    const username = legacy
+      ? window.prompt("Tên đăng nhập mới cho tài khoản cũ (3–50 ký tự)")
+      : null;
+    if (legacy && !username) return;
+    await auth.reauthenticate();
+    if (legacy && !member.guardians.includes(auth.user!.id))
+      await authRequest(
+        `${base}/${member.id}/manager`,
+        { guardianId: auth.user!.id },
+        "PATCH",
+      );
+    const data = await authRequest(
+      `${base}/${member.id}/${legacy ? "enroll" : "reset-password"}`,
+      legacy ? { username } : {},
+    );
+    setCredential(data.credential);
+    await load();
+    setNotice(
+      "Đã thu hồi phiên cũ và cấp mật khẩu tạm mới. Địa chỉ ví cũ được giữ nguyên và phải được xác minh riêng.",
+    );
+  };
+  const profile = async (member: ManagedMember) => {
+    const name = window.prompt("Họ tên hiển thị", member.fullName);
+    if (name === null) return;
+    const phoneNumber = window.prompt(
+      "Số điện thoại (tùy chọn)",
+      member.phoneNumber || "",
+    );
+    if (phoneNumber === null) return;
+    await authRequest(
+      `${base}/${member.id}/profile`,
+      { fullName: name, phoneNumber },
+      "PATCH",
+    );
+    await load();
+    await refreshMembers();
+  };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-surface-container-lowest max-w-lg w-full rounded-2xl p-6 shadow-2xl flex flex-col gap-4 border border-outline-variant/30">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-surface-container-low">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-[24px]">group_add</span>
-            </div>
-            <div>
-              <h3 className="font-headline-sm text-lg font-bold text-on-surface">
-                {t("dash.members.addTitle")}
-              </h3>
-              <p className="text-xs text-on-surface-variant font-medium">
-                {t("dash.members.addDesc")}
-              </p>
-            </div>
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+      onClick={() => {
+        if (!busy) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="managed-title"
+        className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-slate-100 p-6">
+          <div>
+            <span className="text-[10px] tracking-[.2em] text-red-500 font-bold">
+              GIA ĐÌNH · TÀI KHOẢN CÁ NHÂN
+            </span>
+            <h2
+              id="managed-title"
+              className="mt-2 text-2xl font-bold text-slate-900"
+            >
+              Thành viên được quản lý
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {currentWorkspace?.name}
+            </p>
           </div>
           <button
+            aria-label="Đóng"
             onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant cursor-pointer"
+            disabled={busy}
+            className="p-2 rounded-full hover:bg-slate-100"
           >
-            ✕
+            <X size={21} />
           </button>
         </div>
-
-        {/* Quick Invite Code Banner */}
-        {familyInfo?.familyCode && (
-          <div className="p-3 bg-surface-container-low rounded-xl border border-secondary/20 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-secondary text-[20px]">vpn_key</span>
-              <div className="flex flex-col">
-                <span className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider">
-                  {language === "vi" ? "Mã mời tự gia nhập" : "Family Invite Code"}
-                </span>
-                <span className="font-mono text-sm font-extrabold text-on-surface tracking-widest">
-                  {familyInfo.familyCode}
-                </span>
+        <div className="p-6">
+          <div className="flex gap-3 mb-6">
+            <button
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${tab === "list" ? "bg-slate-900 text-white" : "bg-slate-100"}`}
+              onClick={() => {
+                setTab("list");
+                setActivity(null);
+              }}
+            >
+              <Users size={17} /> Thành viên
+            </button>
+            <button
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${tab === "create" ? "bg-slate-900 text-white" : "bg-slate-100"}`}
+              onClick={() => {
+                setTab("create");
+                setActivity(null);
+              }}
+            >
+              <UserPlus size={17} /> Tạo tài khoản
+            </button>
+          </div>
+          {credential && (
+            <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+              <div className="flex items-center gap-2 text-amber-900 font-bold">
+                <LockKeyhole size={18} /> Chỉ hiển thị một lần
+              </div>
+              <p className="mt-2 text-xs text-amber-800">
+                Bàn giao trực tiếp cho thành viên. Họ phải đổi mật khẩu ở lần
+                đăng nhập đầu tiên.
+              </p>
+              <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">
+                <dt>Tên đăng nhập</dt>
+                <dd className="font-mono font-semibold break-all">
+                  {credential.username}
+                </dd>
+                <dt>Mật khẩu tạm</dt>
+                <dd className="font-mono font-semibold break-all">
+                  {credential.temporaryPassword}
+                </dd>
+                <dt>Hết hạn</dt>
+                <dd>
+                  {new Date(credential.expiresAt).toLocaleString("vi-VN")}
+                </dd>
+              </dl>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  className="flex items-center gap-2 text-xs font-bold"
+                  onClick={() =>
+                    void navigator.clipboard
+                      .writeText(
+                        `Tên đăng nhập: ${credential.username}\nMật khẩu tạm: ${credential.temporaryPassword}`,
+                      )
+                      .then(() =>
+                        setNotice(
+                          "Đã sao chép. Hãy bàn giao riêng tư và xóa clipboard sau khi sử dụng.",
+                        ),
+                      )
+                      .catch(() =>
+                        setError("Không thể sao chép. Hãy bàn giao trực tiếp."),
+                      )
+                  }
+                >
+                  <Copy size={15} /> Sao chép credential
+                </button>
+                <button
+                  className="text-xs font-bold text-amber-900 underline"
+                  onClick={() => setCredential(null)}
+                >
+                  Đã bàn giao · Ẩn thông tin
+                </button>
               </div>
             </div>
-            <button
-              onClick={handleCopyCode}
-              type="button"
-              className="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-xs font-bold text-on-surface flex items-center gap-1 cursor-pointer transition-colors"
+          )}
+          {error && (
+            <p className="auth-error mb-4" role="alert">
+              {error}
+            </p>
+          )}
+          {notice && (
+            <p
+              className="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 text-sm"
+              role="status"
             >
-              <span className="material-symbols-outlined text-[14px]">
-                {copied ? "check" : "content_copy"}
-              </span>
-              <span>{copied ? (language === "vi" ? "Đã chép" : "Copied") : (language === "vi" ? "Sao chép" : "Copy")}</span>
-            </button>
-          </div>
-        )}
-
-        {/* Status Messages */}
-        {errorMessage && (
-          <div className="p-3 bg-error-container/30 border border-error/30 rounded-xl text-xs text-error font-medium flex items-center gap-2">
-            <span className="material-symbols-outlined text-[16px]">error</span>
-            <span>{errorMessage}</span>
-          </div>
-        )}
-        {successMessage && (
-          <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-800 font-medium flex items-center gap-2">
-            <span className="material-symbols-outlined text-[16px]">check_circle</span>
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-          {/* Full Name */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-on-surface">
-              {language === "vi" ? "Họ và Tên Thành Viên *" : "Member Full Name *"}
-            </label>
-            <input
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder={language === "vi" ? "VD: Bé Na hoặc Ông Nội" : "e.g. Baby Na or Grandfather"}
-              className="px-3.5 py-2.5 bg-surface-container-low rounded-xl border border-outline-variant/30 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary-container"
-              required
-            />
-          </div>
-
-          {/* Role Selection */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-on-surface">
-              {language === "vi" ? "Vai Trò Gia Đình *" : "Family Role *"}
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { id: "CHILD", labelVi: "Con Nhỏ (Chore-to-Earn)", labelEn: "Child (Chores & Save)", icon: "savings" },
-                { id: "ELDERLY", labelVi: "Ông / Bà (Kinetix Shield)", labelEn: "Elderly (Anti-Scam)", icon: "elderly" },
-                { id: "GUARDIAN", labelVi: "Người Bảo Hộ (2/3 Multisig)", labelEn: "Guardian (Multisig)", icon: "security" },
-                { id: "ADMIN", labelVi: "Quản Trị Viên (Bố/Mẹ)", labelEn: "Administrator (Parent)", icon: "admin_panel_settings" },
-              ].map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => setRole(r.id as any)}
-                  className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
-                    role === r.id
-                      ? "bg-secondary-container/15 border-secondary text-on-surface font-bold ring-1 ring-secondary"
-                      : "bg-surface-container-low border-outline-variant/30 text-on-surface-variant hover:bg-surface-container"
-                  }`}
+              {notice}
+            </p>
+          )}
+          {tab === "create" ? (
+            <form
+              className="auth-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void run(create);
+              }}
+            >
+              <div className="grid sm:grid-cols-2 gap-4">
+                <label className="auth-label">
+                  Họ tên thành viên
+                  <input
+                    required
+                    maxLength={100}
+                    autoComplete="off"
+                    value={fullName}
+                    onChange={(event) => {
+                      setFullName(event.target.value);
+                      key.current = "";
+                    }}
+                  />
+                </label>
+                <label className="auth-label">
+                  Tên đăng nhập
+                  <input
+                    required
+                    minLength={3}
+                    maxLength={50}
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    value={username}
+                    onChange={(event) => {
+                      setUsername(event.target.value);
+                      key.current = "";
+                    }}
+                  />
+                </label>
+                <label className="auth-label">
+                  Thế hệ
+                  <select
+                    value={role}
+                    onChange={(event) =>
+                      setRole(event.target.value as "ELDERLY" | "CHILD")
+                    }
+                  >
+                    <option value="CHILD">Trẻ nhỏ</option>
+                    <option value="ELDERLY">Người cao tuổi</option>
+                  </select>
+                </label>
+                <label className="auth-label">
+                  Số điện thoại · tùy chọn
+                  <input
+                    type="tel"
+                    maxLength={30}
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                  />
+                </label>
+              </div>
+              <label className="auth-label">
+                Mật khẩu tạm · để trống để tạo tự động
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={12}
+                  maxLength={128}
+                  value={temporaryPassword}
+                  onChange={(event) => setTemporaryPassword(event.target.value)}
+                />
+              </label>
+              <div className="auth-info !my-0">
+                <ShieldCheck size={23} />
+                <p>
+                  Tài khoản chưa có ví. Thành viên sẽ đổi mật khẩu, kết nối Core
+                  cá nhân và ký xác minh khi kích hoạt. Credential tạm có hạn 48
+                  giờ.
+                </p>
+              </div>
+              <button className="auth-primary" disabled={busy}>
+                {busy ? (
+                  <LoaderCircle className="animate-spin" size={20} />
+                ) : (
+                  "Tạo tài khoản & nhận credential"
+                )}
+              </button>
+            </form>
+          ) : activity ? (
+            <div>
+              <button
+                className="flex gap-2 items-center text-sm font-bold mb-4"
+                onClick={() => setActivity(null)}
+              >
+                <ArrowLeft size={16} /> Về danh sách
+              </button>
+              <ul className="space-y-3">
+                {activity.map((event, index) => (
+                  <li
+                    key={index}
+                    className="border-b border-slate-100 py-3 text-sm"
+                  >
+                    <strong>{event.action}</strong>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {new Date(event.createdAt).toLocaleString("vi-VN")}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              {!activity.length && (
+                <p className="text-sm text-slate-500">
+                  Chưa có hoạt động trong không gian này.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {busy && !list.length && (
+                <p className="text-sm text-slate-500">Đang tải…</p>
+              )}
+              {!busy && !list.length && (
+                <div className="text-center rounded-2xl border border-dashed border-slate-200 py-12">
+                  <Users className="mx-auto text-slate-300" size={36} />
+                  <h3 className="mt-3 font-bold">
+                    Bắt đầu bằng một tài khoản riêng
+                  </h3>
+                  <p className="text-sm text-slate-500 mt-2">
+                    Tạo tài khoản cho ông bà hoặc trẻ nhỏ để cùng tham gia.
+                  </p>
+                </div>
+              )}
+              {list.map((member) => (
+                <article
+                  key={member.id}
+                  className="rounded-2xl border border-slate-200 p-5"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-secondary">
-                    {r.icon}
-                  </span>
-                  <span className="text-xs">
-                    {language === "vi" ? r.labelVi : r.labelEn}
-                  </span>
-                </button>
+                  <div className="flex justify-between gap-4">
+                    <div>
+                      <h3 className="font-bold text-slate-900">
+                        {member.fullName}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {member.role === "CHILD" ? "Trẻ nhỏ" : "Người cao tuổi"}{" "}
+                        · @{member.username || "cần chuyển đổi"}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold rounded-full h-fit px-3 py-1 ${member.accessDisabled ? "bg-red-50 text-red-700" : member.onboarding === "READY" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}
+                    >
+                      {member.accessDisabled
+                        ? "Đã khóa truy cập"
+                        : member.onboarding === "READY"
+                          ? "Đã kích hoạt"
+                          : member.onboarding === "LINK_WALLET"
+                            ? "Chờ liên kết Core"
+                            : "Chờ đổi mật khẩu"}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 items-start my-4 text-xs text-slate-500">
+                    <Wallet size={15} className="flex-shrink-0" />
+                    <span className="break-all">
+                      {member.linkedWallet || "Chưa có ví đã xác minh"}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Quyền blockchain:{" "}
+                    {member.onchainPermissions.length
+                      ? member.onchainPermissions
+                          .map(
+                            (item) =>
+                              `Allowlist mạng ${item.chainId}: ${item.status === "CONFIRMED" ? "đã xác nhận" : "đang chờ"}`,
+                          )
+                          .join(" · ")
+                      : "chưa có xác nhận cấp quyền"}
+                    . Quyền hũ được kiểm riêng.
+                  </p>
+                  <ProvisioningConfirm
+                    workspaceId={currentWorkspace!.id}
+                    requests={member.onchainPermissions}
+                    onConfirmed={load}
+                  />
+                  <div className="flex flex-wrap gap-4 mt-4 border-t border-slate-100 pt-4 text-xs font-semibold">
+                    <button
+                      disabled={busy}
+                      onClick={() => void run(() => profile(member))}
+                    >
+                      Sửa hồ sơ
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() => void run(() => reset(member))}
+                    >
+                      Cấp lại mật khẩu · Core
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() => void run(() => access(member))}
+                      className={
+                        member.accessDisabled
+                          ? "text-emerald-700"
+                          : "text-red-600"
+                      }
+                    >
+                      {member.accessDisabled ? "Mở truy cập" : "Khóa truy cập"}
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        void run(async () => {
+                          const data = await authRequest(
+                            `${base}/${member.id}/activity`,
+                            undefined,
+                            "GET",
+                          );
+                          setActivity(data.activity);
+                        })
+                      }
+                    >
+                      Lịch sử
+                    </button>
+                    {auth.workspaces.find(
+                      (workspace) => workspace.id === currentWorkspace?.id,
+                    )?.role === "ADMIN" && (
+                      <select
+                        aria-label={`Chuyển người quản lý cho ${member.fullName}`}
+                        disabled={busy}
+                        className="bg-transparent max-w-[180px]"
+                        value=""
+                        onChange={(event) => {
+                          const guardianId = event.target.value;
+                          if (guardianId)
+                            void run(async () => {
+                              await auth.reauthenticate();
+                              await authRequest(
+                                `${base}/${member.id}/manager`,
+                                { guardianId },
+                                "PATCH",
+                              );
+                              await load();
+                              setNotice("Đã chuyển người quản lý.");
+                            });
+                        }}
+                      >
+                        <option value="">Chuyển người quản lý…</option>
+                        {members
+                          .filter(
+                            (item) =>
+                              item.role === "ADMIN" || item.role === "GUARDIAN",
+                          )
+                          .map((guardian) => (
+                            <option key={guardian.id} value={guardian.id}>
+                              {guardian.name}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </div>
+                </article>
               ))}
             </div>
-          </div>
-
-          {/* Phone Number */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-on-surface">
-                {language === "vi" ? "Số Điện Thoại (Tùy chọn)" : "Phone Number (Optional)"}
-              </label>
-              <input
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="0908889999"
-                className="px-3.5 py-2.5 bg-surface-container-low rounded-xl border border-outline-variant/30 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary-container"
-              />
-            </div>
-
-            {/* PIN Code */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-on-surface">
-                {language === "vi" ? "Mã PIN Đăng Nhập (4-6 số)" : "Login PIN (4-6 digits)"}
-              </label>
-              <input
-                type="password"
-                maxLength={6}
-                value={pinCode}
-                onChange={(e) => setPinCode(e.target.value)}
-                placeholder="123456"
-                className="px-3.5 py-2.5 bg-surface-container-low rounded-xl border border-outline-variant/30 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary-container font-mono"
-              />
-            </div>
-          </div>
-
-          {/* Optional Wallet */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-on-surface flex items-center justify-between">
-              <span>{language === "vi" ? "Địa Chỉ Ví Web3 (Nếu có)" : "Web3 Wallet (Optional)"}</span>
-              <span className="text-[10px] text-on-surface-variant font-normal">
-                {language === "vi" ? "Tự cấp nếu để trống" : "Auto-generated if empty"}
-              </span>
-            </label>
-            <input
-              type="text"
-              value={walletAddress}
-              onChange={(e) => setWalletAddress(e.target.value)}
-              placeholder="0x..."
-              className="px-3.5 py-2.5 bg-surface-container-low rounded-xl border border-outline-variant/30 text-xs font-mono text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary-container"
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-2.5 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-colors cursor-pointer"
-            >
-              {language === "vi" ? "Hủy" : "Cancel"}
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-2.5 rounded-xl bg-secondary-container hover:bg-secondary text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
-                  <span>{language === "vi" ? "Đang thêm..." : "Adding..."}</span>
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-[16px]">person_add</span>
-                  <span>{language === "vi" ? "Xác Nhận Thêm" : "Confirm Member"}</span>
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
+          )}
+          {auth.workspaces.find(
+            (workspace) => workspace.id === currentWorkspace?.id,
+          )?.role === "ADMIN" && (
+            <details className="mt-6 border-t border-slate-200 pt-5">
+              <summary className="text-sm font-bold cursor-pointer">
+                Người bảo hộ · lời mời & phân quyền
+              </summary>
+              <GuardianAccessPanel />
+            </details>
+          )}
+        </div>
+      </section>
     </div>
   );
-};
+}

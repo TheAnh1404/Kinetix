@@ -1,24 +1,35 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useFamily } from "@/context/FamilyContext";
+import { isAddress } from "viem";
 
 interface CreateVaultModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onClose }) => {
+export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
+  isOpen,
+  onClose,
+}) => {
   const { createCustomVault, members, currentMember } = useFamily();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [ruleTemplate, setRuleTemplate] = useState<"SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL">("SHIELD");
+  const [ruleTemplate, setRuleTemplate] = useState<
+    "SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL"
+  >("SHIELD");
   const [vaultName, setVaultName] = useState("");
   const [vaultDescription, setVaultDescription] = useState("");
   const [bufferRatioBps, setBufferRatioBps] = useState<number>(1000); // 1000 = 10%
   const [fastWithdrawLimit, setFastWithdrawLimit] = useState<number>(50);
-  const [requiredApprovals, setRequiredApprovals] = useState<number>(2);
-  const [selectedGuardianWallets, setSelectedGuardianWallets] = useState<string[]>([]);
+  const [requiredApprovals, setRequiredApprovals] = useState<number>(1);
+  const [selectedGuardianWallets, setSelectedGuardianWallets] = useState<
+    string[]
+  >([]);
+  const [selectedBeneficiaryWallets, setSelectedBeneficiaryWallets] = useState<
+    string[]
+  >([]);
   // Thuộc tính chuyên biệt theo quy tắc ROSCA & SHARED_GOAL
   const [targetGoalAmount, setTargetGoalAmount] = useState<number>(100);
   const [targetDeadline, setTargetDeadline] = useState<string>(() => {
@@ -26,33 +37,48 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
     d.setDate(d.getDate() + 30);
     return d.toISOString().split("T")[0];
   });
-  const [roscaRoundDuration, setRoscaRoundDuration] = useState<number>(7 * 24 * 3600); // 7 ngày
-  const [roscaRoundContribution, setRoscaRoundContribution] = useState<number>(10); // 10 AVAX
+  const [roscaRoundDuration, setRoscaRoundDuration] = useState<number>(
+    7 * 24 * 3600,
+  ); // 7 ngày
+  const [roscaRoundContribution, setRoscaRoundContribution] =
+    useState<number>(10); // 10 AVAX
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedGuardianWallets(
+        isAddress(currentMember.walletAddress)
+          ? [currentMember.walletAddress]
+          : [],
+      );
+      setSelectedBeneficiaryWallets([]);
+    }
+  }, [isOpen, currentMember.id]);
   if (!isOpen) return null;
 
-  const handleTemplateSelect = (tmpl: "SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL") => {
+  const handleTemplateSelect = (
+    tmpl: "SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL",
+  ) => {
     setRuleTemplate(tmpl);
     if (tmpl === "SHIELD") {
       setBufferRatioBps(1000); // 10% L1
       setFastWithdrawLimit(50);
-      setRequiredApprovals(2);
+      setRequiredApprovals(1);
       if (!vaultName) setVaultName("Quỹ Bảo Vệ An Sinh");
     } else if (tmpl === "MILESTONE") {
       setBufferRatioBps(2000); // 20% L1
       setFastWithdrawLimit(20);
-      setRequiredApprovals(2);
+      setRequiredApprovals(1);
       if (!vaultName) setVaultName("Quỹ Khen Thưởng & Cột Mốc");
     } else if (tmpl === "ROSCA") {
       setBufferRatioBps(0); // 0% L1, 100% C-Chain
       setFastWithdrawLimit(0);
-      setRequiredApprovals(2);
+      setRequiredApprovals(1);
       if (!vaultName) setVaultName("Hụi Họ Tương Trợ");
     } else if (tmpl === "SHARED_GOAL") {
       setBufferRatioBps(1500); // 15% L1
       setFastWithdrawLimit(100);
-      setRequiredApprovals(2);
+      setRequiredApprovals(1);
       if (!vaultName) setVaultName("Quỹ Mục Tiêu Chung");
     }
     setStep(2);
@@ -63,9 +89,14 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
     if (!vaultName.trim()) return;
 
     setIsSubmitting(true);
-    const guardians = selectedGuardianWallets.length > 0
-      ? selectedGuardianWallets
-      : members.filter((m) => m.role === "GUARDIAN" || m.role === "ADMIN").map((m) => m.walletAddress);
+    const guardians = selectedGuardianWallets;
+    if (
+      guardians.length < requiredApprovals ||
+      selectedBeneficiaryWallets.length === 0
+    ) {
+      setIsSubmitting(false);
+      return;
+    }
 
     const res = await createCustomVault({
       name: vaultName.trim(),
@@ -75,11 +106,13 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
       fastWithdrawLimit,
       requiredApprovals,
       guardianWallets: guardians,
-      beneficiaryWallets: [currentMember.walletAddress],
+      beneficiaryWallets: selectedBeneficiaryWallets,
       targetGoalAmount: ruleTemplate === "SHARED_GOAL" ? targetGoalAmount : 0,
-      targetDeadline: ruleTemplate === "SHARED_GOAL" ? targetDeadline : undefined,
+      targetDeadline:
+        ruleTemplate === "SHARED_GOAL" ? targetDeadline : undefined,
       roscaRoundDuration: ruleTemplate === "ROSCA" ? roscaRoundDuration : 0,
-      roscaRoundContribution: ruleTemplate === "ROSCA" ? roscaRoundContribution : 0,
+      roscaRoundContribution:
+        ruleTemplate === "ROSCA" ? roscaRoundContribution : 0,
     });
     setIsSubmitting(false);
 
@@ -96,15 +129,18 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-surface-container-lowest rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl border border-outline-variant/30 max-h-[90vh] overflow-y-auto">
-        
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-surface-container/60 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-              <span className="material-symbols-outlined text-[24px]">savings</span>
+              <span className="material-symbols-outlined text-[24px]">
+                savings
+              </span>
             </div>
             <div>
-              <h3 className="text-lg font-bold text-on-surface">Tạo Hũ Tiền Mới (Dynamic Vault)</h3>
+              <h3 className="text-lg font-bold text-on-surface">
+                Tạo Hũ Tiền Mới (Dynamic Vault)
+              </h3>
               <p className="text-xs text-on-surface-variant">
                 Bước {step}/3 • Tùy biến bộ quy tắc & đệm thanh khoản liên chuỗi
               </p>
@@ -138,15 +174,20 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="w-9 h-9 rounded-xl bg-error/10 text-error flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[20px]">shield</span>
+                    <span className="material-symbols-outlined text-[20px]">
+                      shield
+                    </span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container/15 text-secondary-container">
                     8% APY
                   </span>
                 </div>
-                <h4 className="text-sm font-bold text-on-surface mb-1">SHIELD (Bảo Vệ)</h4>
+                <h4 className="text-sm font-bold text-on-surface mb-1">
+                  SHIELD (Bảo Vệ)
+                </h4>
                 <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Bảo vệ người già: Rút nhỏ ≤ 50 AVAX giải ngân tức thì 0 gas; Rút lớn cần đa chữ ký 2/3.
+                  Bảo vệ người già: Rút nhỏ ≤ 50 AVAX giải ngân tức thì 0 gas;
+                  Rút lớn cần đa chữ ký 2/3.
                 </p>
               </div>
 
@@ -161,15 +202,20 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[20px]">military_tech</span>
+                    <span className="material-symbols-outlined text-[20px]">
+                      military_tech
+                    </span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container/15 text-secondary-container">
                     8% APY
                   </span>
                 </div>
-                <h4 className="text-sm font-bold text-on-surface mb-1">MILESTONE (Cột Mốc)</h4>
+                <h4 className="text-sm font-bold text-on-surface mb-1">
+                  MILESTONE (Cột Mốc)
+                </h4>
                 <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Chore-to-Earn: Gốc gửi C-Chain sinh lời; mở thưởng tự động khi người bảo hộ duyệt bài.
+                  Chore-to-Earn: Gốc gửi C-Chain sinh lời; mở thưởng tự động khi
+                  người bảo hộ duyệt bài.
                 </p>
               </div>
 
@@ -184,15 +230,20 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[20px]">cached</span>
+                    <span className="material-symbols-outlined text-[20px]">
+                      cached
+                    </span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700">
                     100% Sinh Lãi
                   </span>
                 </div>
-                <h4 className="text-sm font-bold text-on-surface mb-1">ROSCA (Hụi Xoay Vòng)</h4>
+                <h4 className="text-sm font-bold text-on-surface mb-1">
+                  ROSCA (Hụi Xoay Vòng)
+                </h4>
                 <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Góp vốn định kỳ: Vốn gom đẩy 100% sang Fuji C-Chain, đến kỳ giải ngân gốc và chia đều lãi.
+                  Góp vốn định kỳ: Vốn gom đẩy 100% sang Fuji C-Chain, đến kỳ
+                  giải ngân gốc và chia đều lãi.
                 </p>
               </div>
 
@@ -207,15 +258,20 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[20px]">flag</span>
+                    <span className="material-symbols-outlined text-[20px]">
+                      flag
+                    </span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container/15 text-secondary-container">
                     8% APY
                   </span>
                 </div>
-                <h4 className="text-sm font-bold text-on-surface mb-1">SHARED_GOAL (Mục Tiêu)</h4>
+                <h4 className="text-sm font-bold text-on-surface mb-1">
+                  SHARED_GOAL (Mục Tiêu)
+                </h4>
                 <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Góp tiền du lịch / mua sắm chung: Sinh lãi liên tục đến khi đạt target và đủ chữ ký giải ngân.
+                  Góp tiền du lịch / mua sắm chung: Sinh lãi liên tục đến khi
+                  đạt target và đủ chữ ký giải ngân.
                 </p>
               </div>
             </div>
@@ -240,7 +296,9 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
                 Tỷ Lệ Đệm Thanh Khoản Liên Chuỗi (Buffer Ratio)
               </div>
               <p className="text-xs text-on-surface-variant">
-                Cơ chế chia vốn tự động: Một phần giữ tại Family L1 để rút tức thì 0 gas, phần còn lại chuyển tiếp sang Avalanche Fuji C-Chain tích lũy 8% APY DeFi.
+                Cơ chế chia vốn tự động: Một phần giữ tại Family L1 để rút tức
+                thì 0 gas, phần còn lại chuyển tiếp sang Avalanche Fuji C-Chain
+                tích lũy 8% APY DeFi.
               </p>
             </div>
 
@@ -248,11 +306,15 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
             <div className="bg-surface-container-low p-5 rounded-2xl border border-outline-variant/20 space-y-4">
               <div className="flex justify-between items-center text-sm font-bold">
                 <span className="text-primary flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[18px]">bolt</span>
+                  <span className="material-symbols-outlined text-[18px]">
+                    bolt
+                  </span>
                   Đệm L1 (Rút Tức Thì): {bufferPercent}%
                 </span>
                 <span className="text-secondary-container flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[18px]">trending_up</span>
+                  <span className="material-symbols-outlined text-[18px]">
+                    trending_up
+                  </span>
                   DeFi C-Chain (8% APY): {yieldPercent}%
                 </span>
               </div>
@@ -263,7 +325,9 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
                 max="50"
                 step="5"
                 value={bufferPercent}
-                onChange={(e) => setBufferRatioBps(Number(e.target.value) * 100)}
+                onChange={(e) =>
+                  setBufferRatioBps(Number(e.target.value) * 100)
+                }
                 className="w-full h-2.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary"
               />
 
@@ -286,9 +350,15 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
               </div>
 
               <div className="text-[11px] text-on-surface-variant bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/15 flex items-start gap-2">
-                <span className="material-symbols-outlined text-[16px] text-primary shrink-0 mt-0.5">info</span>
+                <span className="material-symbols-outlined text-[16px] text-primary shrink-0 mt-0.5">
+                  info
+                </span>
                 <span>
-                  Ví dụ: Khi nạp 100 AVAX, hệ thống sẽ tự động chuyển <strong>{bufferPercent} AVAX</strong> vào đệm Family L1 phục vụ chi tiêu tức thì, và <strong>{yieldPercent} AVAX</strong> sang C-Chain tạo lợi nhuận ~{(yieldPercent * 0.08).toFixed(2)} AVAX/năm.
+                  Ví dụ: Khi nạp 100 AVAX, hệ thống sẽ tự động chuyển{" "}
+                  <strong>{bufferPercent} AVAX</strong> vào đệm Family L1 phục
+                  vụ chi tiêu tức thì, và <strong>{yieldPercent} AVAX</strong>{" "}
+                  sang C-Chain tạo lợi nhuận ~{(yieldPercent * 0.08).toFixed(2)}{" "}
+                  AVAX/năm.
                 </span>
               </div>
             </div>
@@ -355,7 +425,9 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
                   onChange={(e) => setFastWithdrawLimit(Number(e.target.value))}
                   className="w-full px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/30 text-xs sm:text-sm font-mono text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
-                <span className="text-[10px] text-on-surface-variant">Rút ≤ số này giải ngân tức thì 0 gas</span>
+                <span className="text-[10px] text-on-surface-variant">
+                  Rút ≤ số này giải ngân tức thì 0 gas
+                </span>
               </div>
 
               <div>
@@ -370,15 +442,96 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
                   onChange={(e) => setRequiredApprovals(Number(e.target.value))}
                   className="w-full px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/30 text-xs sm:text-sm font-mono text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
-                <span className="text-[10px] text-on-surface-variant">Số chữ ký cần để rút khoản lớn</span>
+                <span className="text-[10px] text-on-surface-variant">
+                  Số chữ ký cần để rút khoản lớn
+                </span>
               </div>
             </div>
+
+            <fieldset className="rounded-2xl border border-outline-variant/30 p-4 space-y-3">
+              <legend className="px-2 text-xs font-bold">
+                Người ký duyệt · ví đã xác minh
+              </legend>
+              {members
+                .filter(
+                  (member) =>
+                    ["ADMIN", "GUARDIAN"].includes(member.role) &&
+                    isAddress(member.walletAddress),
+                )
+                .map((member) => (
+                  <label
+                    key={member.id}
+                    className="flex items-center gap-3 text-xs"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedGuardianWallets.includes(
+                        member.walletAddress,
+                      )}
+                      onChange={(event) =>
+                        setSelectedGuardianWallets((current) =>
+                          event.target.checked
+                            ? [...current, member.walletAddress]
+                            : current.filter(
+                                (address) => address !== member.walletAddress,
+                              ),
+                        )
+                      }
+                    />
+                    {member.name}
+                  </label>
+                ))}
+              {selectedGuardianWallets.length < requiredApprovals && (
+                <p className="text-xs text-red-600">
+                  Chọn ít nhất {requiredApprovals} người ký duyệt hoặc giảm
+                  ngưỡng chữ ký.
+                </p>
+              )}
+            </fieldset>
+            <fieldset className="rounded-2xl border border-outline-variant/30 p-4 space-y-3">
+              <legend className="px-2 text-xs font-bold">
+                Người thụ hưởng · ví đã xác minh
+              </legend>
+              {members
+                .filter((member) => isAddress(member.walletAddress))
+                .map((member) => (
+                  <label
+                    key={member.id}
+                    className="flex items-center gap-3 text-xs"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedBeneficiaryWallets.includes(
+                        member.walletAddress,
+                      )}
+                      onChange={(event) =>
+                        setSelectedBeneficiaryWallets((current) =>
+                          event.target.checked
+                            ? [...current, member.walletAddress]
+                            : current.filter(
+                                (address) => address !== member.walletAddress,
+                              ),
+                        )
+                      }
+                    />
+                    {member.name}
+                  </label>
+                ))}
+              {!selectedBeneficiaryWallets.length && (
+                <p className="text-xs text-amber-700">
+                  Chọn người thụ hưởng. Thành viên chưa liên kết Core cần hoàn
+                  tất kích hoạt trước.
+                </p>
+              )}
+            </fieldset>
 
             {/* Cấu hình đặc thù cho ROSCA */}
             {ruleTemplate === "ROSCA" && (
               <div className="p-3.5 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 space-y-3">
                 <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
-                  <span className="material-symbols-outlined text-[18px]">cached</span>
+                  <span className="material-symbols-outlined text-[18px]">
+                    cached
+                  </span>
                   <span>Cấu Hình Kỳ Hụi Xoay Vòng (ROSCA Policy)</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -388,7 +541,9 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
                     </label>
                     <select
                       value={roscaRoundDuration}
-                      onChange={(e) => setRoscaRoundDuration(Number(e.target.value))}
+                      onChange={(e) =>
+                        setRoscaRoundDuration(Number(e.target.value))
+                      }
                       className="w-full px-3 py-2 rounded-xl bg-surface-container-lowest border border-outline-variant/30 text-xs text-on-surface focus:outline-none"
                     >
                       <option value={7 * 86400}>7 ngày (1 tuần)</option>
@@ -404,7 +559,9 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
                       type="number"
                       min="1"
                       value={roscaRoundContribution}
-                      onChange={(e) => setRoscaRoundContribution(Number(e.target.value))}
+                      onChange={(e) =>
+                        setRoscaRoundContribution(Number(e.target.value))
+                      }
                       className="w-full px-3 py-2 rounded-xl bg-surface-container-lowest border border-outline-variant/30 text-xs font-mono text-on-surface focus:outline-none"
                     />
                   </div>
@@ -416,7 +573,9 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
             {ruleTemplate === "SHARED_GOAL" && (
               <div className="p-3.5 bg-indigo-500/10 rounded-2xl border border-indigo-500/20 space-y-3">
                 <div className="flex items-center gap-2 text-indigo-800 font-bold text-xs">
-                  <span className="material-symbols-outlined text-[18px]">flag</span>
+                  <span className="material-symbols-outlined text-[18px]">
+                    flag
+                  </span>
                   <span>Mục Tiêu Quỹ Chung (Shared Goal Policy)</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -428,7 +587,9 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
                       type="number"
                       min="1"
                       value={targetGoalAmount}
-                      onChange={(e) => setTargetGoalAmount(Number(e.target.value))}
+                      onChange={(e) =>
+                        setTargetGoalAmount(Number(e.target.value))
+                      }
                       className="w-full px-3 py-2 rounded-xl bg-surface-container-lowest border border-outline-variant/30 text-xs font-mono text-on-surface focus:outline-none"
                       required
                     />
@@ -447,7 +608,8 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
                   </div>
                 </div>
                 <span className="text-[10px] text-on-surface-variant block">
-                  * Hũ sẽ tự động khóa giải ngân cho tới khi gom đủ số tiền mục tiêu hoặc quá hạn chót.
+                  * Hũ sẽ tự động khóa giải ngân cho tới khi gom đủ số tiền mục
+                  tiêu hoặc quá hạn chót.
                 </span>
               </div>
             )}
@@ -462,7 +624,12 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({ isOpen, onCl
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !vaultName.trim()}
+                disabled={
+                  isSubmitting ||
+                  !vaultName.trim() ||
+                  selectedGuardianWallets.length < requiredApprovals ||
+                  selectedBeneficiaryWallets.length === 0
+                }
                 className="px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-xs font-bold text-white shadow-md transition-all cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? "Đang tạo Hũ..." : "Xác nhận tạo Hũ"}

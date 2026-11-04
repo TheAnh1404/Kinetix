@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useFamily } from '@/context/FamilyContext';
-import { useAuth } from '@/hooks/useAuth';
-import { useLanguage } from '@/context/LanguageContext';
-import { WorkspaceSwitcher } from '@/components/workspaces/WorkspaceSwitcher';
-import { DepositVaultModal } from '@/components/vaults/DepositVaultModal';
-import { CreateVaultModal } from '@/components/vaults/CreateVaultModal';
-import { SettingsModal } from '@/components/settings/SettingsModal';
-import { MobilePhoneContainer } from '@/components/layout/MobilePhoneContainer';
-import { NotificationDropdown } from '@/components/dashboard/NotificationDropdown';
-import { TransactionLedgerModal } from '@/components/dashboard/TransactionLedgerModal';
-import { ActiveTab } from '@/types';
+import React, { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useFamily } from "@/context/FamilyContext";
+import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/context/LanguageContext";
+import { WorkspaceSwitcher } from "@/components/workspaces/WorkspaceSwitcher";
+import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
+import { CreateVaultModal } from "@/components/vaults/CreateVaultModal";
+import { SettingsModal } from "@/components/settings/SettingsModal";
+import { MobilePhoneContainer } from "@/components/layout/MobilePhoneContainer";
+import { NotificationDropdown } from "@/components/dashboard/NotificationDropdown";
+import { TransactionLedgerModal } from "@/components/dashboard/TransactionLedgerModal";
+import { ActiveTab } from "@/types";
 
 interface AppShellProps {
   activeTab: ActiveTab;
@@ -26,11 +26,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onTabChange,
   children,
 }) => {
-  const {
-    currentWorkspace,
-    familyInfo,
-    currentMember,
-  } = useFamily();
+  const { currentWorkspace, familyInfo, currentMember } = useFamily();
 
   const { user, logout } = useAuth();
   const { language, toggleLanguage, t } = useLanguage();
@@ -43,7 +39,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [copiedCode, setCopiedCode] = useState(false);
 
   const handleCopyCode = () => {
-    const code = currentWorkspace?.workspaceCode || familyInfo?.familyCode || 'KNTX-8888';
+    const code =
+      currentWorkspace?.workspaceCode || familyInfo?.familyCode || "KNTX-8888";
     if (code) {
       navigator.clipboard?.writeText(code);
       setCopiedCode(true);
@@ -53,58 +50,65 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   const handleLogout = async () => {
     await logout();
-    router.push('/login');
+    router.push("/login");
   };
 
-  const userRole = user?.role || currentMember?.role || 'ADMIN';
-  const isAdmin = userRole === 'ADMIN';
+  const userRole =
+    (currentMember.id === user?.id ? currentMember.role : user?.role) ||
+    "CHILD";
+  const isAdmin = userRole === "ADMIN" || userRole === "GUARDIAN";
 
   // Thông tin hiển thị cho từng vai diễn thành viên
-  const memberRoleDetails: Record<string, { label: string; badge: string; icon: string }> = {
+  const memberRoleDetails: Record<
+    string,
+    { label: string; badge: string; icon: string }
+  > = {
     ELDERLY: {
-      label: language === 'vi' ? 'Hũ An Sinh Ông Bà' : 'Grandparent Shield',
-      badge: '0 Gas Fee',
-      icon: 'shield',
+      label: language === "vi" ? "Hũ An Sinh Ông Bà" : "Grandparent Shield",
+      badge: "0 Gas Fee",
+      icon: "shield",
     },
     CHILD: {
-      label: language === 'vi' ? 'Heo Đất Bé Na' : 'Kids Piggy Bank',
-      badge: 'Chore-to-Earn',
-      icon: 'savings',
+      label: language === "vi" ? "Heo Đất Bé Na" : "Kids Piggy Bank",
+      badge: "Chore-to-Earn",
+      icon: "savings",
     },
     GUARDIAN: {
-      label: language === 'vi' ? 'Quỹ Họ Hụi Anh Cả' : 'ROSCA Pool',
-      badge: '8% APY C-Chain',
-      icon: 'groups',
+      label: language === "vi" ? "Quỹ Họ Hụi Anh Cả" : "ROSCA Pool",
+      badge: "8% APY C-Chain",
+      icon: "groups",
     },
   };
 
-  const currentRoleInfo = memberRoleDetails[userRole] || memberRoleDetails.ELDERLY;
+  const currentRoleInfo =
+    memberRoleDetails[userRole] || memberRoleDetails.ELDERLY;
 
   // Danh mục menu điều hướng dành cho Admin trên Laptop
   const adminSpaces = [
     {
-      id: 'quan-tri-cha-me' as ActiveTab,
-      label: language === 'vi' ? 'Bàn Quản Trị Trung Tâm' : 'Master Command Center',
-      icon: 'dashboard',
-      description: 'Tổng quan N Hũ, Đa chữ ký M/N & L1 Buffer',
+      id: "quan-tri-cha-me" as ActiveTab,
+      label:
+        language === "vi" ? "Bàn Quản Trị Trung Tâm" : "Master Command Center",
+      icon: "dashboard",
+      description: "Tổng quan N Hũ, Đa chữ ký M/N & L1 Buffer",
     },
     {
-      id: 'kinetix-shield' as ActiveTab,
-      label: language === 'vi' ? 'Hũ An Sinh Ông Bà' : 'Elderly Shield Vault',
-      icon: 'shield',
-      description: 'Xem trước giao diện Ông Bà (0 gas)',
+      id: "kinetix-shield" as ActiveTab,
+      label: language === "vi" ? "Hũ An Sinh Ông Bà" : "Elderly Shield Vault",
+      icon: "shield",
+      description: "Xem trước giao diện Ông Bà (0 gas)",
     },
     {
-      id: 'kinetix-kids' as ActiveTab,
-      label: language === 'vi' ? 'Heo Đất & Việc Nhà Trẻ' : 'Kids Chore Vault',
-      icon: 'savings',
-      description: 'Xem trước heo đất & thưởng việc nhà',
+      id: "kinetix-kids" as ActiveTab,
+      label: language === "vi" ? "Heo Đất & Việc Nhà Trẻ" : "Kids Chore Vault",
+      icon: "savings",
+      description: "Xem trước heo đất & thưởng việc nhà",
     },
     {
-      id: 'quy-rosca' as ActiveTab,
-      label: language === 'vi' ? 'Quỹ Họ Hụi Xoay Vòng' : 'ROSCA Savings Vault',
-      icon: 'groups',
-      description: 'Xem trước quỹ họ hụi & lãi C-Chain',
+      id: "quy-rosca" as ActiveTab,
+      label: language === "vi" ? "Quỹ Họ Hụi Xoay Vòng" : "ROSCA Savings Vault",
+      icon: "groups",
+      description: "Xem trước quỹ họ hụi & lãi C-Chain",
     },
   ];
 
@@ -115,19 +119,24 @@ export const AppShell: React.FC<AppShellProps> = ({
   if (!isAdmin) {
     return (
       <div className="min-h-screen w-full flex flex-col bg-slate-950 text-slate-100 font-sans">
-        
         {/* Top Header Tối Giản Cho Thiết Bị Di Động */}
         <header className="w-full bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-2.5 flex items-center justify-between z-30 shrink-0">
           <div className="flex items-center gap-2.5">
             <img
-              src={user?.avatarUrl || currentMember?.avatar || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=150'}
-              alt={user?.fullName || 'Thành viên'}
+              src={
+                user?.avatarUrl ||
+                currentMember?.avatar ||
+                "https://images.unsplash.com/photo-1544717305-2782549b5136?w=150"
+              }
+              alt={user?.fullName || "Thành viên"}
               className="w-8 h-8 rounded-full object-cover border border-slate-700"
             />
             <div className="flex flex-col text-left">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-white leading-tight">
-                  {user?.fullName || currentMember?.name || 'Thành viên Gia đình'}
+                  {user?.fullName ||
+                    currentMember?.name ||
+                    "Thành viên Gia đình"}
                 </span>
                 <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold font-mono">
                   {userRole}
@@ -135,18 +144,30 @@ export const AppShell: React.FC<AppShellProps> = ({
               </div>
               <span className="text-[10px] text-slate-400 font-mono">
                 {language === "vi" ? "Không gian: " : "Space: "}
-                {currentWorkspace?.workspaceCode || familyInfo?.familyCode || 'KNTX-8888'}
+                {currentWorkspace?.workspaceCode ||
+                  familyInfo?.familyCode ||
+                  "KNTX-8888"}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 rounded-lg bg-slate-800 text-slate-200"
+              aria-label="Hồ sơ và bảo mật"
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                settings
+              </span>
+            </button>
+            <button
               onClick={toggleLanguage}
               className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-mono font-bold text-slate-300 transition-colors"
               type="button"
             >
-              {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
+              {language === "vi" ? "🇻🇳 VI" : "🇬🇧 EN"}
             </button>
 
             <button
@@ -155,11 +176,18 @@ export const AppShell: React.FC<AppShellProps> = ({
               title="Đổi tài khoản hoặc đăng xuất"
               type="button"
             >
-              <span className="material-symbols-outlined text-[15px]">logout</span>
-              <span className="hidden sm:inline">{language === 'vi' ? 'Đổi Vai' : 'Switch'}</span>
+              <span className="material-symbols-outlined text-[15px]">
+                logout
+              </span>
+              <span className="hidden sm:inline">
+                {language === "vi" ? "Đổi Vai" : "Switch"}
+              </span>
             </button>
           </div>
         </header>
+        <div className="px-3 py-2 bg-white text-slate-900">
+          <WorkspaceSwitcher />
+        </div>
 
         {/* Khung Màn Hình Điện Thoại Tối Giản */}
         <div className="flex-1 w-full flex items-center justify-center p-2 sm:p-6 bg-radial from-slate-900 to-slate-950 overflow-y-auto">
@@ -170,7 +198,10 @@ export const AppShell: React.FC<AppShellProps> = ({
             {children}
           </MobilePhoneContainer>
         </div>
-
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
       </div>
     );
   }
@@ -181,13 +212,10 @@ export const AppShell: React.FC<AppShellProps> = ({
   /* ========================================================================= */
   return (
     <div className="min-h-screen w-full flex flex-col bg-slate-100 text-slate-900 font-sans">
-      
       {/* KHÔNG GIAN BÀN CHỈ HUY LAPTOP */}
       <div className="flex-1 flex overflow-hidden h-screen">
-        
         {/* SIDEBAR BÊN TRÁI THU GỌN (WIDESCREEN DESKTOP) */}
         <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col shrink-0">
-          
           {/* Header Brand */}
           <div className="h-16 px-5 border-b border-slate-100 flex items-center justify-between">
             <Link href="/dashboard" className="flex items-center gap-2.5">
@@ -195,8 +223,12 @@ export const AppShell: React.FC<AppShellProps> = ({
                 K
               </div>
               <div className="flex flex-col text-left">
-                <span className="font-bold text-sm text-slate-900 tracking-tight">Kinetix OS</span>
-                <span className="text-[10px] font-mono text-red-600 font-bold uppercase">Master Desk</span>
+                <span className="font-bold text-sm text-slate-900 tracking-tight">
+                  Kinetix OS
+                </span>
+                <span className="text-[10px] font-mono text-red-600 font-bold uppercase">
+                  Master Desk
+                </span>
               </div>
             </Link>
 
@@ -206,7 +238,9 @@ export const AppShell: React.FC<AppShellProps> = ({
               title="Sao chép Family Code"
               type="button"
             >
-              {copiedCode ? '✓ Copied' : currentWorkspace?.workspaceCode || 'KNTX-8888'}
+              {copiedCode
+                ? "✓ Copied"
+                : currentWorkspace?.workspaceCode || "KNTX-8888"}
             </button>
           </div>
 
@@ -218,7 +252,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           {/* Navigation Spaces */}
           <div className="flex-1 p-3 space-y-1.5 overflow-y-auto">
             <span className="px-2 text-[10px] font-mono uppercase font-bold text-slate-400">
-              {language === 'vi' ? 'Quản Trị Các Hũ Tiền' : 'Vault Management'}
+              {language === "vi" ? "Quản Trị Các Hũ Tiền" : "Vault Management"}
             </span>
 
             {adminSpaces.map((sp) => {
@@ -230,19 +264,25 @@ export const AppShell: React.FC<AppShellProps> = ({
                   type="button"
                   className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl text-left transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-red-50 text-red-950 font-bold border border-red-200 shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      ? "bg-red-50 text-red-950 font-bold border border-red-200 shadow-xs"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                 >
                   <span
                     className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs ${
-                      isActive ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-600'
+                      isActive
+                        ? "bg-red-600 text-white"
+                        : "bg-slate-100 text-slate-600"
                     }`}
                   >
-                    <span className="material-symbols-outlined text-[16px]">{sp.icon}</span>
+                    <span className="material-symbols-outlined text-[16px]">
+                      {sp.icon}
+                    </span>
                   </span>
                   <div className="flex flex-col min-w-0">
-                    <span className="text-xs truncate font-bold">{sp.label}</span>
+                    <span className="text-xs truncate font-bold">
+                      {sp.label}
+                    </span>
                   </div>
                 </button>
               );
@@ -256,8 +296,14 @@ export const AppShell: React.FC<AppShellProps> = ({
               type="button"
               className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
             >
-              <span className="material-symbols-outlined text-[16px]">add_circle</span>
-              <span>{language === 'vi' ? '+ Khởi Tạo Hũ Mới' : '+ New Dynamic Vault'}</span>
+              <span className="material-symbols-outlined text-[16px]">
+                add_circle
+              </span>
+              <span>
+                {language === "vi"
+                  ? "+ Khởi Tạo Hũ Mới"
+                  : "+ New Dynamic Vault"}
+              </span>
             </button>
           </div>
 
@@ -265,15 +311,21 @@ export const AppShell: React.FC<AppShellProps> = ({
           <div className="p-3 border-t border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <img
-                src={user?.avatarUrl || currentMember?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150'}
+                src={
+                  user?.avatarUrl ||
+                  currentMember?.avatar ||
+                  "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150"
+                }
                 alt="Avatar"
                 className="w-7 h-7 rounded-full object-cover border border-slate-200"
               />
               <div className="flex flex-col text-left min-w-0">
                 <span className="text-xs font-bold text-slate-800 truncate">
-                  {user?.fullName || 'Bố Ba (Chủ Hộ)'}
+                  {user?.fullName || "Bố Ba (Chủ Hộ)"}
                 </span>
-                <span className="text-[10px] text-slate-400 font-mono">Admin Master</span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Admin Master
+                </span>
               </div>
             </div>
 
@@ -284,7 +336,9 @@ export const AppShell: React.FC<AppShellProps> = ({
                 title="Cài đặt"
                 type="button"
               >
-                <span className="material-symbols-outlined text-[16px]">settings</span>
+                <span className="material-symbols-outlined text-[16px]">
+                  settings
+                </span>
               </button>
               <button
                 onClick={handleLogout}
@@ -292,7 +346,9 @@ export const AppShell: React.FC<AppShellProps> = ({
                 title="Đăng xuất"
                 type="button"
               >
-                <span className="material-symbols-outlined text-[16px]">logout</span>
+                <span className="material-symbols-outlined text-[16px]">
+                  logout
+                </span>
               </button>
             </div>
           </div>
@@ -300,12 +356,13 @@ export const AppShell: React.FC<AppShellProps> = ({
 
         {/* MAIN WIDESCREEN WORKSPACE */}
         <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
-          
           {/* Top Workspace Bar */}
           <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 h-14 px-4 sm:px-6 flex items-center justify-between shadow-xs">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-800">
-                {language === 'vi' ? 'Bàn Điều Hành Chủ Gia Đình' : 'Family Master Command Center'}
+                {language === "vi"
+                  ? "Bàn Điều Hành Chủ Gia Đình"
+                  : "Family Master Command Center"}
               </span>
               <span className="text-xs text-slate-400">/</span>
               <div className="hidden sm:flex items-center gap-1 text-[11px] font-mono text-slate-500">
@@ -326,8 +383,12 @@ export const AppShell: React.FC<AppShellProps> = ({
                 className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
                 title="Xem Sổ Cái Lịch Sử Giao Dịch Dual-Chain"
               >
-                <span className="material-symbols-outlined text-[16px]">receipt_long</span>
-                <span className="hidden md:inline">{language === 'vi' ? 'Sổ Cái On-Chain' : 'Ledger'}</span>
+                <span className="material-symbols-outlined text-[16px]">
+                  receipt_long
+                </span>
+                <span className="hidden md:inline">
+                  {language === "vi" ? "Sổ Cái On-Chain" : "Ledger"}
+                </span>
               </button>
 
               <button
@@ -335,8 +396,12 @@ export const AppShell: React.FC<AppShellProps> = ({
                 onClick={() => setIsCreateVaultOpen(true)}
                 className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[16px]">add</span>
-                <span className="hidden sm:inline">{language === 'vi' ? 'Tạo Hũ' : 'New Vault'}</span>
+                <span className="material-symbols-outlined text-[16px]">
+                  add
+                </span>
+                <span className="hidden sm:inline">
+                  {language === "vi" ? "Tạo Hũ" : "New Vault"}
+                </span>
               </button>
 
               <button
@@ -344,8 +409,10 @@ export const AppShell: React.FC<AppShellProps> = ({
                 onClick={() => setIsDepositModalOpen(true)}
                 className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1 cursor-pointer active:scale-95"
               >
-                <span className="material-symbols-outlined text-[16px]">bolt</span>
-                <span>{language === 'vi' ? 'Nạp Quỹ' : 'Deposit'}</span>
+                <span className="material-symbols-outlined text-[16px]">
+                  bolt
+                </span>
+                <span>{language === "vi" ? "Nạp Quỹ" : "Deposit"}</span>
               </button>
 
               {/* Chuông Thông Báo Thời Gian Thực */}
@@ -356,7 +423,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-mono font-bold text-slate-800 transition-colors"
                 type="button"
               >
-                {language === 'vi' ? '🇻🇳 VI' : '🇬🇧 EN'}
+                {language === "vi" ? "🇻🇳 VI" : "🇬🇧 EN"}
               </button>
 
               <button
@@ -365,8 +432,12 @@ export const AppShell: React.FC<AppShellProps> = ({
                 title="Đăng xuất"
                 type="button"
               >
-                <span className="material-symbols-outlined text-[15px]">logout</span>
-                <span className="hidden sm:inline">{language === 'vi' ? 'Thoát' : 'Exit'}</span>
+                <span className="material-symbols-outlined text-[15px]">
+                  logout
+                </span>
+                <span className="hidden sm:inline">
+                  {language === "vi" ? "Thoát" : "Exit"}
+                </span>
               </button>
             </div>
           </header>
@@ -376,7 +447,6 @@ export const AppShell: React.FC<AppShellProps> = ({
             {children}
           </main>
         </div>
-
       </div>
 
       {/* MODALS QUẢN TRỊ */}

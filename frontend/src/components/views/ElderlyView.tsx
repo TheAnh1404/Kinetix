@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useFamily } from '@/context/FamilyContext';
-import { VideoCallModal } from '@/components/dashboard/VideoCallModal';
+import React, { useState } from "react";
+import { useFamily } from "@/context/FamilyContext";
+import { VideoCallModal } from "@/components/dashboard/VideoCallModal";
 
 export const ElderlyView: React.FC = () => {
   const {
@@ -14,7 +14,8 @@ export const ElderlyView: React.FC = () => {
   } = useFamily();
 
   // Tìm Hũ tiền thuộc bộ quy tắc SHIELD (Báo Hiếu & An Sinh)
-  const shieldVault = dynamicVaults.find((v) => v.ruleTemplate === 'SHIELD') || dynamicVaults[0];
+  const shieldVault =
+    dynamicVaults.find((v) => v.ruleTemplate === "SHIELD") || dynamicVaults[0];
   const vaultId = shieldVault ? shieldVault.onchainVaultId : 1;
 
   const bufferBalance = shieldVault
@@ -24,28 +25,32 @@ export const ElderlyView: React.FC = () => {
     : fallbackVaults.retirementShield.localBuffer;
 
   const totalVaultBalance = shieldVault
-    ? shieldVault.cachedTotalBalance || shieldVault.totalBalance || 50
-    : 50;
+    ? (shieldVault.cachedTotalBalance ?? shieldVault.totalBalance ?? 0)
+    : 0;
 
   const [selectedQuickAmount, setSelectedQuickAmount] = useState<number>(0.02);
-  const [largeAmount, setLargeAmount] = useState<string>('0.2');
-  const [largeReason, setLargeReason] = useState<string>('Tiền thuốc và khám định kỳ bệnh viện');
+  const [largeAmount, setLargeAmount] = useState<string>("0.2");
+  const [largeReason, setLargeReason] = useState<string>(
+    "Tiền thuốc và khám định kỳ bệnh viện",
+  );
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(true);
   const [isVideoCallOpen, setIsVideoCallOpen] = useState<boolean>(false);
 
-  const adminGuardian = members.find((m) => m.role === 'ADMIN' || m.role === 'GUARDIAN');
-  const emergencyPhone = adminGuardian?.phoneNumber || '0908.123.456';
-  const guardianName = adminGuardian?.name || 'Bố Ba (Con Trưởng)';
+  const adminGuardian = members.find(
+    (m) => m.role === "ADMIN" || m.role === "GUARDIAN",
+  );
+  const emergencyPhone = adminGuardian?.phoneNumber || "0908.123.456";
+  const guardianName = adminGuardian?.name || "Bố Ba (Con Trưởng)";
 
   // Hàm phát giọng đọc tiếng Việt trợ năng (Web Speech API)
   const speakText = (text: string) => {
     if (!isVoiceEnabled) return;
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'vi-VN';
+      utterance.lang = "vi-VN";
       utterance.rate = 0.9; // Tốc độ vừa phải, to rõ cho người cao tuổi
       window.speechSynthesis.speak(utterance);
     }
@@ -54,9 +59,10 @@ export const ElderlyView: React.FC = () => {
   // 1. Rút tiền nhanh 1 chạm (<1s, 0đ gas)
   const handleQuickWithdraw = async (amount: number) => {
     if (bufferBalance < amount) {
-      const msg = 'Số dư đệm Family L1 của Hũ chưa đủ! Hãy báo con trưởng nạp thêm đệm.';
+      const msg =
+        "Số dư đệm Family L1 của Hũ chưa đủ! Hãy báo con trưởng nạp thêm đệm.";
       alert(msg);
-      speakText('Số dư đệm chưa đủ, xin báo con nạp thêm tiền!');
+      speakText("Số dư đệm chưa đủ, xin báo con nạp thêm tiền!");
       return;
     }
 
@@ -64,9 +70,11 @@ export const ElderlyView: React.FC = () => {
     try {
       const ok = await fastWithdrawFromVault(vaultId, amount);
       if (ok) {
-        const msg = `🎉 ĐÃ RÚT THÀNH CÔNG ${amount} AVAX (~${(amount * 750000).toLocaleString('vi-VN')} VNĐ) VÀO VÍ! Thời gian < 1 giây, 0đ phí giao dịch.`;
+        const msg = `🎉 ĐÃ RÚT THÀNH CÔNG ${amount} AVAX (~${(amount * 750000).toLocaleString("vi-VN")} VNĐ) VÀO VÍ! Thời gian < 1 giây, 0đ phí giao dịch.`;
         setToastMessage(msg);
-        speakText(`Kinetix xác nhận: Đã rút thành công ${amount} AVAX vào ví của Cụ, không đồng phí giao dịch! Chúc Cụ một ngày vui vẻ!`);
+        speakText(
+          `Kinetix xác nhận: Đã rút thành công ${amount} AVAX vào ví của Cụ, không đồng phí giao dịch! Chúc Cụ một ngày vui vẻ!`,
+        );
       }
     } finally {
       setIsProcessing(false);
@@ -77,7 +85,9 @@ export const ElderlyView: React.FC = () => {
   const handleRequestLarge = async () => {
     const num = parseFloat(largeAmount);
     if (!num || num <= 0.05) {
-      alert('Khoản rút lớn phải trên 0.05 AVAX. Khoản nhỏ xin bấm nút Rút Đi Chợ ở trên!');
+      alert(
+        "Khoản rút lớn phải trên 0.05 AVAX. Khoản nhỏ xin bấm nút Rút Đi Chợ ở trên!",
+      );
       return;
     }
 
@@ -87,7 +97,9 @@ export const ElderlyView: React.FC = () => {
       if (res.success) {
         const msg = `📬 ĐÃ GỬI PHIẾU RÚT ${num} AVAX TỚI ${guardianName.toUpperCase()}! Vui lòng chờ con xác nhận ký duyệt trên điện thoại.`;
         setToastMessage(msg);
-        speakText(`Đã gửi yêu cầu rút ${num} AVAX tới ${guardianName}, Cụ vui lòng đợi con duyệt nhé!`);
+        speakText(
+          `Đã gửi yêu cầu rút ${num} AVAX tới ${guardianName}, Cụ vui lòng đợi con duyệt nhé!`,
+        );
       }
     } finally {
       setIsProcessing(false);
@@ -96,12 +108,13 @@ export const ElderlyView: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-4 w-full text-slate-900">
-      
       {/* Toast thông báo lớn dễ đọc */}
       {toastMessage && (
         <div className="p-3.5 rounded-2xl bg-emerald-500 text-white shadow-lg flex items-start justify-between gap-2 animate-in fade-in">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[24px]">verified</span>
+            <span className="material-symbols-outlined text-[24px]">
+              verified
+            </span>
             <p className="text-xs font-bold leading-relaxed">{toastMessage}</p>
           </div>
           <button
@@ -119,7 +132,7 @@ export const ElderlyView: React.FC = () => {
           <span className="text-xs uppercase font-bold text-red-100 tracking-wider">
             Quỹ Hưu Trí &amp; An Sinh Của Ông
           </span>
-          
+
           <div className="flex items-center gap-1.5">
             {/* Nút bật/tắt giọng đọc */}
             <button
@@ -127,21 +140,21 @@ export const ElderlyView: React.FC = () => {
                 const nextState = !isVoiceEnabled;
                 setIsVoiceEnabled(nextState);
                 if (nextState) {
-                  speakText('Đã bật giọng đọc trợ năng');
+                  speakText("Đã bật giọng đọc trợ năng");
                 }
               }}
               type="button"
               className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
                 isVoiceEnabled
-                  ? 'bg-white text-red-700 shadow-xs'
-                  : 'bg-white/20 text-white hover:bg-white/30'
+                  ? "bg-white text-red-700 shadow-xs"
+                  : "bg-white/20 text-white hover:bg-white/30"
               }`}
               title="Bật/Tắt giọng đọc to"
             >
               <span className="material-symbols-outlined text-[13px]">
-                {isVoiceEnabled ? 'volume_up' : 'volume_off'}
+                {isVoiceEnabled ? "volume_up" : "volume_off"}
               </span>
-              <span>{isVoiceEnabled ? 'Giọng Đọc: BẬT' : 'TẮT'}</span>
+              <span>{isVoiceEnabled ? "Giọng Đọc: BẬT" : "TẮT"}</span>
             </button>
 
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-bold font-mono">
@@ -152,13 +165,19 @@ export const ElderlyView: React.FC = () => {
         </div>
 
         <div className="text-3xl font-black font-mono tracking-tight my-1">
-          {bufferBalance.toFixed(2)}{' '}
-          <span className="text-base font-sans font-bold text-red-100">AVAX (L1)</span>
+          {bufferBalance.toFixed(2)}{" "}
+          <span className="text-base font-sans font-bold text-red-100">
+            AVAX (L1)
+          </span>
         </div>
 
         <p className="text-[11px] text-red-100/90 font-medium leading-relaxed">
-          Số dư đệm rút tức thì trong ví. Tổng tài sản đang sinh lời trên C-Chain:{' '}
-          <span className="font-bold font-mono text-white">{totalVaultBalance.toFixed(1)} AVAX</span>.
+          Số dư đệm rút tức thì trong ví. Tổng tài sản đang sinh lời trên
+          C-Chain:{" "}
+          <span className="font-bold font-mono text-white">
+            {totalVaultBalance.toFixed(1)} AVAX
+          </span>
+          .
         </p>
       </div>
 
@@ -168,7 +187,9 @@ export const ElderlyView: React.FC = () => {
           <span className="w-6 h-6 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold text-xs">
             ⚡
           </span>
-          <h3 className="text-sm font-bold text-slate-900">Rút Tiền Nhanh (Không Cần Chờ)</h3>
+          <h3 className="text-sm font-bold text-slate-900">
+            Rút Tiền Nhanh (Không Cần Chờ)
+          </h3>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -178,8 +199,12 @@ export const ElderlyView: React.FC = () => {
             type="button"
             className="p-3.5 rounded-2xl bg-slate-50 hover:bg-red-50 border-2 border-slate-200 hover:border-red-500 flex flex-col items-center justify-center gap-1 transition-all cursor-pointer active:scale-95"
           >
-            <span className="text-lg font-black text-slate-900 font-mono">0.02 AVAX</span>
-            <span className="text-[11px] font-bold text-red-600">Đi Chợ (~150k)</span>
+            <span className="text-lg font-black text-slate-900 font-mono">
+              0.02 AVAX
+            </span>
+            <span className="text-[11px] font-bold text-red-600">
+              Đi Chợ (~150k)
+            </span>
           </button>
 
           <button
@@ -188,14 +213,20 @@ export const ElderlyView: React.FC = () => {
             type="button"
             className="p-3.5 rounded-2xl bg-slate-50 hover:bg-red-50 border-2 border-slate-200 hover:border-red-500 flex flex-col items-center justify-center gap-1 transition-all cursor-pointer active:scale-95"
           >
-            <span className="text-lg font-black text-slate-900 font-mono">0.05 AVAX</span>
-            <span className="text-[11px] font-bold text-red-600">Mua Thuốc (~375k)</span>
+            <span className="text-lg font-black text-slate-900 font-mono">
+              0.05 AVAX
+            </span>
+            <span className="text-[11px] font-bold text-red-600">
+              Mua Thuốc (~375k)
+            </span>
           </button>
         </div>
 
         {/* Nút rút tùy chọn */}
         <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 border border-slate-200">
-          <span className="text-xs font-bold text-slate-700">Hoặc chọn nhanh:</span>
+          <span className="text-xs font-bold text-slate-700">
+            Hoặc chọn nhanh:
+          </span>
           <div className="flex items-center gap-1.5">
             {[0.01, 0.02, 0.03].map((amt) => (
               <button
@@ -204,8 +235,8 @@ export const ElderlyView: React.FC = () => {
                 type="button"
                 className={`px-2.5 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
                   selectedQuickAmount === amt
-                    ? 'bg-red-600 text-white'
-                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                    ? "bg-red-600 text-white"
+                    : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
                 }`}
               >
                 {amt}
@@ -221,7 +252,11 @@ export const ElderlyView: React.FC = () => {
           className="w-full py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
         >
           <span className="material-symbols-outlined text-[20px]">bolt</span>
-          <span>{isProcessing ? 'Đang giải ngân on-chain...' : 'Bấm Để Rút Tiền Ngay (0đ Phí)'}</span>
+          <span>
+            {isProcessing
+              ? "Đang giải ngân on-chain..."
+              : "Bấm Để Rút Tiền Ngay (0đ Phí)"}
+          </span>
         </button>
       </div>
 
@@ -232,7 +267,9 @@ export const ElderlyView: React.FC = () => {
             <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
               🛡️
             </span>
-            <h3 className="text-sm font-bold text-slate-900">Rút Khoản Lớn ({'>'} 0.05 AVAX)</h3>
+            <h3 className="text-sm font-bold text-slate-900">
+              Rút Khoản Lớn ({">"} 0.05 AVAX)
+            </h3>
           </div>
           <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full">
             Cần Con Ký
@@ -248,7 +285,9 @@ export const ElderlyView: React.FC = () => {
             placeholder="0.2"
             className="flex-1 p-2.5 rounded-xl bg-slate-50 border border-slate-200 font-mono font-bold text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
           />
-          <span className="text-xs font-bold text-slate-600 shrink-0">AVAX</span>
+          <span className="text-xs font-bold text-slate-600 shrink-0">
+            AVAX
+          </span>
         </div>
 
         <input
@@ -266,7 +305,9 @@ export const ElderlyView: React.FC = () => {
           className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
         >
           <span className="material-symbols-outlined text-[16px]">send</span>
-          <span>{isProcessing ? 'Đang gửi...' : 'Gửi Lệnh Để Con Trai Duyệt'}</span>
+          <span>
+            {isProcessing ? "Đang gửi..." : "Gửi Lệnh Để Con Trai Duyệt"}
+          </span>
         </button>
       </div>
 
@@ -275,7 +316,9 @@ export const ElderlyView: React.FC = () => {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[20px]">support_agent</span>
+              <span className="material-symbols-outlined text-[20px]">
+                support_agent
+              </span>
             </div>
             <div className="flex flex-col">
               <span className="text-xs font-bold text-slate-900">
@@ -301,7 +344,9 @@ export const ElderlyView: React.FC = () => {
           type="button"
           className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-xs"
         >
-          <span className="material-symbols-outlined text-[18px]">videocam</span>
+          <span className="material-symbols-outlined text-[18px]">
+            videocam
+          </span>
           <span>Gọi Video Trực Tiếp Nhìn Mặt Con (Chống Deepfake)</span>
         </button>
       </div>
@@ -312,7 +357,6 @@ export const ElderlyView: React.FC = () => {
         onClose={() => setIsVideoCallOpen(false)}
         grandparentName="Cụ Ba (Ông Nội)"
       />
-
     </div>
   );
 };
