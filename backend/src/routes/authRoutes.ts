@@ -3,6 +3,7 @@ import { and, eq, isNull, gt } from "drizzle-orm";
 import { db } from "../db";
 import { sessions, workspaceMembers } from "../db/schema";
 import * as service from "../auth/service";
+import { databaseErrorCode } from "../db/errors";
 import {
   AuthError,
   assert,
@@ -55,8 +56,21 @@ export function authErrorHandler(
     return res
       .status(error.status)
       .json({ success: false, error: error.message, code: error.code });
-  const databaseError = error as { code?: string; cause?: { code?: string } };
-  if (databaseError?.code === "23505" || databaseError?.cause?.code === "23505")
+  const databaseCode = databaseErrorCode(error);
+  if (databaseCode === "42P01" || databaseCode === "42703") {
+    console.error("Kinetix database schema is outdated", {
+      code: databaseCode,
+    });
+    return res
+      .status(503)
+      .json({
+        success: false,
+        code: "DATABASE_SCHEMA_OUTDATED",
+        error:
+          "Hệ thống chưa cập nhật cấu trúc dữ liệu. Người quản trị cần chạy migration trước khi tải lại.",
+      });
+  }
+  if (databaseCode === "23505")
     return res.status(409).json({
       success: false,
       error: "Tên đăng nhập, ví hoặc yêu cầu này đã được sử dụng.",

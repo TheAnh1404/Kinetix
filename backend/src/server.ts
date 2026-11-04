@@ -7,6 +7,7 @@ import {
   authErrorHandler,
 } from "./routes/authRoutes";
 import { apiRouter } from "./routes/apiRoutes";
+import { memberRouter } from "./routes/memberRoutes";
 import * as dotenv from "dotenv";
 
 dotenv.config();
@@ -25,7 +26,7 @@ app.get("/api/health", (_req, res) =>
   res.json({ success: true, status: "ok" }),
 );
 app.use("/api/auth", authRouter);
-app.use("/api", authenticated, fullSession, apiRouter);
+app.use("/api", authenticated, fullSession, memberRouter, apiRouter);
 app.get("/health", (_req, res) =>
   res.json({ status: "ok", service: "Kinetix API" }),
 );

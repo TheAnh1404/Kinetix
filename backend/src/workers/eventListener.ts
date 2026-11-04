@@ -1,10 +1,18 @@
 ﻿import { createPublicClient, http, parseEventLogs } from "viem";
-import { and, eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { db } from "../db";
-import { vaults, withdrawalRequests, chores } from "../db/schema";
+import {
+  vaults,
+  withdrawalRequests,
+  chores,
+  activityCursors,
+  proofAttachments,
+} from "../db/schema";
 import { FAMILY_HUB_ABI } from "../../../shared/abis";
 import { hubClient, readHub, decimalAmount } from "../services/chainService";
 import { assert } from "../auth/security";
+
+import { recordReceiptActivity } from "../services/activityService";
 
 // The worker is a service identity with DB access. It never creates users, sessions,
 // memberships or workspace mappings from arbitrary wallet addresses/events.
@@ -33,6 +41,40 @@ async function main() {
     running = true;
     try {
       const knownVaults = await mapped();
+      const cursorId = `${chainId}:${hub.toLowerCase()}`;
+      const [cursor] = await db
+        .select()
+        .from(activityCursors)
+        .where(eq(activityCursors.id, cursorId));
+      const fromBlock =
+        cursor?.nextBlock ??
+        BigInt(process.env.HUB_ACTIVITY_START_BLOCK || "0");
+      const tip = await client.getBlockNumber();
+      const throughBlock =
+        fromBlock + 999n < tip - 1n ? fromBlock + 999n : tip - 1n;
+      if (throughBlock >= fromBlock) {
+        const logs = await client.getLogs({
+          address: hub as `0x${string}`,
+          fromBlock,
+          toBlock: throughBlock,
+        });
+        const hashes = [...new Set(logs.map((log) => log.transactionHash))];
+        for (const hash of hashes) {
+          const receipt = await client.getTransactionReceipt({ hash });
+          for (const vault of knownVaults)
+            await recordReceiptActivity(receipt, vault);
+        }
+        await db
+          .insert(activityCursors)
+          .values({ id: cursorId, nextBlock: throughBlock + 1n })
+          .onConflictDoUpdate({
+            target: activityCursors.id,
+            set: { nextBlock: throughBlock + 1n },
+          });
+      }
+      await db
+        .delete(proofAttachments)
+        .where(lt(proofAttachments.expiresAt, new Date()));
       for (const vault of knownVaults) {
         const chain: any = await readHub(hub, "getVault", [
           BigInt(vault.onchainVaultId),
@@ -66,6 +108,7 @@ async function main() {
           await db
             .update(withdrawalRequests)
             .set({
+              deadline: new Date(Number(state[7]) * 1000),
               approvalsCount: Number(state[6]),
               status: state[8]
                 ? "EXECUTED"
