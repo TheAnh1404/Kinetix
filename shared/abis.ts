@@ -5,3103 +5,4026 @@
 
 export const FAMILY_HUB_ABI = [
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "_admin",
-        type: "address",
+        "internalType": "address",
+        "name": "_admin",
+        "type": "address"
       },
       {
-        internalType: "address",
-        name: "_teleporterMessenger",
-        type: "address",
+        "internalType": "address",
+        "name": "_teleporterMessenger",
+        "type": "address"
       },
       {
-        internalType: "bytes32",
-        name: "_cChainBlockchainId",
-        type: "bytes32",
+        "internalType": "bytes32",
+        "name": "_cChainBlockchainId",
+        "type": "bytes32"
       },
       {
-        internalType: "address",
-        name: "_yieldVaultAddress",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "_yieldVaultAddress",
+        "type": "address"
+      }
     ],
-    stateMutability: "nonpayable",
-    type: "constructor",
+    "stateMutability": "nonpayable",
+    "type": "constructor"
   },
   {
-    inputs: [],
-    name: "AlreadyApproved",
-    type: "error",
+    "inputs": [],
+    "name": "AlreadyApproved",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "AssigneeMismatch",
-    type: "error",
+    "inputs": [],
+    "name": "AssigneeMismatch",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "EnforcedPause",
-    type: "error",
+    "inputs": [],
+    "name": "EnforcedPause",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "requested",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "limit",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "remainingToday",
+        "type": "uint256"
+      }
     ],
-    name: "ExceedsFastLimit",
-    type: "error",
+    "name": "ExceedsDailyLimit",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "ExpectedPause",
-    type: "error",
-  },
-  {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "currentBalance",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "targetGoal",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
     ],
-    name: "GoalNotReached",
-    type: "error",
+    "name": "ExceedsFastLimit",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [],
+    "name": "ExpectedPause",
+    "type": "error"
+  },
+  {
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "available",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "currentBalance",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "requested",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "targetGoal",
+        "type": "uint256"
+      }
     ],
-    name: "InsufficientLocalBuffer",
-    type: "error",
+    "name": "GoalNotReached",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "available",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "available",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "requested",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "requested",
+        "type": "uint256"
+      }
     ],
-    name: "InsufficientVaultBalance",
-    type: "error",
+    "name": "InsufficientLocalBuffer",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "InvalidApprovalThreshold",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "InvalidBufferRatio",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "InvalidRuleAction",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "NotFamilyAdmin",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "NotVaultBeneficiary",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "NotVaultGuardian",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "OnlyTeleporterMessenger",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "RecoveryAlreadyExecuted",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "ReentrancyGuardReentrantCall",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "RequestAlreadyExecuted",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "RequestExpired",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "RequestNotFound",
-    type: "error",
-  },
-  {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "timeRemaining",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "available",
+        "type": "uint256"
       },
+      {
+        "internalType": "uint256",
+        "name": "requested",
+        "type": "uint256"
+      }
     ],
-    name: "RoscaRoundNotReady",
-    type: "error",
+    "name": "InsufficientVaultBalance",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "TaskAlreadyRewarded",
-    type: "error",
+    "inputs": [],
+    "name": "InvalidApprovalThreshold",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "TaskNotCompleted",
-    type: "error",
+    "inputs": [],
+    "name": "InvalidBufferRatio",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "TaskNotFound",
-    type: "error",
+    "inputs": [],
+    "name": "InvalidRuleAction",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "TransferFailed",
-    type: "error",
+    "inputs": [],
+    "name": "NotFamilyAdmin",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "VaultInactive",
-    type: "error",
+    "inputs": [],
+    "name": "NotVaultBeneficiary",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "VaultNotFound",
-    type: "error",
+    "inputs": [],
+    "name": "NotVaultGuardian",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "ZeroAddress",
-    type: "error",
+    "inputs": [],
+    "name": "OnlyTeleporterMessenger",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "ZeroAmount",
-    type: "error",
+    "inputs": [],
+    "name": "RecoveryAlreadyExecuted",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
+    "inputs": [],
+    "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RequestAlreadyExecuted",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RequestExpired",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RequestNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RoscaAlreadyContributed",
+    "type": "error"
+  },
+  {
+    "inputs": [
       {
-        indexed: true,
-        internalType: "address",
-        name: "account",
-        type: "address",
+        "internalType": "uint256",
+        "name": "provided",
+        "type": "uint256"
       },
       {
-        indexed: false,
-        internalType: "bool",
-        name: "isAllowed",
-        type: "bool",
-      },
+        "internalType": "uint256",
+        "name": "required",
+        "type": "uint256"
+      }
     ],
-    name: "AllowlistStatusChanged",
-    type: "event",
+    "name": "RoscaContributionMismatch",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
+    "inputs": [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "taskId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "assignee",
-        type: "address",
-      },
+        "internalType": "uint256",
+        "name": "timeRemaining",
+        "type": "uint256"
+      }
     ],
-    name: "ChoreClaimed",
-    type: "event",
+    "name": "RoscaRoundNotReady",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "taskId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "title",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "rewardAmount",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "assignee",
-        type: "address",
-      },
-    ],
-    name: "ChoreCreated",
-    type: "event",
+    "inputs": [],
+    "name": "TaskAlreadyRewarded",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "taskId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "assignee",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "rewardAmount",
-        type: "uint256",
-      },
-    ],
-    name: "ChoreRewarded",
-    type: "event",
+    "inputs": [],
+    "name": "TaskNotCompleted",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "recipient",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-    ],
-    name: "FastWithdrawalExecuted",
-    type: "event",
+    "inputs": [],
+    "name": "TaskNotFound",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "depositor",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "totalAmount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "toBuffer",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "toBridge",
-        type: "uint256",
-      },
-    ],
-    name: "FundsDeposited",
-    type: "event",
+    "inputs": [],
+    "name": "TransferFailed",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "currentBalance",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "targetGoalAmount",
-        type: "uint256",
-      },
-    ],
-    name: "GoalReached",
-    type: "event",
+    "inputs": [],
+    "name": "VaultInactive",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "oldWallet",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newWallet",
-        type: "address",
-      },
-    ],
-    name: "MemberWalletRecovered",
-    type: "event",
+    "inputs": [],
+    "name": "VaultNotFound",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-    ],
-    name: "Paused",
-    type: "event",
+    "inputs": [],
+    "name": "ZeroAddress",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "roundIndex",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "recipient",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "payoutAmount",
-        type: "uint256",
-      },
-    ],
-    name: "RoscaRoundPaid",
-    type: "event",
+    "inputs": [],
+    "name": "ZeroAmount",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: false,
-        internalType: "address",
-        name: "account",
-        type: "address",
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
       },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "isAllowed",
+        "type": "bool"
+      }
     ],
-    name: "Unpaused",
-    type: "event",
+    "name": "AllowlistStatusChanged",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "taskId",
+        "type": "uint256"
       },
       {
-        indexed: false,
-        internalType: "string",
-        name: "name",
-        type: "string",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "creator",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "enum FamilyHub.RuleTemplate",
-        name: "ruleType",
-        type: "uint8",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "bufferRatioBps",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "requiredApprovals",
-        type: "uint256",
-      },
+        "indexed": true,
+        "internalType": "address",
+        "name": "assignee",
+        "type": "address"
+      }
     ],
-    name: "VaultCreated",
-    type: "event",
+    "name": "ChoreClaimed",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "requestId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "taskId",
+        "type": "uint256"
       },
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        indexed: true,
-        internalType: "address",
-        name: "guardian",
-        type: "address",
+        "indexed": false,
+        "internalType": "string",
+        "name": "title",
+        "type": "string"
       },
       {
-        indexed: false,
-        internalType: "uint256",
-        name: "currentApprovals",
-        type: "uint256",
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "rewardAmount",
+        "type": "uint256"
       },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "assignee",
+        "type": "address"
+      }
     ],
-    name: "WithdrawalApproved",
-    type: "event",
+    "name": "ChoreCreated",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "requestId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "taskId",
+        "type": "uint256"
       },
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        indexed: true,
-        internalType: "address",
-        name: "recipient",
-        type: "address",
+        "indexed": true,
+        "internalType": "address",
+        "name": "assignee",
+        "type": "address"
       },
       {
-        indexed: false,
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "bool",
-        name: "fullyFundedFromLocalBuffer",
-        type: "bool",
-      },
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "rewardAmount",
+        "type": "uint256"
+      }
     ],
-    name: "WithdrawalExecuted",
-    type: "event",
+    "name": "ChoreRewarded",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "requestId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "requester",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "reason",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "deadline",
-        type: "uint256",
-      },
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newDailyLimit",
+        "type": "uint256"
+      }
     ],
-    name: "WithdrawalRequested",
-    type: "event",
+    "name": "DailyLimitUpdated",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "requestId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
     ],
-    name: "approveWithdrawal",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "FastWithdrawalExecuted",
+    "type": "event"
   },
   {
-    inputs: [],
-    name: "cChainBlockchainId",
-    outputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "depositor",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalAmount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "toBuffer",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "toBridge",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "FundsDeposited",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "taskId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "currentBalance",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "targetGoalAmount",
+        "type": "uint256"
+      }
     ],
-    name: "claimChoreCompleted",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "GoalReached",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "string",
-        name: "name",
-        type: "string",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        internalType: "enum FamilyHub.RuleTemplate",
-        name: "ruleType",
-        type: "uint8",
+        "indexed": true,
+        "internalType": "address",
+        "name": "oldWallet",
+        "type": "address"
       },
       {
-        internalType: "uint256",
-        name: "bufferRatioBps",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "fastWithdrawLimit",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "requiredApprovals",
-        type: "uint256",
-      },
-      {
-        internalType: "address[]",
-        name: "guardians",
-        type: "address[]",
-      },
-      {
-        internalType: "address[]",
-        name: "beneficiaries",
-        type: "address[]",
-      },
-      {
-        internalType: "uint256",
-        name: "targetGoalAmount",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "targetDeadline",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "roscaRoundDuration",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "roscaRoundContribution",
-        type: "uint256",
-      },
+        "indexed": true,
+        "internalType": "address",
+        "name": "newWallet",
+        "type": "address"
+      }
     ],
-    name: "createAdvancedVault",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "MemberWalletRecovered",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        internalType: "string",
-        name: "title",
-        type: "string",
-      },
-      {
-        internalType: "uint256",
-        name: "rewardAmount",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "assignee",
-        type: "address",
-      },
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
-    name: "createChore",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "taskId",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "Paused",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "string",
-        name: "name",
-        type: "string",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        internalType: "enum FamilyHub.RuleTemplate",
-        name: "ruleType",
-        type: "uint8",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "roundIndex",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "bufferRatioBps",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "address",
+        "name": "contributor",
+        "type": "address"
       },
       {
-        internalType: "uint256",
-        name: "fastWithdrawLimit",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "requiredApprovals",
-        type: "uint256",
-      },
-      {
-        internalType: "address[]",
-        name: "guardians",
-        type: "address[]",
-      },
-      {
-        internalType: "address[]",
-        name: "beneficiaries",
-        type: "address[]",
-      },
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
     ],
-    name: "createCustomVault",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "RoscaRoundContributed",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "roundIndex",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "payoutAmount",
+        "type": "uint256"
+      }
     ],
-    name: "depositToVault",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
+    "name": "RoscaRoundPaid",
+    "type": "event"
   },
   {
-    inputs: [],
-    name: "familyAdmin",
-    outputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "address",
-        name: "",
-        type: "address",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "depositor",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "TokenDepositedToVault",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
       },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
     ],
-    name: "fastWithdraw",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "TokenFastWithdrawn",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "address",
-        name: "user",
-        type: "address",
+        "indexed": true,
+        "internalType": "address",
+        "name": "oldForwarder",
+        "type": "address"
       },
-    ],
-    name: "getUserVaultIds",
-    outputs: [
       {
-        internalType: "uint256[]",
-        name: "",
-        type: "uint256[]",
-      },
+        "indexed": true,
+        "internalType": "address",
+        "name": "newForwarder",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "TrustedForwarderUpdated",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
-    name: "getVault",
-    outputs: [
+    "name": "Unpaused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
       {
-        components: [
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "creator",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum FamilyHub.RuleTemplate",
+        "name": "ruleType",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "bufferRatioBps",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "requiredApprovals",
+        "type": "uint256"
+      }
+    ],
+    "name": "VaultCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "guardian",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "currentApprovals",
+        "type": "uint256"
+      }
+    ],
+    "name": "WithdrawalApproved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "fullyFundedFromLocalBuffer",
+        "type": "bool"
+      }
+    ],
+    "name": "WithdrawalExecuted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "requester",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "deadline",
+        "type": "uint256"
+      }
+    ],
+    "name": "WithdrawalRequested",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "DOMAIN_SEPARATOR",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "WITHDRAWAL_APPROVAL_TYPEHASH",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      }
+    ],
+    "name": "approveWithdrawal",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "cChainBlockchainId",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "taskId",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimChoreCompleted",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
+    ],
+    "name": "contributeRoscaRound",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "enum FamilyHub.RuleTemplate",
+        "name": "ruleType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "bufferRatioBps",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fastWithdrawLimit",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "requiredApprovals",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address[]",
+        "name": "guardians",
+        "type": "address[]"
+      },
+      {
+        "internalType": "address[]",
+        "name": "beneficiaries",
+        "type": "address[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "targetGoalAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "targetDeadline",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "roscaRoundDuration",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "roscaRoundContribution",
+        "type": "uint256"
+      }
+    ],
+    "name": "createAdvancedVault",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "rewardAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "assignee",
+        "type": "address"
+      }
+    ],
+    "name": "createChore",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "taskId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "enum FamilyHub.RuleTemplate",
+        "name": "ruleType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "bufferRatioBps",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fastWithdrawLimit",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "requiredApprovals",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address[]",
+        "name": "guardians",
+        "type": "address[]"
+      },
+      {
+        "internalType": "address[]",
+        "name": "beneficiaries",
+        "type": "address[]"
+      }
+    ],
+    "name": "createCustomVault",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "dailyFastWithdrawSpent",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
+    ],
+    "name": "depositToVault",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "depositTokenToVault",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes[]",
+        "name": "signatures",
+        "type": "bytes[]"
+      }
+    ],
+    "name": "executeWithdrawalWithSignatures",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "familyAdmin",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "fastWithdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "fastWithdrawToken",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "getUserVaultIds",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getVault",
+    "outputs": [
+      {
+        "components": [
           {
-            internalType: "uint256",
-            name: "vaultId",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "vaultId",
+            "type": "uint256"
           },
           {
-            internalType: "string",
-            name: "name",
-            type: "string",
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
           },
           {
-            internalType: "address",
-            name: "creator",
-            type: "address",
+            "internalType": "address",
+            "name": "creator",
+            "type": "address"
           },
           {
-            internalType: "enum FamilyHub.RuleTemplate",
-            name: "ruleType",
-            type: "uint8",
+            "internalType": "enum FamilyHub.RuleTemplate",
+            "name": "ruleType",
+            "type": "uint8"
           },
           {
-            internalType: "uint256",
-            name: "totalBalance",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "totalBalance",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "l1BufferBalance",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "l1BufferBalance",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "cChainPrincipal",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "cChainPrincipal",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "bufferRatioBps",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "bufferRatioBps",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "fastWithdrawLimit",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "fastWithdrawLimit",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "requiredApprovals",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "requiredApprovals",
+            "type": "uint256"
           },
           {
-            internalType: "address[]",
-            name: "guardians",
-            type: "address[]",
+            "internalType": "address[]",
+            "name": "guardians",
+            "type": "address[]"
           },
           {
-            internalType: "address[]",
-            name: "beneficiaries",
-            type: "address[]",
+            "internalType": "address[]",
+            "name": "beneficiaries",
+            "type": "address[]"
           },
           {
-            internalType: "bool",
-            name: "isActive",
-            type: "bool",
+            "internalType": "bool",
+            "name": "isActive",
+            "type": "bool"
           },
           {
-            internalType: "uint256",
-            name: "targetGoalAmount",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "targetGoalAmount",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "targetDeadline",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "targetDeadline",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "roscaRoundDuration",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "roscaRoundDuration",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "roscaRoundContribution",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "roscaRoundContribution",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "roscaCurrentRound",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "roscaCurrentRound",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "roscaLastRoundTimestamp",
-            type: "uint256",
-          },
+            "internalType": "uint256",
+            "name": "roscaLastRoundTimestamp",
+            "type": "uint256"
+          }
         ],
-        internalType: "struct FamilyHub.DynamicVault",
-        name: "",
-        type: "tuple",
-      },
+        "internalType": "struct FamilyHub.DynamicVault",
+        "name": "",
+        "type": "tuple"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
     ],
-    name: "getVaultBeneficiaries",
-    outputs: [
+    "name": "getVaultBeneficiaries",
+    "outputs": [
       {
-        internalType: "address[]",
-        name: "",
-        type: "address[]",
-      },
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
     ],
-    name: "getVaultGuardians",
-    outputs: [
+    "name": "getVaultGuardians",
+    "outputs": [
       {
-        internalType: "address[]",
-        name: "",
-        type: "address[]",
-      },
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
     ],
-    name: "getVaultOverview",
-    outputs: [
+    "name": "getVaultOverview",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "total",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "total",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "l1Buffer",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "l1Buffer",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "cChainPrincipal",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "cChainPrincipal",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "bufferRatioBps",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "bufferRatioBps",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
       },
       {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
     ],
-    name: "hasApprovedRecovery",
-    outputs: [
+    "name": "hasApprovedRecovery",
+    "outputs": [
       {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       },
       {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
     ],
-    name: "hasApprovedRequest",
-    outputs: [
+    "name": "hasApprovedRequest",
+    "outputs": [
       {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "",
-        type: "address",
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       },
-    ],
-    name: "isAllowlisted",
-    outputs: [
       {
-        internalType: "bool",
-        name: "",
-        type: "bool",
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       },
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "hasContributedRosca",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
     ],
-    name: "isVaultBeneficiary",
-    outputs: [
+    "name": "isAllowlisted",
+    "outputs": [
       {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "forwarder",
+        "type": "address"
+      }
     ],
-    name: "isVaultGuardian",
-    outputs: [
+    "name": "isTrustedForwarder",
+    "outputs": [
       {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "pause",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "isVaultBeneficiary",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "paused",
-    outputs: [
+    "inputs": [
       {
-        internalType: "bool",
-        name: "",
-        type: "bool",
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       },
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "isVaultGuardian",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-    ],
-    name: "payoutRoscaRound",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "inputs": [],
+    "name": "pause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [],
+    "name": "paused",
+    "outputs": [
       {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
-      },
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-      {
-        internalType: "bytes",
-        name: "",
-        type: "bytes",
-      },
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
     ],
-    name: "receiveTeleporterMessage",
-    outputs: [],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "oldWallet",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "newWallet",
-        type: "address",
-      },
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
     ],
-    name: "recoverMemberWallet",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "payoutRoscaRound",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
       },
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "",
+        "type": "bytes"
+      }
     ],
-    name: "recoveryRequests",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "oldWallet",
-        type: "address",
-      },
-      {
-        internalType: "address",
-        name: "newWallet",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "approvalsCount",
-        type: "uint256",
-      },
-      {
-        internalType: "bool",
-        name: "executed",
-        type: "bool",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
+    "name": "receiveTeleporterMessage",
+    "outputs": [],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "requestCounter",
-    outputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
+      {
+        "internalType": "address",
+        "name": "oldWallet",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "newWallet",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "recoverMemberWallet",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-      {
-        internalType: "string",
-        name: "reason",
-        type: "string",
-      },
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
     ],
-    name: "requestLargeWithdrawal",
-    outputs: [
+    "name": "recoveryRequests",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "requestId",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
+      {
+        "internalType": "address",
+        "name": "oldWallet",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "newWallet",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "approvalsCount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "executed",
+        "type": "bool"
+      }
     ],
-    stateMutability: "nonpayable",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [],
+    "name": "requestCounter",
+    "outputs": [
       {
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-      {
-        internalType: "bool",
-        name: "status",
-        type: "bool",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    name: "setAllowlistStatus",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "_messenger",
-        type: "address",
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        internalType: "bytes32",
-        name: "_cChainId",
-        type: "bytes32",
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
       },
       {
-        internalType: "address",
-        name: "_vault",
-        type: "address",
-      },
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
     ],
-    name: "setTeleporterConfig",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "requestLargeWithdrawal",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "_cashflow",
-        type: "address",
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    name: "setVaultCashflow",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "roscaRoundContributionsCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "taskCounter",
-    outputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
       },
+      {
+        "internalType": "bool",
+        "name": "status",
+        "type": "bool"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "setAllowlistStatus",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
+        "internalType": "address",
+        "name": "_messenger",
+        "type": "address"
       },
+      {
+        "internalType": "bytes32",
+        "name": "_cChainId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "_vault",
+        "type": "address"
+      }
     ],
-    name: "tasks",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "taskId",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        internalType: "string",
-        name: "title",
-        type: "string",
-      },
-      {
-        internalType: "uint256",
-        name: "rewardAmount",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "assignee",
-        type: "address",
-      },
-      {
-        internalType: "bool",
-        name: "isCompleted",
-        type: "bool",
-      },
-      {
-        internalType: "bool",
-        name: "isRewarded",
-        type: "bool",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
+    "name": "setTeleporterConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "teleporterMessenger",
-    outputs: [
+    "inputs": [
       {
-        internalType: "contract ITeleporterMessenger",
-        name: "",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "_forwarder",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "setTrustedForwarder",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "unpause",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_cashflow",
+        "type": "address"
+      }
+    ],
+    "name": "setVaultCashflow",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "vaultCashflow",
-    outputs: [
+    "inputs": [
       {
-        internalType: "contract VaultCashflow",
-        name: "",
-        type: "address",
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
+      {
+        "internalType": "uint256",
+        "name": "newDailyLimit",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "setVaultDailyLimit",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "vaultCounter",
-    outputs: [
+    "inputs": [],
+    "name": "taskCounter",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    name: "vaults",
-    outputs: [
+    "name": "tasks",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "taskId",
+        "type": "uint256"
       },
       {
-        internalType: "string",
-        name: "name",
-        type: "string",
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        internalType: "address",
-        name: "creator",
-        type: "address",
+        "internalType": "string",
+        "name": "title",
+        "type": "string"
       },
       {
-        internalType: "enum FamilyHub.RuleTemplate",
-        name: "ruleType",
-        type: "uint8",
+        "internalType": "uint256",
+        "name": "rewardAmount",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "totalBalance",
-        type: "uint256",
+        "internalType": "address",
+        "name": "assignee",
+        "type": "address"
       },
       {
-        internalType: "uint256",
-        name: "l1BufferBalance",
-        type: "uint256",
+        "internalType": "bool",
+        "name": "isCompleted",
+        "type": "bool"
       },
       {
-        internalType: "uint256",
-        name: "cChainPrincipal",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "bufferRatioBps",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "fastWithdrawLimit",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "requiredApprovals",
-        type: "uint256",
-      },
-      {
-        internalType: "bool",
-        name: "isActive",
-        type: "bool",
-      },
-      {
-        internalType: "uint256",
-        name: "targetGoalAmount",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "targetDeadline",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "roscaRoundDuration",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "roscaRoundContribution",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "roscaCurrentRound",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "roscaLastRoundTimestamp",
-        type: "uint256",
-      },
+        "internalType": "bool",
+        "name": "isRewarded",
+        "type": "bool"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [],
+    "name": "teleporterMessenger",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "taskId",
-        type: "uint256",
-      },
+        "internalType": "contract ITeleporterMessenger",
+        "name": "",
+        "type": "address"
+      }
     ],
-    name: "verifyAndRewardChore",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [],
+    "name": "trustedForwarder",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
     ],
-    name: "withdrawalRequests",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "requestId",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "requester",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "recipient",
-        type: "address",
-      },
-      {
-        internalType: "string",
-        name: "reason",
-        type: "string",
-      },
-      {
-        internalType: "uint256",
-        name: "approvalsCount",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "deadline",
-        type: "uint256",
-      },
-      {
-        internalType: "bool",
-        name: "executed",
-        type: "bool",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "yieldVaultAddress",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
+    "inputs": [],
+    "name": "unpause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    stateMutability: "payable",
-    type: "receive",
+    "inputs": [],
+    "name": "vaultCashflow",
+    "outputs": [
+      {
+        "internalType": "contract VaultCashflow",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
-] as const;
+  {
+    "inputs": [],
+    "name": "vaultCounter",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "vaultDailyLimit",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "vaults",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "creator",
+        "type": "address"
+      },
+      {
+        "internalType": "enum FamilyHub.RuleTemplate",
+        "name": "ruleType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalBalance",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "l1BufferBalance",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "cChainPrincipal",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "bufferRatioBps",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fastWithdrawLimit",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "requiredApprovals",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "isActive",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "targetGoalAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "targetDeadline",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "roscaRoundDuration",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "roscaRoundContribution",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "roscaCurrentRound",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "roscaLastRoundTimestamp",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "taskId",
+        "type": "uint256"
+      }
+    ],
+    "name": "verifyAndRewardChore",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawalRequests",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "requester",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "approvalsCount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deadline",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "executed",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "yieldVaultAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "receive"
+  }
+];
 
 export const FAMILY_YIELD_VAULT_ABI = [
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "_teleporterMessenger",
-        type: "address",
+        "internalType": "address",
+        "name": "_teleporterMessenger",
+        "type": "address"
       },
       {
-        internalType: "bytes32",
-        name: "_familyL1BlockchainId",
-        type: "bytes32",
+        "internalType": "bytes32",
+        "name": "_familyL1BlockchainId",
+        "type": "bytes32"
       },
       {
-        internalType: "address",
-        name: "_familyHubAddress",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "_familyHubAddress",
+        "type": "address"
+      }
     ],
-    stateMutability: "nonpayable",
-    type: "constructor",
+    "stateMutability": "nonpayable",
+    "type": "constructor"
   },
   {
-    inputs: [],
-    name: "EnforcedPause",
-    type: "error",
+    "inputs": [],
+    "name": "EnforcedPause",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "ExpectedPause",
-    type: "error",
+    "inputs": [],
+    "name": "ExpectedPause",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "available",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "available",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "requested",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "requested",
+        "type": "uint256"
+      }
     ],
-    name: "InsufficientBalance",
-    type: "error",
+    "name": "InsufficientBalance",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "available",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "available",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "requested",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "requested",
+        "type": "uint256"
+      }
     ],
-    name: "InsufficientContractBalance",
-    type: "error",
+    "name": "InsufficientContractBalance",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "available",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "available",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "requested",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "requested",
+        "type": "uint256"
+      }
     ],
-    name: "InsufficientReservePool",
-    type: "error",
+    "name": "InsufficientReservePool",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "InvalidChainID",
-    type: "error",
+    "inputs": [],
+    "name": "InvalidChainID",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "OnlyTeleporterMessenger",
-    type: "error",
+    "inputs": [],
+    "name": "OnlyTeleporterMessenger",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "owner",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
     ],
-    name: "OwnableInvalidOwner",
-    type: "error",
+    "name": "OwnableInvalidOwner",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
-    name: "OwnableUnauthorizedAccount",
-    type: "error",
+    "name": "OwnableUnauthorizedAccount",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "ReentrancyGuardReentrantCall",
-    type: "error",
+    "inputs": [],
+    "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "TransferFailed",
-    type: "error",
+    "inputs": [],
+    "name": "TransferFailed",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "UnauthorizedSender",
-    type: "error",
+    "inputs": [],
+    "name": "UnauthorizedSender",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "ZeroAddress",
-    type: "error",
+    "inputs": [],
+    "name": "ZeroAddress",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "ZeroAmount",
-    type: "error",
+    "inputs": [],
+    "name": "ZeroAmount",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        indexed: true,
-        internalType: "address",
-        name: "recipient",
-        type: "address",
+        "indexed": true,
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
       },
       {
-        indexed: false,
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
     ],
-    name: "FundsWithdrawn",
-    type: "event",
+    "name": "FundsWithdrawn",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "address",
-        name: "previousOwner",
-        type: "address",
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
       },
       {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
     ],
-    name: "OwnershipTransferred",
-    type: "event",
+    "name": "OwnershipTransferred",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: false,
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
-    name: "Paused",
-    type: "event",
+    "name": "Paused",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        indexed: false,
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
       },
       {
-        indexed: false,
-        internalType: "uint256",
-        name: "timestamp",
-        type: "uint256",
-      },
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
     ],
-    name: "PrincipalDeposited",
-    type: "event",
+    "name": "PrincipalDeposited",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "address",
-        name: "messenger",
-        type: "address",
+        "indexed": true,
+        "internalType": "address",
+        "name": "messenger",
+        "type": "address"
       },
       {
-        indexed: true,
-        internalType: "bytes32",
-        name: "familyL1Id",
-        type: "bytes32",
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "familyL1Id",
+        "type": "bytes32"
       },
       {
-        indexed: true,
-        internalType: "address",
-        name: "hub",
-        type: "address",
-      },
+        "indexed": true,
+        "internalType": "address",
+        "name": "hub",
+        "type": "address"
+      }
     ],
-    name: "TeleporterConfigUpdated",
-    type: "event",
+    "name": "TeleporterConfigUpdated",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: false,
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
-    name: "Unpaused",
-    type: "event",
+    "name": "Unpaused",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        indexed: false,
-        internalType: "uint256",
-        name: "newYield",
-        type: "uint256",
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newYield",
+        "type": "uint256"
       },
       {
-        indexed: false,
-        internalType: "uint256",
-        name: "totalAccrued",
-        type: "uint256",
-      },
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalAccrued",
+        "type": "uint256"
+      }
     ],
-    name: "YieldAccrued",
-    type: "event",
+    "name": "YieldAccrued",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "address",
-        name: "depositor",
-        type: "address",
+        "indexed": true,
+        "internalType": "address",
+        "name": "depositor",
+        "type": "address"
       },
       {
-        indexed: false,
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
     ],
-    name: "YieldReserveDeposited",
-    type: "event",
+    "name": "YieldReserveDeposited",
+    "type": "event"
   },
   {
-    inputs: [],
-    name: "APY_RATE",
-    outputs: [
+    "inputs": [],
+    "name": "APY_RATE",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "SECONDS_PER_YEAR",
-    outputs: [
+    "inputs": [],
+    "name": "SECONDS_PER_YEAR",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    name: "accruedYields",
-    outputs: [
+    "name": "accruedYields",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
     ],
-    name: "calculateAccruedYield",
-    outputs: [
+    "name": "calculateAccruedYield",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
     ],
-    name: "calculateTotalYield",
-    outputs: [
+    "name": "calculateTotalYield",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
     ],
-    name: "compoundYield",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "compoundYield",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
     ],
-    name: "depositPrincipal",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
+    "name": "depositPrincipal",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "depositYieldReserve",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
+    "inputs": [],
+    "name": "depositYieldReserve",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "familyHubAddress",
-    outputs: [
+    "inputs": [],
+    "name": "familyHubAddress",
+    "outputs": [
       {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "familyL1BlockchainId",
-    outputs: [
+    "inputs": [],
+    "name": "familyL1BlockchainId",
+    "outputs": [
       {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
-      },
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
     ],
-    name: "getTotalPendingYield",
-    outputs: [
+    "name": "getTotalPendingYield",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
     ],
-    name: "getTotalValueLocked",
-    outputs: [
+    "name": "getTotalValueLocked",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    name: "lastDepositTimestamp",
-    outputs: [
+    "name": "lastDepositTimestamp",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "owner",
-    outputs: [
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
       {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "pause",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "inputs": [],
+    "name": "pause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "paused",
-    outputs: [
+    "inputs": [],
+    "name": "paused",
+    "outputs": [
       {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        internalType: "address",
-        name: "recipient",
-        type: "address",
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
       },
       {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
     ],
-    name: "processVaultWithdrawal",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "processVaultWithdrawal",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
     ],
-    name: "receiveCrossChainDeposit",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
+    "name": "receiveCrossChainDeposit",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "bytes32",
-        name: "originChainID",
-        type: "bytes32",
+        "internalType": "bytes32",
+        "name": "originChainID",
+        "type": "bytes32"
       },
       {
-        internalType: "address",
-        name: "originSenderAddress",
-        type: "address",
+        "internalType": "address",
+        "name": "originSenderAddress",
+        "type": "address"
       },
       {
-        internalType: "bytes",
-        name: "message",
-        type: "bytes",
-      },
+        "internalType": "bytes",
+        "name": "message",
+        "type": "bytes"
+      }
     ],
-    name: "receiveTeleporterMessage",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "receiveTeleporterMessage",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "renounceOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "inputs": [],
+    "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "teleporterMessenger",
-    outputs: [
+    "inputs": [],
+    "name": "teleporterMessenger",
+    "outputs": [
       {
-        internalType: "contract ITeleporterMessenger",
-        name: "",
-        type: "address",
-      },
+        "internalType": "contract ITeleporterMessenger",
+        "name": "",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
     ],
-    name: "transferOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "unpause",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "inputs": [],
+    "name": "unpause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "_messenger",
-        type: "address",
+        "internalType": "address",
+        "name": "_messenger",
+        "type": "address"
       },
       {
-        internalType: "bytes32",
-        name: "_familyL1Id",
-        type: "bytes32",
+        "internalType": "bytes32",
+        "name": "_familyL1Id",
+        "type": "bytes32"
       },
       {
-        internalType: "address",
-        name: "_hub",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "_hub",
+        "type": "address"
+      }
     ],
-    name: "updateTeleporterConfig",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "updateTeleporterConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    name: "vaultPrincipals",
-    outputs: [
+    "name": "vaultPrincipals",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "yieldReservePool",
-    outputs: [
+    "inputs": [],
+    "name": "yieldReservePool",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    stateMutability: "payable",
-    type: "receive",
-  },
-] as const;
+    "stateMutability": "payable",
+    "type": "receive"
+  }
+];
 
 export const TELEPORTER_MESSENGER_ABI = [
   {
-    inputs: [
+    "inputs": [
       {
-        components: [
+        "components": [
           {
-            internalType: "bytes32",
-            name: "destinationBlockchainID",
-            type: "bytes32",
+            "internalType": "bytes32",
+            "name": "destinationBlockchainID",
+            "type": "bytes32"
           },
           {
-            internalType: "address",
-            name: "destinationAddress",
-            type: "address",
+            "internalType": "address",
+            "name": "destinationAddress",
+            "type": "address"
           },
           {
-            components: [
+            "components": [
               {
-                internalType: "address",
-                name: "feeTokenAddress",
-                type: "address",
+                "internalType": "address",
+                "name": "feeTokenAddress",
+                "type": "address"
               },
               {
-                internalType: "uint256",
-                name: "amount",
-                type: "uint256",
-              },
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+              }
             ],
-            internalType: "struct TeleporterFeeInfo",
-            name: "feeInfo",
-            type: "tuple",
+            "internalType": "struct TeleporterFeeInfo",
+            "name": "feeInfo",
+            "type": "tuple"
           },
           {
-            internalType: "uint256",
-            name: "requiredGasLimit",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "requiredGasLimit",
+            "type": "uint256"
           },
           {
-            internalType: "address[]",
-            name: "allowedRelayerAddresses",
-            type: "address[]",
+            "internalType": "address[]",
+            "name": "allowedRelayerAddresses",
+            "type": "address[]"
           },
           {
-            internalType: "bytes",
-            name: "message",
-            type: "bytes",
-          },
+            "internalType": "bytes",
+            "name": "message",
+            "type": "bytes"
+          }
         ],
-        internalType: "struct TeleporterMessageInput",
-        name: "messageInput",
-        type: "tuple",
-      },
+        "internalType": "struct TeleporterMessageInput",
+        "name": "messageInput",
+        "type": "tuple"
+      }
     ],
-    name: "sendCrossChainMessage",
-    outputs: [
+    "name": "sendCrossChainMessage",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-] as const;
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];
 
 export const VAULT_CASHFLOW_ABI = [
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "_owner",
-        type: "address",
+        "internalType": "address",
+        "name": "_owner",
+        "type": "address"
       },
       {
-        internalType: "address",
-        name: "_controller",
-        type: "address",
+        "internalType": "address",
+        "name": "_controller",
+        "type": "address"
       },
       {
-        internalType: "address",
-        name: "_teleporterMessenger",
-        type: "address",
+        "internalType": "address",
+        "name": "_teleporterMessenger",
+        "type": "address"
       },
       {
-        internalType: "bytes32",
-        name: "_cChainBlockchainId",
-        type: "bytes32",
+        "internalType": "bytes32",
+        "name": "_cChainBlockchainId",
+        "type": "bytes32"
       },
       {
-        internalType: "address",
-        name: "_yieldVaultAddress",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "_yieldVaultAddress",
+        "type": "address"
+      }
     ],
-    stateMutability: "nonpayable",
-    type: "constructor",
+    "stateMutability": "nonpayable",
+    "type": "constructor"
   },
   {
-    inputs: [],
-    name: "EnforcedPause",
-    type: "error",
+    "inputs": [],
+    "name": "EnforcedPause",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "ExpectedPause",
-    type: "error",
+    "inputs": [],
+    "name": "ExpectedPause",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "available",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "available",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "requested",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "requested",
+        "type": "uint256"
+      }
     ],
-    name: "InsufficientVaultBalance",
-    type: "error",
+    "name": "InsufficientVaultBalance",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "NotController",
-    type: "error",
+    "inputs": [],
+    "name": "NotController",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "owner",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
     ],
-    name: "OwnableInvalidOwner",
-    type: "error",
+    "name": "OwnableInvalidOwner",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
-    name: "OwnableUnauthorizedAccount",
-    type: "error",
+    "name": "OwnableUnauthorizedAccount",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "ReentrancyGuardReentrantCall",
-    type: "error",
+    "inputs": [],
+    "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "TransferFailed",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "VaultNotInitialized",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "ZeroAddress",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "ZeroAmount",
-    type: "error",
-  },
-  {
-    anonymous: false,
-    inputs: [
+    "inputs": [
       {
-        indexed: true,
-        internalType: "address",
-        name: "oldController",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newController",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
     ],
-    name: "ControllerUpdated",
-    type: "event",
+    "name": "SafeERC20FailedOperation",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "depositor",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "totalAmount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "toBuffer",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "toBridge",
-        type: "uint256",
-      },
-    ],
-    name: "FundsDeposited",
-    type: "event",
+    "inputs": [],
+    "name": "TransferFailed",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "recipient",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
-      },
-      {
-        indexed: false,
-        internalType: "bool",
-        name: "fullyFundedFromLocalBuffer",
-        type: "bool",
-      },
-    ],
-    name: "FundsWithdrawn",
-    type: "event",
+    "inputs": [],
+    "name": "VaultNotInitialized",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
+    "inputs": [],
+    "name": "ZeroAddress",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-    ],
-    name: "Paused",
-    type: "event",
+    "inputs": [],
+    "name": "ZeroAmount",
+    "type": "error"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "address",
-        name: "messenger",
-        type: "address",
+        "indexed": true,
+        "internalType": "address",
+        "name": "oldController",
+        "type": "address"
       },
       {
-        indexed: true,
-        internalType: "bytes32",
-        name: "cChainId",
-        type: "bytes32",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "yieldVault",
-        type: "address",
-      },
+        "indexed": true,
+        "internalType": "address",
+        "name": "newController",
+        "type": "address"
+      }
     ],
-    name: "TeleporterConfigUpdated",
-    type: "event",
+    "name": "ControllerUpdated",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: false,
-        internalType: "address",
-        name: "account",
-        type: "address",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "depositor",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalAmount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "toBuffer",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "toBridge",
+        "type": "uint256"
+      }
     ],
-    name: "Unpaused",
-    type: "event",
+    "name": "FundsDeposited",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        indexed: false,
-        internalType: "uint256",
-        name: "bufferRatioBps",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
       },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "fullyFundedFromLocalBuffer",
+        "type": "bool"
+      }
     ],
-    name: "VaultLedgerInitialized",
-    type: "event",
+    "name": "FundsWithdrawn",
+    "type": "event"
   },
   {
-    inputs: [],
-    name: "cChainBlockchainId",
-    outputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
       },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "OwnershipTransferred",
+    "type": "event"
   },
   {
-    inputs: [],
-    name: "controller",
-    outputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "Paused",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "address",
+        "name": "messenger",
+        "type": "address"
       },
       {
-        internalType: "address",
-        name: "depositor",
-        type: "address",
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "cChainId",
+        "type": "bytes32"
       },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "yieldVault",
+        "type": "address"
+      }
     ],
-    name: "deposit",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
+    "name": "TeleporterConfigUpdated",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        internalType: "address",
-        name: "recipient",
-        type: "address",
+        "indexed": true,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
       },
       {
-        internalType: "uint256",
-        name: "amount",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "address",
+        "name": "depositor",
+        "type": "address"
       },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
     ],
-    name: "executeWithdrawal",
-    outputs: [
-      {
-        internalType: "bool",
-        name: "fullyFundedFromLocalBuffer",
-        type: "bool",
-      },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "TokenDeposited",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
     ],
-    name: "getVaultBalances",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "total",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "l1Buffer",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "cChainPrincipal",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "bufferRatioBps",
-        type: "uint256",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
+    "name": "TokenWithdrawn",
+    "type": "event"
   },
   {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
-      },
+        "indexed": false,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
-    name: "getVaultLedger",
-    outputs: [
+    "name": "Unpaused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
       {
-        components: [
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "bufferRatioBps",
+        "type": "uint256"
+      }
+    ],
+    "name": "VaultLedgerInitialized",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "cChainBlockchainId",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "controller",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "depositor",
+        "type": "address"
+      }
+    ],
+    "name": "deposit",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "depositor",
+        "type": "address"
+      }
+    ],
+    "name": "depositToken",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "executeTokenWithdrawal",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "executeWithdrawal",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "fullyFundedFromLocalBuffer",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
+    ],
+    "name": "getTokenBalance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getVaultBalances",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "total",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "l1Buffer",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "cChainPrincipal",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "bufferRatioBps",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getVaultLedger",
+    "outputs": [
+      {
+        "components": [
           {
-            internalType: "uint256",
-            name: "totalBalance",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "totalBalance",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "l1BufferBalance",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "l1BufferBalance",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "cChainPrincipal",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "cChainPrincipal",
+            "type": "uint256"
           },
           {
-            internalType: "uint256",
-            name: "bufferRatioBps",
-            type: "uint256",
+            "internalType": "uint256",
+            "name": "bufferRatioBps",
+            "type": "uint256"
           },
           {
-            internalType: "bool",
-            name: "isInitialized",
-            type: "bool",
-          },
+            "internalType": "bool",
+            "name": "isInitialized",
+            "type": "bool"
+          }
         ],
-        internalType: "struct VaultCashflow.VaultLedger",
-        name: "",
-        type: "tuple",
-      },
+        "internalType": "struct VaultCashflow.VaultLedger",
+        "name": "",
+        "type": "tuple"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "vaultId",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "bufferRatioBps",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "bufferRatioBps",
+        "type": "uint256"
+      }
     ],
-    name: "initializeVaultLedger",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "initializeVaultLedger",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    name: "ledgers",
-    outputs: [
+    "name": "ledgers",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "totalBalance",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "totalBalance",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "l1BufferBalance",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "l1BufferBalance",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "cChainPrincipal",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "cChainPrincipal",
+        "type": "uint256"
       },
       {
-        internalType: "uint256",
-        name: "bufferRatioBps",
-        type: "uint256",
+        "internalType": "uint256",
+        "name": "bufferRatioBps",
+        "type": "uint256"
       },
       {
-        internalType: "bool",
-        name: "isInitialized",
-        type: "bool",
-      },
+        "internalType": "bool",
+        "name": "isInitialized",
+        "type": "bool"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "owner",
-    outputs: [
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
       {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "pause",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "inputs": [],
+    "name": "pause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "paused",
-    outputs: [
+    "inputs": [],
+    "name": "paused",
+    "outputs": [
       {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "renounceOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "inputs": [],
+    "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "_newController",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "_newController",
+        "type": "address"
+      }
     ],
-    name: "setController",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "setController",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "_messenger",
-        type: "address",
+        "internalType": "address",
+        "name": "_messenger",
+        "type": "address"
       },
       {
-        internalType: "bytes32",
-        name: "_cChainId",
-        type: "bytes32",
+        "internalType": "bytes32",
+        "name": "_cChainId",
+        "type": "bytes32"
       },
       {
-        internalType: "address",
-        name: "_yieldVault",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "_yieldVault",
+        "type": "address"
+      }
     ],
-    name: "setTeleporterConfig",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "setTeleporterConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "teleporterMessenger",
-    outputs: [
+    "inputs": [],
+    "name": "teleporterMessenger",
+    "outputs": [
       {
-        internalType: "contract ITeleporterMessenger",
-        name: "",
-        type: "address",
-      },
+        "internalType": "contract ITeleporterMessenger",
+        "name": "",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       },
-    ],
-    name: "transferOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "unpause",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "yieldVaultAddress",
-    outputs: [
       {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "tokenBalances",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    stateMutability: "payable",
-    type: "receive",
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
-] as const;
+  {
+    "inputs": [],
+    "name": "unpause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "yieldVaultAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "receive"
+  }
+];
+
+export const KINETIX_FORWARDER_ABI = [
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidNonce",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidSigner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RequestExpired",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "returnData",
+        "type": "bytes"
+      }
+    ],
+    "name": "TargetCallFailed",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "success",
+        "type": "bool"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "returnData",
+        "type": "bytes"
+      }
+    ],
+    "name": "ForwardExecuted",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "DOMAIN_SEPARATOR",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "FORWARD_REQUEST_TYPEHASH",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "from",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "to",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "value",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "gas",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "nonce",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "deadline",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes",
+            "name": "data",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct KinetixForwarder.ForwardRequest",
+        "name": "req",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
+      }
+    ],
+    "name": "execute",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "success",
+        "type": "bool"
+      },
+      {
+        "internalType": "bytes",
+        "name": "returnData",
+        "type": "bytes"
+      }
+    ],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      }
+    ],
+    "name": "getNonce",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "from",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "to",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "value",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "gas",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "nonce",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "deadline",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes",
+            "name": "data",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct KinetixForwarder.ForwardRequest",
+        "name": "req",
+        "type": "tuple"
+      }
+    ],
+    "name": "hashRequest",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "nonces",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "from",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "to",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "value",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "gas",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "nonce",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "deadline",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes",
+            "name": "data",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct KinetixForwarder.ForwardRequest",
+        "name": "req",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
+      }
+    ],
+    "name": "verify",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "receive"
+  }
+];

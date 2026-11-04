@@ -17,7 +17,11 @@ const vaultCashflowArtifact = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, "../artifacts/contracts/VaultCashflow.sol/VaultCashflow.json"), "utf8")
 );
 
-const content = `/**
+const forwarderArtifact = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, "../artifacts/contracts/KinetixForwarder.sol/KinetixForwarder.json"), "utf8")
+);
+
+const contentFrontend = `/**
  * Smart Contract ABIs for Kinetix
  * Tự động đồng bộ từ Smart Contracts Solidity đã biên dịch
  */
@@ -29,7 +33,26 @@ export const FAMILY_YIELD_VAULT_ABI = ${JSON.stringify(familyYieldVaultArtifact.
 export const TELEPORTER_MESSENGER_ABI = ${JSON.stringify(teleporterArtifact.abi, null, 2)} as const;
 
 export const VAULT_CASHFLOW_ABI = ${JSON.stringify(vaultCashflowArtifact.abi, null, 2)} as const;
+
+export const KINETIX_FORWARDER_ABI = ${JSON.stringify(forwarderArtifact.abi, null, 2)} as const;
 `;
 
-fs.writeFileSync(path.resolve(__dirname, "../frontend/src/contracts/abis.ts"), content, "utf8");
-console.log("✅ Đã cập nhật frontend/src/contracts/abis.ts thành công!");
+const contentShared = `/**
+ * Smart Contract ABIs for Kinetix
+ * Tự động đồng bộ từ Smart Contracts Solidity đã biên dịch
+ */
+
+export const FAMILY_HUB_ABI = ${JSON.stringify(familyHubArtifact.abi, null, 2)};
+
+export const FAMILY_YIELD_VAULT_ABI = ${JSON.stringify(familyYieldVaultArtifact.abi, null, 2)};
+
+export const TELEPORTER_MESSENGER_ABI = ${JSON.stringify(teleporterArtifact.abi, null, 2)};
+
+export const VAULT_CASHFLOW_ABI = ${JSON.stringify(vaultCashflowArtifact.abi, null, 2)};
+
+export const KINETIX_FORWARDER_ABI = ${JSON.stringify(forwarderArtifact.abi, null, 2)};
+`;
+
+fs.writeFileSync(path.resolve(__dirname, "../frontend/src/contracts/abis.ts"), contentFrontend, "utf8");
+fs.writeFileSync(path.resolve(__dirname, "../shared/abis.ts"), contentShared, "utf8");
+console.log("✅ Đã cập nhật frontend/src/contracts/abis.ts và shared/abis.ts thành công!");

@@ -66,6 +66,10 @@ export const CONTRACT_ADDRESSES = {
   // Hợp đồng FamilyYieldVault.sol trên Fuji C-Chain
   familyYieldVault: (process.env.NEXT_PUBLIC_FAMILY_VAULT_ADDRESS ||
     "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512") as `0x${string}`,
+
+  // Hợp đồng KinetixForwarder.sol trên Family L1
+  kinetixForwarder: (process.env.NEXT_PUBLIC_FORWARDER_ADDRESS ||
+    "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0") as `0x${string}`,
 };
 
 // URL Backend API (Ưu tiên gọi trực tiếp qua Next.js API /api để tránh 404 và đồng bộ 100% dữ liệu)

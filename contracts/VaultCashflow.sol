@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/ITeleporterMessenger.sol";
 
 /**
@@ -18,6 +20,8 @@ import "./interfaces/ITeleporterMessenger.sol";
  * 5. Tách biệt hoàn toàn tầng Quỹ Tiền (Treasury) khỏi tầng Quản Trị Quy Tắc (Policy / Governance).
  */
 contract VaultCashflow is Ownable, Pausable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     // -------------------------------------------------------------
     // ENUMS & STRUCTS
     // -------------------------------------------------------------
@@ -62,6 +66,9 @@ contract VaultCashflow is Ownable, Pausable, ReentrancyGuard {
     /// @notice Sổ cái dòng tiền theo Hũ: vaultId => VaultLedger
     mapping(uint256 => VaultLedger) public ledgers;
 
+    /// @notice Sổ cái token ERC-20 (như USDC) theo từng Hũ: vaultId => tokenAddress => balance
+    mapping(uint256 => mapping(address => uint256)) public tokenBalances;
+
     // -------------------------------------------------------------
     // EVENTS
     // -------------------------------------------------------------
@@ -80,6 +87,18 @@ contract VaultCashflow is Ownable, Pausable, ReentrancyGuard {
         address indexed recipient,
         uint256 amount,
         bool fullyFundedFromLocalBuffer
+    );
+    event TokenDeposited(
+        uint256 indexed vaultId,
+        address indexed token,
+        address indexed depositor,
+        uint256 amount
+    );
+    event TokenWithdrawn(
+        uint256 indexed vaultId,
+        address indexed token,
+        address indexed recipient,
+        uint256 amount
     );
 
     // -------------------------------------------------------------
@@ -307,7 +326,59 @@ contract VaultCashflow is Ownable, Pausable, ReentrancyGuard {
     }
 
     // -------------------------------------------------------------
-    // 4. VIEW FUNCTIONS ĐỌC SỐ DƯ CHO DAPP
+    // 4. QUẢN LÝ DÒNG TIỀN TOKEN ERC-20 (USDC TOKEN VAULT)
+    // -------------------------------------------------------------
+
+    /**
+     * @notice Nạp token ERC-20 (như USDC) vào Hũ tiền
+     */
+    function depositToken(
+        uint256 vaultId,
+        address token,
+        uint256 amount,
+        address depositor
+    ) external nonReentrant whenNotPaused {
+        if (token == address(0) || depositor == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        tokenBalances[vaultId][token] += amount;
+
+        emit TokenDeposited(vaultId, token, depositor, amount);
+    }
+
+    /**
+     * @notice Trích quỹ giải ngân token ERC-20 từ Hũ tiền (Chỉ Controller có quyền gọi)
+     */
+    function executeTokenWithdrawal(
+        uint256 vaultId,
+        address token,
+        address recipient,
+        uint256 amount
+    ) external nonReentrant whenNotPaused onlyController {
+        if (token == address(0) || recipient == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+
+        uint256 available = tokenBalances[vaultId][token];
+        if (amount > available) {
+            revert InsufficientVaultBalance(available, amount);
+        }
+
+        tokenBalances[vaultId][token] -= amount;
+        IERC20(token).safeTransfer(recipient, amount);
+
+        emit TokenWithdrawn(vaultId, token, recipient, amount);
+    }
+
+    /**
+     * @notice Đọc số dư token ERC-20 của Hũ
+     */
+    function getTokenBalance(uint256 vaultId, address token) external view returns (uint256) {
+        return tokenBalances[vaultId][token];
+    }
+
+    // -------------------------------------------------------------
+    // 5. VIEW FUNCTIONS ĐỌC SỐ DƯ CHO DAPP
     // -------------------------------------------------------------
 
     function getVaultLedger(uint256 vaultId) external view returns (VaultLedger memory) {
