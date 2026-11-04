@@ -1,5 +1,58 @@
 # KINETIX: The Multi-Generational Family & Social Finance OS on Avalanche
 
+## Trải nghiệm thành viên hiện tại — 04/11/2026
+
+**Trạng thái contract/testnet:** xem [báo cáo và kế hoạch nâng cấp](CONTRACT_TESTNET_REVIEW.md).
+Rà soát đã xác nhận cấu hình/mapping hũ hiện tại chưa sẵn sàng nạp testnet và
+các lỗi chính sách/dòng tiền cần sửa trước deployment. Có thể kiểm tra chỉ đọc
+bằng `npm run check:testnet -- --workspace <UUID>`; lệnh không tự sửa mapping.
+
+Web dùng chung route và dữ liệu trên desktop, tablet và điện thoại; giao diện
+thành viên có sidebar hoặc thanh dưới theo chiều rộng. Vai trò lấy từ membership
+của workspace đang chọn. Đăng nhập bằng tài khoản/mật khẩu, liên kết Core cá nhân
+và chỉ mở ví khi cần ký; không dùng PIN để cấp quyền tài chính.
+
+- Người cao tuổi: `/dashboard/elderly`, `/withdraw`, `/requests`, `/family`
+  bên dưới route này. Chọn đúng hũ SHIELD, đọc policy thật, xem lại trước ký,
+  theo dõi deadline/quorum và liên hệ người bảo hộ được phân công.
+- Trẻ em: `/dashboard/kids`, `/chores`, `/rewards`, `/profile` bên dưới route
+  này. Việc và ảnh giới hạn theo tài khoản; tải ảnh riêng tư trước khi ký nộp.
+  Tổng thưởng chỉ cộng khoản đã chi trả, không đại diện số dư ví.
+- Ảnh PNG chuẩn hóa được kiểm checksum, kích thước và dữ liệu nén, bỏ metadata;
+  lưu riêng tư trong database tối đa 90 ngày, tối đa 5 ảnh/bài. Worker dọn ảnh
+  hết hạn. API kiểm lại quyền mỗi lần đọc ảnh, không phát hành URL public.
+- Ledger và thông báo lấy từ receipt/event thật, định danh event để chống ghi
+  trùng. Worker quét theo lô 1000 block và lưu cursor bền vững. Đặt
+  `HUB_ACTIVITY_START_BLOCK` bằng khối triển khai thật để rút ngắn quét lịch sử.
+
+Áp dụng migration `0002_member_experience` trên database mục tiêu trước khi chạy
+phiên bản này: `npm run db:migrate`. Nếu database cũ được dựng bằng SQL riêng
+và lịch sử migration không khớp repository, dùng `npm run db:migrate:member`
+để chỉ nâng cấp phần thành viên, không phát lại migration tạo bảng/tài khoản.
+Lệnh chạy trong transaction, có khóa chống chạy đồng thời và bỏ qua migration
+đã ghi nhận. Migration thêm ảnh, ledger, cursor, nguồn
+thông báo và deadline; đổi số tiền sang `numeric(38,18)`. Phần thập phân đã bị
+làm tròn trước đó không thể tự khôi phục; số dư được worker đọc lại từ chain.
+
+Kiểm tra mã: `npm run typecheck`, `npm run test:auth`, và
+`npx hardhat test test/Kinetix.test.ts test/SecurityHardening.test.ts test/ChainReceipt.test.ts test/KinetixAdvancedFlows.test.ts`.
+Build trong môi trường hạn chế tiến trình bằng
+`$env:KINETIX_CONSTRAINED_BUILD='true'; npm --prefix frontend run build`
+(PowerShell). Chạy integration với DB cô lập bằng `npm run test:auth:integration`;
+runner yêu cầu `TEST_DATABASE_URL` và `AUTH_TEST_ALLOW_RESET=true`.
+
+**Chưa nghiệm thu:** WalletConnect SDK chưa được cài do môi trường phát triển
+chặn npm. Adapter EIP-1193 và vòng đời session đã được chuẩn bị nhưng chưa có
+pairing QR/deep link; giao dịch Core Mobile chưa khả dụng chỉ bằng cấu hình.
+Theo [Core Mobile documentation](https://docs.core.app/docs/connect-your-dapp/core-mobile/),
+cần tích hợp WalletConnect và kiểm chứng mạng Family L1 trên thiết bị thật.
+Kiểm tra render/đơn vị không thay thế E2E Safari/Android, VoiceOver/TalkBack
+hoặc thử dùng với người cao tuổi/trẻ em. Mục tiêu tiết kiệm, PWA, phản hồi/làm
+lại bài và video thật chưa nằm trong bản triển khai này.
+
+Các phần giới thiệu và roadmap bên dưới mô tả tầm nhìn dự án; trạng thái triển
+khai và điều kiện vận hành ở trên là căn cứ cho phiên bản hiện tại.
+
 <p align="center">
   <img src="https://images.unsplash.com/photo-1511895426328-dc8714191300?w=1200&auto=format&fit=crop&q=80" alt="Kinetix Hero Banner" width="100%" style="border-radius: 16px; max-height: 380px; object-fit: cover;" />
 </p>
