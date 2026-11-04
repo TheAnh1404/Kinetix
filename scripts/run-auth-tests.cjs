@@ -11,6 +11,10 @@ mocha.addFile("test/auth.test.ts");
 mocha.addFile("test/backend.test.ts");
 mocha.addFile("test/Web3AuthGuard.test.ts");
 mocha.addFile("test/BffAuth.test.ts");
+mocha.addFile("test/MemberExperience.test.ts");
+mocha.addFile("test/MemberRender.test.ts");
+mocha.addFile("test/MemberRecovery.test.ts");
+mocha.addFile("test/VaultMapping.test.ts");
 mocha.run((failures) => {
   process.exitCode = failures ? 1 : 0;
 });

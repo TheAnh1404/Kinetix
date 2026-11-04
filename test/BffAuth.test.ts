@@ -75,4 +75,24 @@ describe("Same-origin Next BFF", () => {
     expect(response.status).to.equal(503);
     expect(await response.text()).not.to.include("private connection details");
   });
+  it("preserves private image bytes and content type through the authenticated proxy", async () => {
+    const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+    globalThis.fetch = (async () =>
+      new Response(png, {
+        headers: { "Content-Type": "image/png" },
+      })) as typeof fetch;
+    const req = new NextRequest(
+      "http://localhost:3000/api/member/attachments/test",
+      { headers: { cookie: "kinetix_session=opaque" } },
+    );
+    const response = await GET(req, {
+      params: { path: ["member", "attachments", "test"] },
+    });
+    expect(response.headers.get("content-type")).to.equal("image/png");
+    expect(response.headers.get("cache-control")).to.equal("no-store");
+    expect(response.headers.get("x-content-type-options")).to.equal("nosniff");
+    expect([...new Uint8Array(await response.arrayBuffer())]).to.deep.equal([
+      ...png,
+    ]);
+  });
 });

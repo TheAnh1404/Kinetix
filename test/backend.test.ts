@@ -7,7 +7,12 @@ import type { Server } from "http";
 const { assertIsolatedDatabase } = require("../scripts/auth-test-safety.cjs");
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const originalDatabaseUrl = process.env.DATABASE_URL;
-if (testDatabaseUrl) assertIsolatedDatabase(testDatabaseUrl, originalDatabaseUrl, process.env.AUTH_TEST_ALLOW_RESET);
+if (testDatabaseUrl)
+  assertIsolatedDatabase(
+    testDatabaseUrl,
+    originalDatabaseUrl,
+    process.env.AUTH_TEST_ALLOW_RESET,
+  );
 // Never open the application's configured database during unit/HTTP guard tests.
 process.env.DATABASE_URL =
   testDatabaseUrl ||
@@ -791,6 +796,160 @@ describe("HTTP guards without a database", () => {
         .from(schema.users)
         .where(eq(schema.users.id, legacy.id));
       expect(unchanged.walletAddress).to.equal(oldWallet.address);
+    });
+    it("isolates two children's tasks and private proof even when they share the same vault", async () => {
+      const children: { id: string; browser: Browser }[] = [];
+      for (const name of ["proof_child_a", "proof_child_b"]) {
+        const created = await createMember(name);
+        const browser = new Browser();
+        await browser.request("/auth/login", {
+          username: name,
+          password: created.credential.temporaryPassword,
+        });
+        await browser.request("/auth/change-password", {
+          currentPassword: created.credential.temporaryPassword,
+          newPassword: password,
+        });
+        await browser.request(
+          "/auth/wallet/link",
+          await signedChallenge(
+            browser,
+            "LINK",
+            privateKeyToAccount(generatePrivateKey()),
+          ),
+        );
+        children.push({ id: created.memberId, browser });
+      }
+      const [vault] = await db
+        .insert(schema.vaults)
+        .values({
+          workspaceId,
+          onchainVaultId: 999,
+          name: "Shared chores",
+          ruleTemplate: "MILESTONE",
+        })
+        .returning();
+      await db
+        .insert(schema.vaultMembers)
+        .values(
+          children.map((child) => ({
+            vaultId: vault.id,
+            userId: child.id,
+            vaultRole: "BENEFICIARY",
+          })),
+        );
+      const tasks = await db
+        .insert(schema.chores)
+        .values(
+          children.map((child, index) => ({
+            vaultId: vault.id,
+            familyId: workspaceId,
+            childId: child.id,
+            title: `Private chore ${index}`,
+            rewardAmount: "0.000000000000000001",
+          })),
+        )
+        .returning();
+      for (let index = 0; index < children.length; index++) {
+        const response = await children[index].browser.request(
+          `/chores/${workspaceId}`,
+          undefined,
+          "GET",
+        );
+        expect(response.status).to.equal(200);
+        expect(
+          response.data.data.map((task: any) => task.childId),
+        ).to.deep.equal([children[index].id]);
+        expect(response.data.data[0].rewardAmount).to.equal(
+          "0.000000000000000001",
+        );
+      }
+      // Tạo attachment trực tiếp trong DB cô lập để kiểm endpoint đọc, không upload ảnh thật.
+      const [attachment] = await db
+        .insert(schema.proofAttachments)
+        .values({
+          choreId: tasks[0].id,
+          ownerId: children[0].id,
+          content: "iVBORw0KGgo=",
+          expiresAt: new Date(Date.now() + 86400000),
+        })
+        .returning();
+      const blocked = await children[1].browser.request(
+        `/member/attachments/${attachment.id}`,
+        undefined,
+        "GET",
+      );
+      expect(blocked.status).to.equal(403);
+      expect(
+        (
+          await otherAdmin.request(
+            `/member/attachments/${attachment.id}`,
+            undefined,
+            "GET",
+          )
+        ).status,
+      ).to.equal(403);
+      const assigned = await children[0].browser.request(
+        `/member/guardians?workspaceId=${workspaceId}`,
+        undefined,
+        "GET",
+      );
+      expect(assigned.status).to.equal(200);
+      expect(assigned.data.data.length).to.be.greaterThan(0);
+      expect(
+        assigned.data.data.some(
+          (contact: any) => contact.id === children[1].id,
+        ),
+      ).to.equal(false);
+    });
+    it("limits dependent withdrawal history to the actor even in a shared vault", async () => {
+      const [vault] = await db
+        .insert(schema.vaults)
+        .values({
+          workspaceId,
+          onchainVaultId: 1000,
+          name: "Shared shield",
+          ruleTemplate: "SHIELD",
+        })
+        .returning();
+      await db
+        .insert(schema.vaultMembers)
+        .values({
+          vaultId: vault.id,
+          userId: memberId,
+          vaultRole: "BENEFICIARY",
+        });
+      const adminIdentity = await admin.request("/auth/me", undefined, "GET");
+      await db.insert(schema.withdrawalRequests).values([
+        {
+          familyId: workspaceId,
+          vaultId: vault.id,
+          requesterId: memberId,
+          amount: "0.1",
+          reason: "Daily",
+        },
+        {
+          familyId: workspaceId,
+          vaultId: vault.id,
+          requesterId: adminIdentity.data.user.id,
+          amount: "0.2",
+          reason: "Other",
+        },
+      ]);
+      const response = await member.request(
+        `/withdrawals/${workspaceId}`,
+        undefined,
+        "GET",
+      );
+      expect(response.status).to.equal(200);
+      expect(
+        response.data.data.every(
+          (request: any) => request.requesterId === memberId,
+        ),
+      ).to.equal(true);
+      expect(
+        response.data.data.some((request: any) => request.reason === "Other"),
+      ).to.equal(false);
     });
     it("locks only one workspace and respects session revocation/logout", async () => {
       await db.insert(schema.workspaceMembers).values({

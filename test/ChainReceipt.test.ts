@@ -3,6 +3,7 @@ import { ethers, network } from "hardhat";
 import { createServer, Server } from "http";
 import { AddressInfo } from "net";
 import { verifiedEvent, readHub } from "../backend/src/services/chainService";
+import { memberVaultPolicy } from "../backend/src/services/vaultPolicyService";
 import type { AuthContext } from "../backend/src/auth/service";
 
 describe("Backend receipt verification against the local EVM", function () {
@@ -196,5 +197,29 @@ describe("Backend receipt verification against the local EVM", function () {
     expect(
       await readHub(hub.target, "isAllowlisted", [outsider.address]),
     ).to.equal(true);
+  });
+  it("reads actual beneficiary, limit, liquidity, daily remaining and pause state for the review screen", async () => {
+    await (
+      await hub.depositToVault(1n, { value: ethers.parseEther("2") })
+    ).wait();
+    const initial = await memberVaultPolicy(hub.target, 1n, outsider.address);
+    expect(initial.isBeneficiary).to.equal(true);
+    expect(initial.availableNow).to.equal("1");
+    expect(initial.requiredApprovals).to.equal(1);
+    await (await hub.setVaultDailyLimit(1n, ethers.parseEther("0.4"))).wait();
+    await (
+      await hub.connect(outsider).fastWithdraw(1n, ethers.parseEther("0.25"))
+    ).wait();
+    const remaining = await memberVaultPolicy(hub.target, 1n, outsider.address);
+    expect(remaining.availableNow).to.equal("0.15");
+    expect(remaining.remainingToday).to.equal("0.15");
+    const unrelated = await memberVaultPolicy(hub.target, 1n, admin.address);
+    expect(unrelated.isBeneficiary).to.equal(false);
+    expect(unrelated.availableNow).to.equal("0");
+    await (await hub.pause()).wait();
+    const paused = await memberVaultPolicy(hub.target, 1n, outsider.address);
+    expect(paused.isActive).to.equal(false);
+    expect(paused.availableNow).to.equal("0");
+    await (await hub.unpause()).wait();
   });
 });

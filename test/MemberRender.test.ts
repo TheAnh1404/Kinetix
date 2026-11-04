@@ -1,0 +1,172 @@
+import { expect } from "chai";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import ts from "typescript";
+
+// Smoke test render cây React thật, thay các biên session/RPC; không giả kết quả E2E trình duyệt.
+describe("Member page rendering and personal-data boundaries", () => {
+  const React = require("../frontend/node_modules/react");
+  const {
+    renderToStaticMarkup,
+  } = require("../frontend/node_modules/react-dom/server");
+  let family: any;
+  let pathname: string;
+  let cache: Map<string, any>;
+  const user = { id: "child-a", fullName: "Member fixture" };
+  function load(file: string): any {
+    const filename = resolve(file);
+    if (cache.has(filename)) return cache.get(filename);
+    const module = { exports: {} as any };
+    cache.set(filename, module.exports);
+    const code = ts.transpileModule(readFileSync(filename, "utf8"), {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+        jsx: ts.JsxEmit.React,
+        esModuleInterop: true,
+      },
+    }).outputText;
+    const importer = (name: string): any => {
+      if (name === "react") return React;
+      if (name === "lucide-react")
+        return require("../frontend/node_modules/lucide-react");
+      if (name === "next/link")
+        return ({ href, children, ...props }: any) =>
+          React.createElement("a", { href, ...props }, children);
+      if (name === "next/navigation")
+        return {
+          usePathname: () => pathname,
+          useSearchParams: () => new URLSearchParams(),
+          useRouter: () => ({ push() {} }),
+        };
+      if (name === "@/context/FamilyContext")
+        return { useFamily: () => family };
+      if (name === "@/hooks/useAuth")
+        return {
+          useAuth: () => ({
+            user,
+            linkedWallet: { address: `0x${"1".repeat(40)}` },
+          }),
+        };
+      if (name === "@/hooks/useMemberTransaction")
+        return {
+          useMemberTransaction: () => ({
+            state: "idle",
+            busy: false,
+            blocked: false,
+          }),
+        };
+      if (name === "@/hooks/useVaultPolicy")
+        return { useVaultPolicy: () => ({ policy: null }) };
+      if (name === "@/contracts/config")
+        return { hubChain: { nativeCurrency: { symbol: "AVAX" } } };
+      if (name.startsWith("@/")) {
+        const base = `frontend/src/${name.slice(2)}`;
+        return load(`${base}.${name.includes("/lib/") ? "ts" : "tsx"}`);
+      }
+      if (name.startsWith("./"))
+        return load(resolve(filename, "..", `${name}.tsx`));
+      return require(name);
+    };
+    new Function("require", "module", "exports", code)(
+      importer,
+      module,
+      module.exports,
+    );
+    return module.exports;
+  }
+  beforeEach(() => {
+    cache = new Map();
+    pathname = "/dashboard/kids";
+    family = {
+      chores: [],
+      dynamicVaults: [],
+      withdrawalRequests: [],
+      workspaces: [{ id: "space", name: "Family fixture" }],
+      currentWorkspace: { id: "space", name: "Family fixture" },
+    };
+  });
+  it("renders a fresh child's empty state with zero rewards and no invented chores", () => {
+    const { KidsPortal } = load(
+      "frontend/src/components/member/KidsPortal.tsx",
+    );
+    const html = renderToStaticMarkup(React.createElement(KidsPortal));
+    expect(html).to.include("Con chưa có việc mới");
+    expect(html).not.to.include("unsplash");
+    expect(html).not.to.include("0.08");
+  });
+  it("filters the UI by assignee and totals only paid rewards with exact units", () => {
+    family.chores = [
+      {
+        id: "one",
+        title: "Own paid task",
+        childId: user.id,
+        exactRewardAmount: "0.000000000000000001",
+        status: "REWARDED",
+      },
+      {
+        id: "two",
+        title: "Own pending task",
+        childId: user.id,
+        exactRewardAmount: "10",
+        status: "SUBMITTED",
+      },
+      {
+        id: "other",
+        title: "Other child private task",
+        childId: "child-b",
+        exactRewardAmount: "999",
+        status: "TODO",
+      },
+    ];
+    pathname = "/dashboard/kids/rewards";
+    const { KidsPortal } = load(
+      "frontend/src/components/member/KidsPortal.tsx",
+    );
+    const html = renderToStaticMarkup(React.createElement(KidsPortal));
+    expect(html).to.include("0,000000000000000001");
+    expect(html).to.include("Own paid task");
+    expect(html).not.to.include("Other child private task");
+    expect(html).not.to.include("Own pending task</h3>");
+  });
+  it("never substitutes a non-SHIELD vault for an elderly member's support vault", () => {
+    pathname = "/dashboard/elderly";
+    family.dynamicVaults = [
+      {
+        id: "other",
+        name: "Unrelated pool",
+        ruleTemplate: "ROSCA",
+        isActive: true,
+        exactTotalBalance: "999",
+      },
+    ];
+    const { ElderlyPortal } = load(
+      "frontend/src/components/member/ElderlyPortal.tsx",
+    );
+    const html = renderToStaticMarkup(React.createElement(ElderlyPortal));
+    expect(html).to.include("Chưa có hũ hỗ trợ phù hợp");
+    expect(html).not.to.include("Unrelated pool");
+    expect(html).not.to.include("999");
+  });
+  it("renders one responsive main content region and keeps the same labelled routes", () => {
+    const { MemberResponsiveShell } = load(
+      "frontend/src/components/layout/MemberResponsiveShell.tsx",
+    );
+    const html = renderToStaticMarkup(
+      React.createElement(
+        MemberResponsiveShell,
+        { elderly: true },
+        "Fixture content",
+      ),
+    );
+    expect((html.match(/<main/g) || []).length).to.equal(1);
+    for (const route of [
+      "/dashboard/elderly",
+      "/dashboard/elderly/requests",
+      "/dashboard/elderly/family",
+    ])
+      expect(html).to.include(`href="${route}"`);
+    expect(html).not.to.include("MobilePhoneContainer");
+    expect(html).not.to.include("0 Gas");
+  });
+});

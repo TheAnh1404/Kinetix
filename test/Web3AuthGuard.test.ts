@@ -244,13 +244,11 @@ describe("Web3 transaction identity and receipt boundary", function () {
     state.forbiddenResource = true;
     await rejection(
       () =>
-        adapter
-          .getWalletClient()
-          .writeContract({
-            address: hub,
-            functionName: "approveWithdrawal",
-            args: [66n],
-          }),
+        adapter.getWalletClient().writeContract({
+          address: hub,
+          functionName: "approveWithdrawal",
+          args: [66n],
+        }),
       "outside the active workspace",
     );
     expect(state.sent).to.equal(0);
@@ -294,5 +292,36 @@ describe("Web3 transaction identity and receipt boundary", function () {
       "DONE",
     );
     expect(state.sent).to.equal(1);
+  });
+  it("blocks a second send for the same resource after broadcast timeout", async () => {
+    state.timeout = true;
+    const operation = () =>
+      adapter
+        .getWalletClient()
+        .writeContract({
+          address: hub,
+          functionName: "claimChoreCompleted",
+          args: [7n],
+          __kinetixSync: {
+            path: "/api/chores/submit",
+            body: { choreId: "task", attachmentId: "private-file" },
+          },
+        });
+    await rejection(operation, txHash);
+    await rejection(operation, "Không gửi lại");
+    expect(state.sent).to.equal(1);
+  });
+  it("serializes double-click writes before any asynchronous identity request", async () => {
+    const first = write();
+    await rejection(write, "đang chờ xác nhận");
+    await first;
+    expect(state.sent).to.equal(1);
+  });
+  it("does not expose another account's queue and expires stale private records", () => {
+    saved["kinetix-pending:member"] = JSON.stringify([
+      { hash: txHash, submittedAt: "2000-01-01", status: "PENDING" },
+    ]);
+    expect(adapter.pendingTransactions("member")).to.deep.equal([]);
+    expect(adapter.pendingTransactions("other")).to.deep.equal([]);
   });
 });
