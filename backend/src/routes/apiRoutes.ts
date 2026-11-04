@@ -27,58 +27,17 @@ import {
   decimalAmount,
   networkAllowed,
 } from "../services/chainService";
+import { relayForwardRequest } from "../services/relayerService";
+
+import {
+  workspace,
+  visibleVaults,
+  vaultAccess,
+} from "../services/workspaceAccess";
 
 export const apiRouter = Router();
 apiRouter.use("/workspaces/:id/managed-members", managedMemberRouter);
 apiRouter.use("/workspaces/:id", workspaceAdminRouter);
-async function workspace(auth: AuthContext, id: string) {
-  const member = await membership(db, auth, uuidInput(id));
-  const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, id));
-  assert(ws, 404, "Không tìm thấy không gian.");
-  return { ws, member };
-}
-async function visibleVaults(auth: AuthContext, workspaceId: string) {
-  const { member } = await workspace(auth, workspaceId);
-  const rows = await db
-    .select()
-    .from(vaults)
-    .where(eq(vaults.workspaceId, workspaceId));
-  if (member.role === "ADMIN") return rows;
-  const links = await db
-    .select({ vaultId: vaultMembers.vaultId })
-    .from(vaultMembers)
-    .where(eq(vaultMembers.userId, auth.user.id));
-  return rows.filter((row) => links.some((link) => link.vaultId === row.id));
-}
-async function vaultAccess(auth: AuthContext, id: string, financial = false) {
-  const [vault] = await db
-    .select()
-    .from(vaults)
-    .where(eq(vaults.id, uuidInput(id)));
-  assert(vault, 404, "Không tìm thấy hũ.");
-  const { ws, member } = await workspace(auth, vault.workspaceId);
-  if (member.role !== "ADMIN") {
-    const [link] = await db
-      .select()
-      .from(vaultMembers)
-      .where(
-        and(
-          eq(vaultMembers.vaultId, vault.id),
-          eq(vaultMembers.userId, auth.user.id),
-        ),
-      );
-    assert(link, 403, "Bạn không có quyền trên hũ này.");
-  }
-  if (financial)
-    assert(
-      vault.onchainHub &&
-        vault.onchainChainId === hubClient().chainId &&
-        vault.onchainHub === ws.l1HubAddress?.toLowerCase(),
-      409,
-      "Hũ chưa được đối soát với hợp đồng. Hãy liên hệ Admin.",
-    );
-  return { vault, ws, member };
-}
 apiRouter.get(
   "/workspaces/:id/transaction-context",
   endpoint(async (req, res) => {
@@ -108,7 +67,11 @@ apiRouter.get(
         "Mã tài nguyên không hợp lệ.",
       );
       let vaultId: string | null = null;
-      if (action === "approveWithdrawal") {
+      if (
+        ["approveWithdrawal", "executeWithdrawalWithSignatures"].includes(
+          action,
+        )
+      ) {
         const [row] = await db
           .select({ id: vaults.id })
           .from(withdrawalRequests)
@@ -143,6 +106,10 @@ apiRouter.get(
             "payoutRoscaRound",
             "createChore",
             "compoundYield",
+            "contributeRoscaRound",
+            "setVaultDailyLimit",
+            "depositTokenToVault",
+            "fastWithdrawToken",
           ].includes(action),
           400,
           "Thao tác chưa được hỗ trợ.",
@@ -159,7 +126,17 @@ apiRouter.get(
         vaultId = row?.id || null;
       }
       assert(vaultId, 403, "Tài nguyên không thuộc không gian đang chọn.");
-      await vaultAccess(req.auth!, vaultId, true);
+      const access = await vaultAccess(req.auth!, vaultId, true);
+      if (
+        ["approveWithdrawal", "verifyAndRewardChore", "createChore"].includes(
+          action,
+        )
+      )
+        assert(
+          access.canApprove,
+          403,
+          "Bạn không có quyền duyệt hoặc giao việc trên hũ này.",
+        );
     }
     return res.json({ success: true, workspaceId: ws.id });
   }),
@@ -618,6 +595,7 @@ apiRouter.post(
             reason: event.reason,
             vault: vault.name,
             onchainRequestId,
+            deadline: new Date(Number(state[7]) * 1000),
             requiredApprovals: vault.requiredApprovals,
             approvalsCount: Number(state[6]),
             status: state[8] ? "EXECUTED" : "PENDING",
@@ -816,14 +794,21 @@ for (const action of ["submit", "verify"] as const) {
       const [updated] = await db
         .update(chores)
         .set({
-          status: action === "submit" ? "SUBMITTED" : "REWARDED",
-          ...(proof ? { proofImageUrl: proof } : {}),
+          status:
+            action === "submit"
+              ? sql`case when ${chores.status} = 'TODO' then 'SUBMITTED'::chore_status else ${chores.status} end`
+              : "REWARDED",
+          ...(proof
+            ? {
+                proofImageUrl: sql`coalesce(${chores.proofImageUrl}, ${proof})`,
+              }
+            : {}),
         })
         .where(
           and(
             eq(chores.id, chore.id),
             action === "submit"
-              ? sql`${chores.status} in ('TODO','SUBMITTED')`
+              ? sql`${chores.status} in ('TODO','SUBMITTED','VERIFIED','REWARDED')`
               : sql`${chores.status} in ('SUBMITTED','VERIFIED','REWARDED')`,
           ),
         )
@@ -965,5 +950,80 @@ apiRouter.post(
       kind: "ALLOWLIST",
       note: "Quyền beneficiary/guardian của từng hũ được kiểm riêng trên contract.",
     });
+  }),
+);
+
+apiRouter.post(
+  "/relayer/forward",
+  endpoint(async (req, res) => {
+    const auth = req.auth!;
+    assert(auth.wallet, 403, "Chưa liên kết ví.");
+    const { forwarderAddress, request } = req.body;
+    assert(
+      request &&
+        typeof request.from === "string" &&
+        request.from.toLowerCase() === auth.wallet.address.toLowerCase(),
+      403,
+      "Chỉ được ủy quyền cho ví của chính bạn.",
+    );
+    const result = await relayForwardRequest(forwarderAddress, request);
+    return res.json({ success: true, ...result });
+  }),
+);
+
+apiRouter.post(
+  "/withdrawals/execute-signatures",
+  endpoint(async (req, res) => {
+    const [request] = await db
+      .select()
+      .from(withdrawalRequests)
+      .where(eq(withdrawalRequests.id, uuidInput(req.body.requestId || "")));
+    assert(
+      request?.vaultId && request.onchainRequestId !== null,
+      404,
+      "Yêu cầu chưa được xác minh on-chain.",
+    );
+    const { vault, ws } = await vaultAccess(req.auth!, request.vaultId, true);
+    const verified = await verifiedEvent(
+      req.auth!,
+      ws.l1HubAddress!,
+      req.body.txHash,
+      "WithdrawalExecuted",
+      (args) =>
+        Number(args.requestId) === request.onchainRequestId &&
+        Number(args.vaultId) === vault.onchainVaultId,
+      false,
+    );
+    const state: any = await readHub(ws.l1HubAddress!, "withdrawalRequests", [
+      BigInt(request.onchainRequestId),
+    ]);
+    const [updated] = await db
+      .update(withdrawalRequests)
+      .set({
+        approvalsCount: Number(state[6]),
+        status: state[8] ? "EXECUTED" : "PENDING",
+      })
+      .where(eq(withdrawalRequests.id, request.id))
+      .returning();
+    return res.json({ success: true, data: updated });
+  }),
+);
+
+apiRouter.post(
+  "/vaults/rosca-contribute",
+  endpoint(async (req, res) => {
+    const { vault, ws } = await vaultAccess(
+      req.auth!,
+      req.body.vaultId || "",
+      true,
+    );
+    await verifiedEvent(
+      req.auth!,
+      ws.l1HubAddress!,
+      req.body.txHash,
+      "RoscaRoundContributed",
+      (args) => Number(args.vaultId) === vault.onchainVaultId,
+    );
+    return res.json({ success: true });
   }),
 );

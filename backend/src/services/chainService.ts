@@ -83,8 +83,7 @@ export async function verifiedEvent(
   assert(event, 400, "Giao dịch không có sự kiện phù hợp với thao tác này.");
   return { event: event.args, receipt, chainId };
 }
-export const decimalAmount = (value: bigint) =>
-  Number(formatEther(value)).toFixed(6);
+export const decimalAmount = (value: bigint) => formatEther(value);
 export async function networkAllowed(address: string): Promise<boolean> {
   if (process.env.TX_ALLOWLIST_ENABLED !== "true") return true;
   const { client, chainId } = hubClient();

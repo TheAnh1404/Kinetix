@@ -248,6 +248,165 @@ export function useFamilyHub() {
   );
 
   /**
+   * 4b. Ký xác nhận lệnh rút tiền ngoài chuỗi (EIP-712 Typed Data)
+   */
+  const signWithdrawalApproval = useCallback(
+    async (
+      requestId: number,
+      vaultId: number,
+      recipient: Address,
+      amountAvax: string,
+    ): Promise<string> => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const { walletClient, account } = await getAuthorizedWallet();
+        const chainId = await publicClientL1.getChainId();
+
+        const domain = {
+          name: "FamilyHub",
+          version: "1",
+          chainId,
+          verifyingContract: CONTRACT_ADDRESSES.familyHub,
+        };
+
+        const types = {
+          WithdrawalApproval: [
+            { name: "requestId", type: "uint256" },
+            { name: "vaultId", type: "uint256" },
+            { name: "recipient", type: "address" },
+            { name: "amount", type: "uint256" },
+            { name: "nonce", type: "uint256" },
+          ],
+        };
+
+        const signature = await (walletClient as any).signTypedData({
+          account,
+          domain,
+          types,
+          primaryType: "WithdrawalApproval",
+          message: {
+            requestId: BigInt(requestId),
+            vaultId: BigInt(vaultId),
+            recipient,
+            amount: parseEther(amountAvax),
+            nonce: BigInt(requestId),
+          },
+        });
+
+        return signature;
+      } catch (err: any) {
+        const msg =
+          err.shortMessage || err.message || "Lỗi khi ký số EIP-712";
+        setError(msg);
+        throw new Error(msg);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [checkIsAllowlisted],
+  );
+
+  /**
+   * 4c. Giải ngân bằng danh sách chữ ký số EIP-712 của các Guardians
+   */
+  const executeWithdrawalWithSignatures = useCallback(
+    async (requestId: number, signatures: string[]): Promise<string> => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const { walletClient, account } = await getAuthorizedWallet();
+
+        const txHash = await (walletClient as any).writeContract({
+          address: CONTRACT_ADDRESSES.familyHub,
+          abi: FAMILY_HUB_ABI,
+          functionName: "executeWithdrawalWithSignatures",
+          args: [BigInt(requestId), signatures],
+          account,
+        });
+
+        return txHash;
+      } catch (err: any) {
+        const msg =
+          err.shortMessage ||
+          err.message ||
+          "Lỗi khi giải ngân đa chữ ký";
+        setError(msg);
+        throw new Error(msg);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [checkIsAllowlisted],
+  );
+
+  /**
+   * 8b. Đóng hụi theo kỳ cho Hũ ROSCA
+   */
+  const contributeRoscaRound = useCallback(
+    async (vaultId: number, amountAvax: string): Promise<string> => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const { walletClient, account } = await getAuthorizedWallet();
+        const value = parseEther(amountAvax);
+
+        const txHash = await (walletClient as any).writeContract({
+          address: CONTRACT_ADDRESSES.familyHub,
+          abi: FAMILY_HUB_ABI,
+          functionName: "contributeRoscaRound",
+          args: [BigInt(vaultId)],
+          value,
+          account,
+        });
+
+        return txHash;
+      } catch (err: any) {
+        const msg = err.shortMessage || err.message || "Lỗi khi đóng hụi";
+        setError(msg);
+        throw new Error(msg);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [checkIsAllowlisted],
+  );
+
+  /**
+   * 1b. Thiết lập hạn mức rút nhanh hàng ngày cho Hũ SHIELD
+   */
+  const setVaultDailyLimit = useCallback(
+    async (vaultId: number, dailyLimitAvax: string): Promise<string> => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const { walletClient, account } = await getAuthorizedWallet();
+        const limit = parseEther(dailyLimitAvax);
+
+        const txHash = await (walletClient as any).writeContract({
+          address: CONTRACT_ADDRESSES.familyHub,
+          abi: FAMILY_HUB_ABI,
+          functionName: "setVaultDailyLimit",
+          args: [BigInt(vaultId), limit],
+          account,
+        });
+
+        return txHash;
+      } catch (err: any) {
+        const msg =
+          err.shortMessage ||
+          err.message ||
+          "Lỗi khi thiết lập hạn mức ngày";
+        setError(msg);
+        throw new Error(msg);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [checkIsAllowlisted],
+  );
+
+  /**
    * 5. Tạo nhiệm vụ việc nhà Chore-to-Earn (MILESTONE)
    */
   const createChore = useCallback(
@@ -433,11 +592,15 @@ export function useFamilyHub() {
     getVaultOverview,
     depositToVault,
     fastWithdraw,
+    setVaultDailyLimit,
     requestLargeWithdrawal,
     approveWithdrawal,
+    signWithdrawalApproval,
+    executeWithdrawalWithSignatures,
     createChore,
     claimChoreCompleted,
     verifyAndRewardChore,
+    contributeRoscaRound,
     payoutRoscaRound,
     createCustomVault,
   };
