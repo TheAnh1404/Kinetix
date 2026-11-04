@@ -12,7 +12,17 @@ import {
 import { sql } from "drizzle-orm";
 
 async function seed() {
-  console.log("🌱 Bắt đầu nạp dữ liệu mẫu (Seed Data) cho Kinetix - Multi-Space & Dynamic Vaults...");
+  if (
+    process.env.NODE_ENV === "production" ||
+    process.env.AUTH_SEED_ALLOW_RESET !== "true"
+  ) {
+    throw new Error(
+      "Demo seeding is destructive. Use only a disposable database with AUTH_SEED_ALLOW_RESET=true.",
+    );
+  }
+  console.log(
+    "🌱 Bắt đầu nạp dữ liệu mẫu (Seed Data) cho Kinetix - Multi-Space & Dynamic Vaults...",
+  );
 
   try {
     // 1. Dọn dẹp dữ liệu cũ an toàn
@@ -79,8 +89,8 @@ async function seed() {
         defaultRole: "ADMIN",
         walletAddress: adminWalletAddress,
         authMethod: "CORE_WALLET",
-        pinCode: "1234",
-        avatarUrl: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150",
         phoneNumber: "+84901234567",
         isAllowlisted: true,
       })
@@ -95,8 +105,8 @@ async function seed() {
         defaultRole: "GUARDIAN",
         walletAddress: guardian1Wallet,
         authMethod: "CORE_WALLET",
-        pinCode: "1234",
-        avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150",
         phoneNumber: "+84902345678",
         isAllowlisted: true,
       })
@@ -111,8 +121,8 @@ async function seed() {
         defaultRole: "GUARDIAN",
         walletAddress: guardian2Wallet,
         authMethod: "CORE_WALLET",
-        pinCode: "1234",
-        avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
         phoneNumber: "+84903456789",
         isAllowlisted: true,
       })
@@ -126,9 +136,9 @@ async function seed() {
         role: "ELDERLY",
         defaultRole: "ELDERLY",
         walletAddress: elderlyWallet,
-        authMethod: "PASSKEY_EMBEDDED",
-        pinCode: "1234",
-        avatarUrl: "https://images.unsplash.com/photo-1544717305-2782549b5136?w=150",
+        authMethod: "CORE_WALLET",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1544717305-2782549b5136?w=150",
         phoneNumber: "+84904567890",
         isAllowlisted: true,
       })
@@ -142,9 +152,9 @@ async function seed() {
         role: "CHILD",
         defaultRole: "CHILD",
         walletAddress: childWallet,
-        authMethod: "PASSKEY_EMBEDDED",
-        pinCode: "1234",
-        avatarUrl: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150",
+        authMethod: "CORE_WALLET",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150",
         phoneNumber: "+84905678901",
         isAllowlisted: true,
       })
@@ -155,14 +165,30 @@ async function seed() {
     await db.insert(workspaceMembers).values([
       // Workspace 1: Đại gia đình (đầy đủ 5 người)
       { workspaceId: workspace1.id, userId: adminUser.id, role: "ADMIN" },
-      { workspaceId: workspace1.id, userId: guardian1User.id, role: "GUARDIAN" },
-      { workspaceId: workspace1.id, userId: guardian2User.id, role: "GUARDIAN" },
+      {
+        workspaceId: workspace1.id,
+        userId: guardian1User.id,
+        role: "GUARDIAN",
+      },
+      {
+        workspaceId: workspace1.id,
+        userId: guardian2User.id,
+        role: "GUARDIAN",
+      },
       { workspaceId: workspace1.id, userId: elderlyUser.id, role: "ELDERLY" },
       { workspaceId: workspace1.id, userId: childUser.id, role: "CHILD" },
       // Workspace 2: Hội bạn thân (Bố Ba, Cô Út, Anh Cả)
       { workspaceId: workspace2.id, userId: adminUser.id, role: "ADMIN" },
-      { workspaceId: workspace2.id, userId: guardian1User.id, role: "GUARDIAN" },
-      { workspaceId: workspace2.id, userId: guardian2User.id, role: "GUARDIAN" },
+      {
+        workspaceId: workspace2.id,
+        userId: guardian1User.id,
+        role: "GUARDIAN",
+      },
+      {
+        workspaceId: workspace2.id,
+        userId: guardian2User.id,
+        role: "GUARDIAN",
+      },
     ]);
 
     // 6. Tạo Dynamic Vaults cho Workspace 1: Đại Gia Đình
@@ -173,7 +199,8 @@ async function seed() {
         workspaceId: workspace1.id,
         onchainVaultId: 1,
         name: "Quỹ Hưu Trí & Báo Hiếu (Ông Bà)",
-        description: "Bảo vệ tài sản hưu trí, rút nhanh an toàn <= 50 AVAX và bảo hộ đa chữ ký 2/3",
+        description:
+          "Bảo vệ tài sản hưu trí, rút nhanh an toàn <= 50 AVAX và bảo hộ đa chữ ký 2/3",
         ruleTemplate: "SHIELD",
         bufferRatioBps: 1000, // 10% L1 / 90% C-Chain
         fastWithdrawLimit: "50",
@@ -190,7 +217,8 @@ async function seed() {
         workspaceId: workspace1.id,
         onchainVaultId: 2,
         name: "Quỹ Cột Mốc & Lì Xì (Bé Na)",
-        description: "Học tài chính thông minh qua Chore-to-Earn, tích lũy nhận thưởng khi hoàn thành việc nhà",
+        description:
+          "Học tài chính thông minh qua Chore-to-Earn, tích lũy nhận thưởng khi hoàn thành việc nhà",
         ruleTemplate: "MILESTONE",
         bufferRatioBps: 2000, // 20% L1 / 80% C-Chain
         fastWithdrawLimit: "20",
@@ -207,7 +235,8 @@ async function seed() {
         workspaceId: workspace1.id,
         onchainVaultId: 3,
         name: "Hụi Họ Thân Tộc",
-        description: "Góp vốn xoay vòng tương trợ họ hàng, 100% vốn chờ đẩy sang C-Chain sinh lời 8% APY",
+        description:
+          "Góp vốn xoay vòng tương trợ họ hàng, 100% vốn chờ đẩy sang C-Chain sinh lời 8% APY",
         ruleTemplate: "ROSCA",
         bufferRatioBps: 0, // 0% L1 / 100% C-Chain
         fastWithdrawLimit: "0",
@@ -226,7 +255,8 @@ async function seed() {
         workspaceId: workspace2.id,
         onchainVaultId: 4,
         name: "Quỹ Du Lịch Đà Lạt Cùng Bạn",
-        description: "Mục tiêu chung tích lũy 800 AVAX đi du lịch, sinh lời DeFi cho đến ngày mở quỹ",
+        description:
+          "Mục tiêu chung tích lũy 800 AVAX đi du lịch, sinh lời DeFi cho đến ngày mở quỹ",
         ruleTemplate: "SHARED_GOAL",
         bufferRatioBps: 1500, // 15% L1 / 85% C-Chain
         fastWithdrawLimit: "100",
@@ -243,7 +273,8 @@ async function seed() {
         workspaceId: workspace2.id,
         onchainVaultId: 5,
         name: "Hụi Mua Xe Mới",
-        description: "Xoay vòng vốn hỗ trợ các thành viên nâng cấp phương tiện đi lại",
+        description:
+          "Xoay vòng vốn hỗ trợ các thành viên nâng cấp phương tiện đi lại",
         ruleTemplate: "ROSCA",
         bufferRatioBps: 0,
         fastWithdrawLimit: "0",
@@ -316,7 +347,8 @@ async function seed() {
         vaultId: vault2.id,
         childId: childUser.id,
         title: "Dọn dẹp phòng ngủ & góc học tập ngăn nắp",
-        description: "Dọn dẹp bàn học, sắp xếp sách vở và chụp ảnh gửi bố mẹ kiểm tra",
+        description:
+          "Dọn dẹp bàn học, sắp xếp sách vở và chụp ảnh gửi bố mẹ kiểm tra",
         rewardAmount: "5.000000",
         onchainTaskId: 1,
         status: "TODO",
@@ -328,7 +360,8 @@ async function seed() {
         title: "Tưới cây cảnh ban công và lau bàn phòng khách",
         description: "Hoàn thành buổi sáng trước 9h để nhận thưởng",
         rewardAmount: "8.000000",
-        proofImageUrl: "https://images.unsplash.com/photo-1584467735871-8e85353a8413?w=500",
+        proofImageUrl:
+          "https://images.unsplash.com/photo-1584467735871-8e85353a8413?w=500",
         onchainTaskId: 2,
         status: "SUBMITTED",
       },
@@ -351,7 +384,8 @@ async function seed() {
         familyId: workspace1.id,
         userId: guardian1User.id,
         title: "Yêu cầu ký duyệt rút tiền mới",
-        message: "Ông Nội vừa tạo yêu cầu rút 150 AVAX cho viện phí. Cần thêm 1 chữ ký để hoàn tất.",
+        message:
+          "Ông Nội vừa tạo yêu cầu rút 150 AVAX cho viện phí. Cần thêm 1 chữ ký để hoàn tất.",
         type: "APPROVAL_NEEDED",
         isRead: false,
       },
@@ -359,7 +393,8 @@ async function seed() {
         familyId: workspace1.id,
         userId: adminUser.id,
         title: "Bé Na đã nộp báo cáo việc nhà",
-        message: "Bé Na đã gửi ảnh tưới cây ban công và chờ bạn nghiệm thu trao thưởng 8 AVAX.",
+        message:
+          "Bé Na đã gửi ảnh tưới cây ban công và chờ bạn nghiệm thu trao thưởng 8 AVAX.",
         type: "TASK_COMPLETED",
         isRead: false,
       },
@@ -367,13 +402,16 @@ async function seed() {
         familyId: workspace1.id,
         userId: adminUser.id,
         title: "Lợi suất C-Chain đã tự động kết toán",
-        message: "Quỹ Hưu Trí & Báo Hiếu vừa nhận thêm 1.25 AVAX lợi nhuận DeFi 8% APY.",
+        message:
+          "Quỹ Hưu Trí & Báo Hiếu vừa nhận thêm 1.25 AVAX lợi nhuận DeFi 8% APY.",
         type: "YIELD_PAYOUT",
         isRead: true,
       },
     ]);
 
-    console.log("🎉 Seed Data thành công rực rỡ! 2 Workspaces, 5 Dynamic Vaults, 5 Users đã sẵn sàng.");
+    console.log(
+      "🎉 Seed Data thành công rực rỡ! 2 Workspaces, 5 Dynamic Vaults, 5 Users đã sẵn sàng.",
+    );
     process.exit(0);
   } catch (error) {
     console.error("❌ Lỗi khi nạp Seed Data:", error);

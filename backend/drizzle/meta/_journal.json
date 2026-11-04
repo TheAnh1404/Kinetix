@@ -8,6 +8,13 @@
       "when": 1793040470761,
       "tag": "0000_brief_luke_cage",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793721600000,
+      "tag": "0001_account_auth",
+      "breakpoints": true
     }
   ]
 }
