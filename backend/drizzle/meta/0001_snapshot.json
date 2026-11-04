@@ -264,9 +264,7 @@
             "workspace_id",
             "user_id"
           ],
-          "isUnique": true,
-          "method": "btree",
-          "with": {}
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -458,9 +456,7 @@
             "onchain_hub",
             "onchain_vault_id"
           ],
-          "isUnique": true,
-          "method": "btree",
-          "with": {}
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -525,9 +521,7 @@
             "vault_id",
             "user_id"
           ],
-          "isUnique": true,
-          "method": "btree",
-          "with": {}
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -686,9 +680,7 @@
             "vault_id",
             "onchain_request_id"
           ],
-          "isUnique": true,
-          "method": "btree",
-          "with": {}
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -816,9 +808,7 @@
             "vault_id",
             "onchain_task_id"
           ],
-          "isUnique": true,
-          "method": "btree",
-          "with": {}
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -1320,9 +1310,7 @@
             "guardian_id",
             "member_id"
           ],
-          "isUnique": true,
-          "method": "btree",
-          "with": {}
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -1638,9 +1626,7 @@
             "workspace_id",
             "chain_id"
           ],
-          "isUnique": true,
-          "method": "btree",
-          "with": {}
+          "isUnique": true
         }
       },
       "foreignKeys": {

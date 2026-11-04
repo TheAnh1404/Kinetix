@@ -10,6 +10,7 @@ import {
   bigint,
   pgEnum,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations, InferSelectModel, InferInsertModel } from "drizzle-orm";
 
@@ -156,36 +157,39 @@ export const vaults = pgTable(
     ruleTemplate: ruleTemplateEnum("rule_template").notNull(),
     bufferRatioBps: integer("buffer_ratio_bps").default(1000).notNull(), // 1000 = 10%
     fastWithdrawLimit: decimal("fast_withdraw_limit", {
-      precision: 18,
-      scale: 6,
+      precision: 38,
+      scale: 18,
     })
       .default("50")
       .notNull(),
     requiredApprovals: integer("required_approvals").default(2).notNull(),
     cachedTotalBalance: decimal("cached_total_balance", {
-      precision: 18,
-      scale: 6,
+      precision: 38,
+      scale: 18,
     })
       .default("0")
       .notNull(),
-    cachedL1Buffer: decimal("cached_l1_buffer", { precision: 18, scale: 6 })
+    cachedL1Buffer: decimal("cached_l1_buffer", { precision: 38, scale: 18 })
       .default("0")
       .notNull(),
     cachedCChainYield: decimal("cached_cchain_yield", {
-      precision: 18,
-      scale: 6,
+      precision: 38,
+      scale: 18,
     })
       .default("0")
       .notNull(),
     // Các trường mở rộng đồng bộ với 4 Bộ Quy Tắc của Smart Contract:
-    targetGoalAmount: decimal("target_goal_amount", { precision: 18, scale: 6 })
+    targetGoalAmount: decimal("target_goal_amount", {
+      precision: 38,
+      scale: 18,
+    })
       .default("0")
       .notNull(),
     targetDeadline: timestamp("target_deadline", { withTimezone: true }),
     roscaRoundDuration: integer("rosca_round_duration").default(0).notNull(), // giây
     roscaRoundContribution: decimal("rosca_round_contribution", {
-      precision: 18,
-      scale: 6,
+      precision: 38,
+      scale: 18,
     })
       .default("0")
       .notNull(),
@@ -260,10 +264,11 @@ export const withdrawalRequests = pgTable(
     requesterId: uuid("requester_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-    amount: decimal("amount", { precision: 18, scale: 6 }).notNull(),
+    amount: decimal("amount", { precision: 38, scale: 18 }).notNull(),
     vault: text("vault").default("SHIELD"),
     reason: text("reason").notNull(),
     onchainRequestId: bigint("onchain_request_id", { mode: "number" }),
+    deadline: timestamp("deadline", { withTimezone: true }),
     approvalsCount: integer("approvals_count").default(0).notNull(),
     requiredApprovals: integer("required_approvals").default(2).notNull(),
     status: requestStatusEnum("status").default("PENDING").notNull(),
@@ -299,8 +304,8 @@ export const chores = pgTable(
     title: text("title").notNull(),
     description: text("description"),
     rewardAmount: decimal("reward_amount", {
-      precision: 18,
-      scale: 6,
+      precision: 38,
+      scale: 18,
     }).notNull(),
     proofImageUrl: text("proof_image_url"),
     onchainTaskId: bigint("onchain_task_id", { mode: "number" }),
@@ -320,22 +325,31 @@ export const chores = pgTable(
 /**
  * @notice Bảng thông báo
  */
-export const notifications = pgTable("notifications", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  familyId: uuid("family_id")
-    .references(() => workspaces.id, { onDelete: "cascade" })
-    .notNull(),
-  userId: uuid("user_id")
-    .references(() => users.id, { onDelete: "cascade" })
-    .notNull(),
-  title: text("title").notNull(),
-  message: text("message").notNull(),
-  type: text("type").notNull(), // 'ALERT_SCAM' | 'TASK_COMPLETED' | 'YIELD_PAYOUT' | 'APPROVAL_NEEDED'
-  isRead: boolean("is_read").default(false).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    familyId: uuid("family_id")
+      .references(() => workspaces.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    title: text("title").notNull(),
+    message: text("message").notNull(),
+    type: text("type").notNull(), // 'ALERT_SCAM' | 'TASK_COMPLETED' | 'YIELD_PAYOUT' | 'APPROVAL_NEEDED'
+    isRead: boolean("is_read").default(false).notNull(),
+    sourceEvent: text("source_event"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    sourceUnique: uniqueIndex("notification_source_event_unique").on(
+      table.sourceEvent,
+    ),
+  }),
+);
 
 // =================================================================
 // 3. RELATIONS
@@ -619,4 +633,66 @@ export const workspaceInvitations = pgTable("workspace_invitations", {
   acceptedBy: uuid("accepted_by").references(() => users.id),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});
+
+// Ảnh chỉ được đọc qua API có session; không phát hành đường dẫn public.
+export const proofAttachments = pgTable(
+  "proof_attachments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    choreId: uuid("chore_id")
+      .references(() => chores.id, { onDelete: "cascade" })
+      .notNull(),
+    ownerId: uuid("owner_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (table) => ({ expiry: index("proof_attachment_expiry").on(table.expiresAt) }),
+);
+
+// Một dòng cho mỗi event thực; replay receipt không làm tăng lịch sử/số tiền.
+export const memberActivity = pgTable(
+  "member_activity",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .references(() => workspaces.id, { onDelete: "cascade" })
+      .notNull(),
+    vaultId: uuid("vault_id")
+      .references(() => vaults.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    chainId: integer("chain_id").notNull(),
+    txHash: varchar("tx_hash", { length: 66 }).notNull(),
+    eventKey: text("event_key").notNull(),
+    kind: text("kind").notNull(),
+    amount: decimal("amount", { precision: 38, scale: 18 }).notNull(),
+    asset: text("asset").default("AVAX").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    eventUnique: uniqueIndex("member_activity_event_unique").on(
+      table.chainId,
+      table.eventKey,
+    ),
+    personal: index("member_activity_personal").on(
+      table.userId,
+      table.workspaceId,
+      table.createdAt,
+    ),
+  }),
+);
+
+export const activityCursors = pgTable("activity_cursors", {
+  id: text("id").primaryKey(),
+  nextBlock: bigint("next_block", { mode: "bigint" }).notNull(),
 });
