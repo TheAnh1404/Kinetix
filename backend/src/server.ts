@@ -8,10 +8,13 @@ import {
 } from "./routes/authRoutes";
 import { apiRouter } from "./routes/apiRoutes";
 import { memberRouter } from "./routes/memberRoutes";
+import { operationRouter } from "./routes/operationRoutes";
+import { settingsRouter } from "./routes/settingsRoutes";
 import * as dotenv from "dotenv";
 
 dotenv.config();
 const app = express();
+app.set("json replacer", (_key: string, value: unknown) => typeof value === "bigint" ? value.toString() : value);
 app.disable("x-powered-by");
 // Set only to the exact trusted reverse-proxy hop count in deployment.
 if (process.env.TRUST_PROXY_HOPS)
@@ -26,7 +29,8 @@ app.get("/api/health", (_req, res) =>
   res.json({ success: true, status: "ok" }),
 );
 app.use("/api/auth", authRouter);
-app.use("/api", authenticated, fullSession, memberRouter, apiRouter);
+app.use("/api/settings", authenticated, fullSession, settingsRouter);
+app.use("/api", authenticated, fullSession, operationRouter, memberRouter, apiRouter);
 app.get("/health", (_req, res) =>
   res.json({ status: "ok", service: "Kinetix API" }),
 );

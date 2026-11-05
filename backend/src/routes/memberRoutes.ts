@@ -183,7 +183,7 @@ async function proofAccess(auth: AuthContext, id: string) {
   assert(chore?.vaultId, 404, "Không tìm thấy việc.");
   const access = await vaultAccess(auth, chore.vaultId);
   assert(
-    chore.childId === auth.user.id || access.canApprove,
+    chore.childId === auth.user.id || access.canReview,
     403,
     "Bạn không được xem minh chứng này.",
   );
@@ -351,11 +351,17 @@ for (const action of ["submit", "verify"] as const) {
         req.auth!,
         ws.l1HubAddress!,
         req.body.txHash,
-        action === "submit" ? "ChoreClaimed" : "ChoreRewarded",
+        action === "submit" ? "ChoreClaimed" : "ChoreApproved",
         (args) => Number(args.taskId) === chore.onchainTaskId,
       );
       if (action === "verify")
         await recordReceiptActivity(verified.receipt, vault);
+      const taskState: any =
+        action === "verify"
+          ? await readHub(ws.l1HubAddress!, "tasks", [
+              BigInt(chore.onchainTaskId!),
+            ])
+          : null;
       // Receipt có thể được replay sau khi worker đã cập nhật chi trả; không hạ trạng thái.
       const [updated] = await db
         .update(chores)
@@ -363,7 +369,9 @@ for (const action of ["submit", "verify"] as const) {
           status:
             action === "submit"
               ? sql`case when ${chores.status} = 'TODO' then 'SUBMITTED'::chore_status else ${chores.status} end`
-              : "REWARDED",
+              : taskState[6]
+                ? "REWARDED"
+                : sql`case when ${chores.status} = 'REWARDED' then ${chores.status} else 'SUBMITTED'::chore_status end`,
           ...(proof
             ? {
                 proofImageUrl: sql`coalesce(${chores.proofImageUrl}, ${proof})`,

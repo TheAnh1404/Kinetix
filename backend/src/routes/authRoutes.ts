@@ -4,6 +4,12 @@ import { db } from "../db";
 import { sessions, workspaceMembers } from "../db/schema";
 import * as service from "../auth/service";
 import { databaseErrorCode } from "../db/errors";
+import { syncRetryPolicy } from "../../../shared/transactionErrors";
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  TransactionReceiptNotFoundError,
+} from "viem";
 import {
   AuthError,
   assert,
@@ -55,20 +61,44 @@ export function authErrorHandler(
   if (error instanceof AuthError)
     return res
       .status(error.status)
-      .json({ success: false, error: error.message, code: error.code });
+      .json({ success: false, error: error.message, code: error.code, ...syncRetryPolicy(error.status, error.code) });
+  if (error instanceof BaseError) {
+    const reverted =
+      error.walk(
+        (cause) => cause instanceof ContractFunctionRevertedError,
+      ) instanceof ContractFunctionRevertedError;
+    const pending =
+      error.walk(
+        (cause) => cause instanceof TransactionReceiptNotFoundError,
+      ) instanceof TransactionReceiptNotFoundError;
+    return res
+      .status(reverted ? 422 : pending ? 409 : 503)
+      .json({
+        success: false,
+        code: reverted
+          ? "CONTRACT_REVERTED"
+          : pending
+            ? "RECEIPT_PENDING"
+            : "RPC_UNAVAILABLE",
+        ...syncRetryPolicy(reverted ? 422 : pending ? 409 : 503, pending ? "RECEIPT_PENDING" : undefined),
+        error: reverted
+          ? "Contract từ chối thao tác theo trạng thái hoặc quyền hiện tại."
+          : pending
+            ? "Chưa tìm thấy receipt. Theo dõi giao dịch đã gửi; không gửi lại."
+            : "Chưa kết nối được RPC để đối soát. Vui lòng thử đồng bộ lại.",
+      });
+  }
   const databaseCode = databaseErrorCode(error);
   if (databaseCode === "42P01" || databaseCode === "42703") {
     console.error("Kinetix database schema is outdated", {
       code: databaseCode,
     });
-    return res
-      .status(503)
-      .json({
-        success: false,
-        code: "DATABASE_SCHEMA_OUTDATED",
-        error:
-          "Hệ thống chưa cập nhật cấu trúc dữ liệu. Người quản trị cần chạy migration trước khi tải lại.",
-      });
+    return res.status(503).json({
+      success: false,
+      code: "DATABASE_SCHEMA_OUTDATED",
+      error:
+        "Hệ thống chưa cập nhật cấu trúc dữ liệu. Người quản trị cần chạy migration trước khi tải lại.",
+    });
   }
   if (databaseCode === "23505")
     return res.status(409).json({
@@ -186,7 +216,7 @@ authRouter.post(
     await service.rateLimit(`challenge:${requestIp(req)}`, 30);
     const purpose = req.body.purpose;
     const auth =
-      purpose === "LINK" || purpose === "REAUTH"
+      purpose === "LINK" || purpose === "REAUTH" || purpose === "RECOVERY"
         ? await service.authenticate(cookie(req, service.SESSION_COOKIE))
         : undefined;
     const candidate = cookie(req, service.BROWSER_COOKIE);

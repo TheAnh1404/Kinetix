@@ -28,6 +28,13 @@ import {
   networkAllowed,
 } from "../services/chainService";
 import { relayForwardRequest } from "../services/relayerService";
+import { FAMILY_HUB_ABI } from "../../../shared/abis";
+import { vaultState } from "../services/vaultStateService";
+import {
+  deploymentManifest,
+  verifiedDeployment,
+  provisioningIdentity,
+} from "../services/deploymentService";
 
 import {
   workspace,
@@ -36,6 +43,31 @@ import {
 } from "../services/workspaceAccess";
 
 export const apiRouter = Router();
+apiRouter.get("/vaults/:id/state", endpoint(async (req, res) => res.json({ success: true, data: await vaultState(req.auth!, uuidInput(req.params.id)) })));
+apiRouter.get("/workspaces/:id/provisioning", endpoint(async (req, res) => {
+  const { ws } = await workspace(req.auth!, req.params.id);
+  await membership(db, req.auth!, ws.id, true);
+  const { manifest, client } = await verifiedDeployment(ws.l1HubAddress);
+  const block = await client.getBlock({ blockTag: "finalized" });
+  const rows = await db.select({ request: provisioningRequests, address: userWallets.address, fullName: users.fullName }).from(provisioningRequests).innerJoin(userWallets, eq(userWallets.userId, provisioningRequests.userId)).innerJoin(users, eq(users.id, provisioningRequests.userId)).innerJoin(workspaceMembers, and(eq(workspaceMembers.workspaceId, ws.id), eq(workspaceMembers.userId, users.id), isNull(workspaceMembers.accessDisabledAt))).where(and(eq(provisioningRequests.workspaceId, ws.id), eq(provisioningRequests.deploymentRef, provisioningIdentity().deploymentRef)));
+  const requests = await Promise.all(rows.map(async (row) => ({ ...row.request, address: row.address, fullName: row.fullName, liveAllowed: await client.readContract({ address: manifest.contracts.hub!.address, abi: FAMILY_HUB_ABI, functionName: "isAllowlisted", args: [row.address], blockNumber: block.number! } as any) })));
+  return res.json({ success: true, requests, operator: manifest.admin, canSign: req.auth!.wallet?.address === manifest.admin!.toLowerCase(), asOfBlock: String(block.number) });
+}));
+apiRouter.post("/workspaces/:id/provisioning/refresh", endpoint(async (req, res) => {
+  const { ws } = await workspace(req.auth!, req.params.id);
+  const target = req.body.userId ? uuidInput(req.body.userId) : req.auth!.user.id;
+  if (target !== req.auth!.user.id) {
+    const actor = await membership(db, req.auth!, ws.id, true);
+    if (actor.role !== "ADMIN") await managedAccess(db, req.auth!, ws.id, target);
+  }
+  const [active] = await db.select().from(workspaceMembers).where(and(eq(workspaceMembers.workspaceId, ws.id), eq(workspaceMembers.userId, target), isNull(workspaceMembers.accessDisabledAt)));
+  const [wallet] = await db.select().from(userWallets).where(eq(userWallets.userId, target));
+  assert(active && wallet, 409, "Thành viên chưa hoạt động hoặc chưa liên kết ví.");
+  await verifiedDeployment(ws.l1HubAddress);
+  const identity = provisioningIdentity();
+  const [request] = await db.insert(provisioningRequests).values({ userId: target, workspaceId: ws.id, ...identity }).onConflictDoUpdate({ target: [provisioningRequests.userId, provisioningRequests.workspaceId, provisioningRequests.chainId, provisioningRequests.deploymentRef], set: { hub: identity.hub } }).returning();
+  return res.json({ success: true, request });
+}));
 apiRouter.use("/workspaces/:id/managed-members", managedMemberRouter);
 apiRouter.use("/workspaces/:id", workspaceAdminRouter);
 apiRouter.get(
@@ -45,6 +77,19 @@ apiRouter.get(
     const action = req.query.functionName;
     const resourceId = req.query.resourceId;
     assert(typeof action === "string", 400, "Thao tác không hợp lệ.");
+    assert(
+      ![
+        "depositYieldReserve",
+        "compoundYield",
+        "depositTokenToVault",
+        "fastWithdrawToken",
+        "setVaultDailyLimit",
+      ].includes(action),
+      409,
+      "Tính năng chưa bật ở T1 Fuji.",
+      "FEATURE_DISABLED_T1",
+    );
+    const { manifest } = await verifiedDeployment(ws.l1HubAddress);
     if (
       [
         "createCustomVault",
@@ -58,6 +103,10 @@ apiRouter.get(
         403,
         "Chỉ người bảo hộ được thực hiện thao tác này.",
       );
+      assert(req.auth!.wallet, 403, "Chưa liên kết ví.");
+      const allowed = await readHub(ws.l1HubAddress!, "isAllowlisted", [req.auth!.wallet!.address]);
+      assert(allowed, 403, "Ví chưa được cấp quyền on-chain.", "NOT_ALLOWLISTED");
+      if (action === "setAllowlistStatus") assert(String(await readHub(ws.l1HubAddress!, "familyAdmin")).toLowerCase() === req.auth!.wallet!.address.toLowerCase(), 403, "Chỉ operator của Hub được cấp quyền.", "HUB_OPERATOR_REQUIRED");
     } else {
       assert(
         typeof resourceId === "string" &&
@@ -84,7 +133,7 @@ apiRouter.get(
           );
         vaultId = row?.id || null;
       } else if (
-        ["claimChoreCompleted", "verifyAndRewardChore"].includes(action)
+        ["claimChoreCompleted", "verifyAndRewardChore", "cancelChore"].includes(action)
       ) {
         const [row] = await db
           .select({ id: vaults.id })
@@ -110,6 +159,7 @@ apiRouter.get(
             "setVaultDailyLimit",
             "depositTokenToVault",
             "fastWithdrawToken",
+            "recoverMemberWallet",
           ].includes(action),
           400,
           "Thao tác chưa được hỗ trợ.",
@@ -127,18 +177,21 @@ apiRouter.get(
       }
       assert(vaultId, 403, "Tài nguyên không thuộc không gian đang chọn.");
       const access = await vaultAccess(req.auth!, vaultId, true);
-      if (
-        ["approveWithdrawal", "verifyAndRewardChore", "createChore"].includes(
-          action,
-        )
-      )
-        assert(
-          access.canApprove,
-          403,
-          "Bạn không có quyền duyệt hoặc giao việc trên hũ này.",
-        );
+      const capability = access.capabilities?.[action as keyof NonNullable<typeof access.capabilities>];
+      assert(capability?.allowed, 403, "Bạn chưa có quyền thực hiện thao tác này trên hũ.", capability?.reason || "VAULT_ACTION_DENIED");
+      if (action === "claimChoreCompleted") {
+        const task: any = await readHub(ws.l1HubAddress!, "tasks", [BigInt(String(resourceId))]);
+        assert(String(task[4]).toLowerCase() === req.auth!.wallet?.address.toLowerCase(), 403, "Bạn không phải người được giao việc.", "ASSIGNEE_MISMATCH");
+      }
     }
-    return res.json({ success: true, workspaceId: ws.id });
+    return res.json({
+      success: true,
+      workspaceId: ws.id,
+      deploymentVersion: manifest.version,
+      chainId: manifest.chainId,
+      hub: manifest.contracts.hub!.address,
+      features: manifest.features,
+    });
   }),
 );
 apiRouter.get(
@@ -205,8 +258,10 @@ apiRouter.post(
           familyCode: code,
           creatorWallet: auth.wallet!.address,
           adminWallet: auth.wallet!.address,
-          l1HubAddress: process.env.FAMILY_HUB_ADDRESS || null,
-          cchainVaultAddress: process.env.FAMILY_YIELD_VAULT_ADDRESS || null,
+          l1HubAddress: deploymentManifest().enabled
+            ? deploymentManifest().contracts.hub!.address.toLowerCase()
+            : null,
+          cchainVaultAddress: null,
         })
         .returning();
       await tx.insert(workspaceMembers).values({
@@ -257,9 +312,7 @@ for (const prefix of ["/workspaces", "/families"]) {
         family: ws,
         members,
         vaults: list,
-        hubChainId: Number(
-          process.env.HUB_CHAIN_ID || process.env.FAMILY_L1_CHAIN_ID || 99999,
-        ),
+        hubChainId: Number(deploymentManifest().chainId),
         networkAllowlistRequired: process.env.TX_ALLOWLIST_ENABLED === "true",
         data: { workspace: ws, members, vaults: list },
       });
@@ -357,7 +410,8 @@ apiRouter.post(
       "Chỉ người bảo hộ được tạo hũ.",
     );
     assert(ws.l1HubAddress, 503, "Không gian chưa có hợp đồng.");
-    const { event, chainId } = await verifiedEvent(
+    await verifiedDeployment(ws.l1HubAddress);
+    const { event, chainId, logIndex, receipt } = await verifiedEvent(
       auth,
       ws.l1HubAddress,
       req.body.txHash,
@@ -369,6 +423,17 @@ apiRouter.post(
     const chainVault: any = await readHub(ws.l1HubAddress, "getVault", [
       BigInt(vaultId),
     ]);
+    assert(
+      chainVault.isActive &&
+        chainVault.creator.toLowerCase() === auth.wallet!.address &&
+        chainVault.ruleType === event.ruleType &&
+        chainVault.name === event.name &&
+        chainVault.bufferRatioBps === event.bufferRatioBps &&
+        chainVault.requiredApprovals === event.requiredApprovals,
+      409,
+      "Sự kiện tạo hũ khác trạng thái on-chain.",
+      "VAULT_RECEIPT_MISMATCH",
+    );
     const created = await db.transaction(async (tx) => {
       await tx
         .select({ id: workspaces.id })
@@ -392,6 +457,35 @@ apiRouter.post(
           409,
           "Hũ đã được gắn với không gian khác.",
         );
+        assert(
+          existing.ruleTemplate ===
+            ["SHIELD", "MILESTONE", "ROSCA", "SHARED_GOAL"][
+              Number(chainVault.ruleType)
+            ],
+          409,
+          "Policy hũ hiện có khác receipt.",
+          "VAULT_POLICY_MISMATCH",
+        );
+        if (!existing.onchainCreationTx) {
+          return (
+            await tx
+              .update(vaults)
+              .set({
+                onchainCreationTx: receipt.transactionHash.toLowerCase(),
+                onchainCreationLogIndex: logIndex,
+              })
+              .where(eq(vaults.id, existing.id))
+              .returning()
+          )[0];
+        }
+        assert(
+          existing.onchainCreationTx ===
+            receipt.transactionHash.toLowerCase() &&
+            existing.onchainCreationLogIndex === logIndex,
+          409,
+          "Bằng chứng tạo hũ đã được gắn bằng receipt khác.",
+          "VAULT_EVIDENCE_CONFLICT",
+        );
         return existing;
       }
       const [vault] = await tx
@@ -401,6 +495,8 @@ apiRouter.post(
           onchainVaultId: vaultId,
           onchainHub: ws.l1HubAddress!.toLowerCase(),
           onchainChainId: chainId,
+          onchainCreationTx: receipt.transactionHash.toLowerCase(),
+          onchainCreationLogIndex: logIndex,
           name: chainVault.name,
           ruleTemplate: ["SHIELD", "MILESTONE", "ROSCA", "SHARED_GOAL"][
             Number(chainVault.ruleType)
@@ -454,6 +550,7 @@ apiRouter.post(
             await tx
               .insert(provisioningRequests)
               .values({
+                ...provisioningIdentity(),
                 userId: user.id,
                 workspaceId: ws.id,
                 chainId,
@@ -465,6 +562,7 @@ apiRouter.post(
                   provisioningRequests.userId,
                   provisioningRequests.workspaceId,
                   provisioningRequests.chainId,
+                  provisioningRequests.deploymentRef,
                 ],
                 set: { status: "CONFIRMED", txHash: req.body.txHash },
               });
@@ -755,7 +853,7 @@ apiRouter.post(
     return res.status(201).json({ success: true, data: created });
   }),
 );
-for (const action of ["submit", "verify"] as const) {
+for (const action of ["submit", "verify", "cancel"] as const) {
   apiRouter.post(
     `/chores/${action}`,
     endpoint(async (req, res) => {
@@ -779,9 +877,15 @@ for (const action of ["submit", "verify"] as const) {
         req.auth!,
         ws.l1HubAddress!,
         req.body.txHash,
-        action === "submit" ? "ChoreClaimed" : "ChoreRewarded",
+        action === "submit" ? "ChoreClaimed" : action === "cancel" ? "ChoreCancelled" : "ChoreApproved",
         (args) => Number(args.taskId) === chore.onchainTaskId,
       );
+      const taskState: any =
+        action === "verify"
+          ? await readHub(ws.l1HubAddress!, "tasks", [
+              BigInt(chore.onchainTaskId!),
+            ])
+          : null;
       const proof = req.body.proofImageUrl;
       assert(
         proof === undefined ||
@@ -795,9 +899,11 @@ for (const action of ["submit", "verify"] as const) {
         .update(chores)
         .set({
           status:
-            action === "submit"
+            action === "cancel" ? "CANCELLED" : action === "submit"
               ? sql`case when ${chores.status} = 'TODO' then 'SUBMITTED'::chore_status else ${chores.status} end`
-              : "REWARDED",
+              : taskState[6]
+                ? "REWARDED"
+                : sql`case when ${chores.status} = 'REWARDED' then ${chores.status} else 'SUBMITTED'::chore_status end`,
           ...(proof
             ? {
                 proofImageUrl: sql`coalesce(${chores.proofImageUrl}, ${proof})`,
@@ -807,7 +913,7 @@ for (const action of ["submit", "verify"] as const) {
         .where(
           and(
             eq(chores.id, chore.id),
-            action === "submit"
+            action === "cancel" ? sql`${chores.status} in ('TODO','SUBMITTED','VERIFIED','CANCELLED')` : action === "submit"
               ? sql`${chores.status} in ('TODO','SUBMITTED','VERIFIED','REWARDED')`
               : sql`${chores.status} in ('SUBMITTED','VERIFIED','REWARDED')`,
           ),
@@ -901,7 +1007,7 @@ apiRouter.post(
   "/workspaces/:id/provisioning/:requestId/confirm",
   endpoint(async (req, res) => {
     const { ws } = await workspace(req.auth!, req.params.id);
-    await membership(db, req.auth!, ws.id, true);
+    const actor = await membership(db, req.auth!, ws.id, true);
     const [request] = await db
       .select()
       .from(provisioningRequests)
@@ -911,13 +1017,15 @@ apiRouter.post(
           eq(provisioningRequests.workspaceId, ws.id),
         ),
       );
-    if (request && request.userId !== req.auth!.user.id)
+    if (request && request.userId !== req.auth!.user.id && actor.role !== "ADMIN")
       await managedAccess(db, req.auth!, ws.id, request.userId);
     assert(
       request && request.chainId === hubClient().chainId && ws.l1HubAddress,
       404,
       "Không tìm thấy yêu cầu trên mạng đã cấu hình.",
     );
+    const { manifest } = await verifiedDeployment(ws.l1HubAddress);
+    assert(request.hub === manifest.contracts.hub!.address.toLowerCase() && request.deploymentRef === provisioningIdentity().deploymentRef, 409, "Yêu cầu cấp quyền thuộc deployment cũ; tạo yêu cầu mới để đối soát.", "PROVISIONING_DEPLOYMENT_MISMATCH");
     const [wallet] = await db
       .select()
       .from(userWallets)

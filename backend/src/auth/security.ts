@@ -1,5 +1,6 @@
 import * as crypto from "node:crypto";
 import type { Request } from "express";
+import deployment from "../../../shared/deployment.json";
 
 export class AuthError extends Error {
   constructor(
@@ -139,9 +140,11 @@ export function applicationOrigin(): URL {
   return url;
 }
 export function allowedChains(): number[] {
-  return [43113, Number(process.env.FAMILY_L1_CHAIN_ID || 99999)];
+  const chains = (process.env.AUTH_SIWE_CHAIN_IDS || String(deployment.chainId)).split(",").map((value) => Number(value.trim()));
+  assert(chains.length > 0 && chains.every((id) => Number.isSafeInteger(id) && id > 0), 503, "Cấu hình chain SIWE không hợp lệ.", "AUTH_CHAIN_CONFIG_INVALID");
+  return [...new Set(chains)];
 }
-export type ChallengePurpose = "REGISTER" | "LOGIN" | "LINK" | "REAUTH";
+export type ChallengePurpose = "REGISTER" | "LOGIN" | "LINK" | "REAUTH" | "RECOVERY";
 export function siweMessage(
   address: string,
   nonce: string,
@@ -157,6 +160,7 @@ export function siweMessage(
     LOGIN: "Sign in to your existing Kinetix guardian account.",
     LINK: "Link this personal Core wallet to your signed-in Kinetix account. This does not send a transaction.",
     REAUTH: "Confirm your identity for a sensitive Kinetix account operation.",
+    RECOVERY: "Prove ownership of a replacement wallet for your signed-in Kinetix account. Each vault still requires its guardian quorum; this signature does not transfer assets or replace the active wallet.",
   };
   return `${origin.host} wants you to sign in with your Ethereum account:\n${address}\n\n${statements[purpose]}\n\nURI: ${origin.origin}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt.toISOString()}\nExpiration Time: ${expiresAt.toISOString()}`;
 }

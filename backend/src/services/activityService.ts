@@ -9,6 +9,7 @@ import {
 } from "../db/schema";
 import { FAMILY_HUB_ABI } from "../../../shared/abis";
 import { decimalAmount, hubClient } from "./chainService";
+import { walletOwnerInWorkspace } from "./walletOwnershipService";
 
 /** Chỉ ghi event ở đúng Hub và vault đã ánh xạ; trạng thái chi trả không suy từ số chữ ký. */
 export async function recordReceiptActivity(
@@ -36,6 +37,7 @@ export async function recordReceiptActivity(
       FastWithdrawalExecuted: "WITHDRAW",
       WithdrawalExecuted: "WITHDRAWAL",
       ChoreRewarded: "REWARD",
+      RoscaRoundPaid: "WITHDRAWAL",
     };
     const kind = kinds[log.eventName];
     const assigned = log.eventName === "ChoreCreated";
@@ -50,18 +52,8 @@ export async function recordReceiptActivity(
       log.args.recipient ||
       log.args.assignee;
     if (typeof recipient !== "string") continue;
-    const [user] = await db
-      .select({ id: userWallets.userId })
-      .from(userWallets)
-      .innerJoin(
-        workspaceMembers,
-        and(
-          eq(workspaceMembers.userId, userWallets.userId),
-          eq(workspaceMembers.workspaceId, vault.workspaceId),
-          isNull(workspaceMembers.accessDisabledAt),
-        ),
-      )
-      .where(eq(userWallets.address, recipient.toLowerCase()));
+    const owner = await walletOwnerInWorkspace(recipient, vault.workspaceId);
+    const user = owner ? { id: owner.userId } : undefined;
     if (!user) continue;
     timestamp ||= new Date(
       Number(
@@ -86,7 +78,7 @@ export async function recordReceiptActivity(
               : "Đã rút về ví cá nhân",
           message: assigned
             ? `Việc mới: ${log.args.title}. Mở danh sách việc để xem hướng dẫn.`
-            : `Đã xác nhận ${decimalAmount(log.args.amount ?? log.args.rewardAmount)} AVAX về ví của bạn.`,
+            : `Đã xác nhận ${decimalAmount(log.args.amount ?? log.args.rewardAmount ?? log.args.payoutAmount)} AVAX về ví của bạn.`,
           type: assigned
             ? "TASK_ASSIGNED"
             : kind === "REWARD"
@@ -109,7 +101,10 @@ export async function recordReceiptActivity(
         eventKey: `${receipt.transactionHash.toLowerCase()}:${log.logIndex}`,
         kind,
         amount: decimalAmount(
-          log.args.amount ?? log.args.totalAmount ?? log.args.rewardAmount,
+          log.args.amount ??
+            log.args.totalAmount ??
+            log.args.rewardAmount ??
+            log.args.payoutAmount,
         ),
         createdAt: timestamp,
       })

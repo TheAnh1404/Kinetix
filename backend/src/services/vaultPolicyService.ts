@@ -76,7 +76,7 @@ export async function memberVaultPolicy(
   }
   const active = state.isActive && !paused;
   const maximum: bigint =
-    active && beneficiary
+    active && beneficiary && Number(state.ruleType) === 0
       ? [
           overview[0],
           overview[1],

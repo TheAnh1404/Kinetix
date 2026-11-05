@@ -1,5 +1,6 @@
 import { and, eq, gt, isNull, sql, desc, inArray } from "drizzle-orm";
 import { getAddress, isAddress, verifyMessage } from "viem";
+import { deploymentManifest, provisioningIdentity } from "../services/deploymentService";
 import { db } from "../db";
 import {
   users,
@@ -16,6 +17,8 @@ import {
   provisioningRequests,
   notifications,
   workspaceInvitations,
+  walletHistory,
+  walletRecoveries,
 } from "../db/schema";
 import {
   assert,
@@ -299,12 +302,14 @@ export async function me(auth: AuthContext) {
           (member) => member.workspace.id === request.workspaceId,
         ),
       )
-      .map(({ id, workspaceId, chainId, status, txHash }) => ({
+      .map(({ id, workspaceId, chainId, status, txHash, hub, deploymentRef }) => ({
         id,
         workspaceId,
         chainId,
         status,
         txHash,
+        hub,
+        deploymentRef,
         kind: "ALLOWLIST",
       })),
     redirectUrl: state === "READY" ? "/dashboard" : "/activate",
@@ -465,7 +470,7 @@ export async function createChallenge(
   auth?: AuthContext,
 ) {
   assert(
-    ["REGISTER", "LOGIN", "LINK", "REAUTH"].includes(purpose),
+    ["REGISTER", "LOGIN", "LINK", "REAUTH", "RECOVERY"].includes(purpose),
     400,
     "Mục đích chữ ký không hợp lệ.",
   );
@@ -480,7 +485,7 @@ export async function createChallenge(
     "Hãy chuyển ví sang Fuji hoặc Family L1.",
   );
   const address = getAddress(addressInput);
-  if (purpose === "LINK" || purpose === "REAUTH") {
+  if (purpose === "LINK" || purpose === "REAUTH" || purpose === "RECOVERY") {
     assert(auth, 401, "Vui lòng đăng nhập.");
     if (purpose === "LINK")
       assert(
@@ -494,6 +499,10 @@ export async function createChallenge(
         403,
         "Hãy dùng ví đã liên kết.",
       );
+    if (purpose === "RECOVERY") {
+      requireFull(auth!);
+      assert(auth!.wallet && auth!.wallet.address !== address.toLowerCase(), 409, "Cần ví thay thế khác ví hiện tại.");
+    }
   }
   const nonce = randomToken().replace(/[-_]/g, "");
   const expiresAt = later(300);
@@ -520,7 +529,7 @@ export async function createChallenge(
     .returning();
   return { challengeId: challenge.id, message, expiresAt };
 }
-async function checkChallenge(
+export async function checkChallenge(
   challengeId: string,
   signature: unknown,
   browserToken: string,
@@ -558,15 +567,15 @@ async function checkChallenge(
     /* invalid signatures fail closed */
   }
   assert(valid, 401, "Chữ ký không khớp với ví đã chọn.");
-  return challenge;
+  return { ...challenge, signatureHash: digest(signature) };
 }
-async function consumeChallenge(
+export async function consumeChallenge(
   tx: Transaction,
   challenge: typeof authChallenges.$inferSelect,
 ) {
   const [consumed] = await tx
     .update(authChallenges)
-    .set({ consumedAt: now() })
+    .set({ userId: challenge.userId, consumedAt: now(), signatureHash: challenge.signatureHash, signatureVerifiedAt: now() })
     .where(
       and(
         eq(authChallenges.id, challenge.id),
@@ -616,6 +625,10 @@ export async function linkWallet(
       409,
       "Ví này đang thuộc một tài khoản khác.",
     );
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`wallet-address:${challenge.address}`}))`);
+    const [retired] = await tx.select().from(walletHistory).where(eq(walletHistory.address, challenge.address));
+    const [reserved] = await tx.select().from(walletRecoveries).where(and(eq(walletRecoveries.newWallet, challenge.address), isNull(walletRecoveries.completedAt)));
+    assert(!retired && !reserved, 409, "Ví đã bị thu hồi hoặc đang dành cho recovery.");
     await consumeChallenge(tx, challenge);
     await tx
       .insert(userWallets)
@@ -643,9 +656,7 @@ export async function linkWallet(
         .values({
           userId: current.user.id,
           workspaceId: member.workspaceId,
-          chainId: Number(
-            process.env.HUB_CHAIN_ID || process.env.FAMILY_L1_CHAIN_ID || 99999,
-          ),
+          ...provisioningIdentity(),
         })
         .onConflictDoNothing();
       const links = await tx
@@ -715,7 +726,7 @@ export async function walletLogin(
       403,
       "Thành viên đăng nhập bằng tên đăng nhập và mật khẩu.",
     );
-    await consumeChallenge(tx, challenge);
+    await consumeChallenge(tx, { ...challenge, userId: user.id });
     const [wallet] = await tx
       .select()
       .from(userWallets)
@@ -801,6 +812,10 @@ export async function registerGuardian(
   );
   return db.transaction(async (tx) => {
     await consumeChallenge(tx, challenge);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`wallet-address:${challenge.address}`}))`);
+    const [retired] = await tx.select().from(walletHistory).where(eq(walletHistory.address, challenge.address));
+    const [reserved] = await tx.select().from(walletRecoveries).where(and(eq(walletRecoveries.newWallet, challenge.address), isNull(walletRecoveries.completedAt)));
+    assert(!retired && !reserved, 409, "Ví đã bị thu hồi hoặc đang dành cho recovery.");
     const [owner] = await tx
       .select({ id: users.id })
       .from(users)
@@ -826,8 +841,10 @@ export async function registerGuardian(
           familyCode: code,
           creatorWallet: challenge.address,
           adminWallet: challenge.address,
-          l1HubAddress: process.env.FAMILY_HUB_ADDRESS || null,
-          cchainVaultAddress: process.env.FAMILY_YIELD_VAULT_ADDRESS || null,
+          l1HubAddress: deploymentManifest().enabled
+            ? deploymentManifest().contracts.hub!.address.toLowerCase()
+            : null,
+          cchainVaultAddress: null,
         })
         .returning();
     }
@@ -846,6 +863,7 @@ export async function registerGuardian(
           : null,
       })
       .returning();
+    await tx.update(authChallenges).set({ userId: user.id }).where(eq(authChallenges.id, challenge.id));
     await tx.insert(userCredentials).values({
       userId: user.id,
       username,
@@ -864,9 +882,7 @@ export async function registerGuardian(
     await tx.insert(provisioningRequests).values({
       userId: user.id,
       workspaceId: workspace.id,
-      chainId: Number(
-        process.env.HUB_CHAIN_ID || process.env.FAMILY_L1_CHAIN_ID || 99999,
-      ),
+      ...provisioningIdentity(),
     });
     if (invitation)
       await tx
@@ -1390,9 +1406,7 @@ export async function acceptInvitation(auth: AuthContext, token: unknown) {
       .values({
         userId: current.user.id,
         workspaceId: invite.workspaceId,
-        chainId: Number(
-          process.env.HUB_CHAIN_ID || process.env.FAMILY_L1_CHAIN_ID || 99999,
-        ),
+        ...provisioningIdentity(),
       })
       .onConflictDoNothing();
     await tx
