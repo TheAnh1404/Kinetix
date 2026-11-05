@@ -10,7 +10,11 @@ import React, {
 import { parseEther } from "viem";
 import { parseAmount } from "@/lib/member";
 import { FamilyMember, WorkspaceItem, DynamicVaultItem } from "@/types";
-import { hubChain, avalancheFuji } from "@/contracts/config";
+import {
+  hubChain,
+  avalancheFuji,
+  CONTRACT_ADDRESSES,
+} from "@/contracts/config";
 import { FAMILY_HUB_ABI, FAMILY_YIELD_VAULT_ABI } from "@/contracts/abis";
 import {
   getWalletClient,
@@ -19,8 +23,10 @@ import {
   setTransactionWorkspace,
   setWalletUseEnabled,
   queueTransactionSync,
+  restoreOperations,
 } from "@/lib/web3/client";
 import { useAuth, authRequest } from "@/hooks/useAuth";
+import { vaultMappingIssue } from "../../../shared/vaultMapping";
 
 export interface WithdrawalRequestItem {
   id: string;
@@ -56,7 +62,7 @@ export interface ChoreItem {
   rewardAmount: number;
   exactRewardAmount?: string;
   createdAt?: string;
-  status: "TODO" | "SUBMITTED" | "VERIFIED" | "REWARDED";
+  status: "TODO" | "SUBMITTED" | "VERIFIED" | "REWARDED" | "CANCELLED";
   proofImageUrl?: string | null;
   onchainTaskId?: number;
   childId?: string;
@@ -119,23 +125,23 @@ interface FamilyContextType {
     description?: string;
     ruleTemplate: "SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL";
     bufferRatioBps: number;
-    fastWithdrawLimit: number;
+    fastWithdrawLimit: string;
     requiredApprovals: number;
     guardianWallets?: string[];
     beneficiaryWallets?: string[];
-    targetGoalAmount?: number;
+    targetGoalAmount?: string;
     targetDeadline?: string;
     roscaRoundDuration?: number;
-    roscaRoundContribution?: number;
+    roscaRoundContribution?: string;
   }) => Promise<{ success: boolean; vault?: any; error?: string }>;
   depositToVault: (
     vaultId: number,
-    amount: number,
+    amount: string | number,
   ) => Promise<{ success: boolean; txHash?: string; error?: string }>;
   fastWithdrawFromVault: (vaultId: number, amount: number) => Promise<boolean>;
   requestVaultWithdrawal: (
     vaultId: number,
-    amount: number,
+    amount: number | string,
     reason: string,
   ) => Promise<{ success: boolean; requestId?: number }>;
   payoutRoscaRound: (vaultId: number, dbVaultId?: string) => Promise<boolean>;
@@ -190,6 +196,7 @@ interface FamilyContextType {
     proofUrl: string,
   ) => Promise<boolean>;
   verifyAndRewardChore: (choreId: string | number) => Promise<boolean>;
+  cancelChore: (choreId: string | number) => Promise<boolean>;
   createChore: (params: {
     title: string;
     rewardAmount: number | string;
@@ -275,6 +282,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const loadWorkspaceData = async (workspaceId: string) => {
     setIsDataLoading(true);
     const requestGeneration = ++generation.current;
+    if (auth.user) void restoreOperations(auth.user.id, workspaceId);
     const results = await Promise.allSettled([
       authRequest(`/api/families/${workspaceId}/members`, undefined, "GET"),
       authRequest(`/api/vaults?workspaceId=${workspaceId}`, undefined, "GET"),
@@ -359,23 +367,47 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       );
     if (withdrawalsData)
       setWithdrawalRequests(
-        withdrawalsData.data.map((request: any) => ({
-          ...request,
-          exactAmount: request.amount,
-          amount: Number(request.amount),
-          requesterName: request.requesterName || "Thành viên",
-          requesterAddress: request.requesterAddress || "",
-          guardianSignatures: [],
-          createdAt: request.createdAt,
-        })),
+        withdrawalsData.data
+          .filter((request: any) =>
+            mappedVaults.some(
+              (vault) =>
+                vault.id === request.vaultId &&
+                !vaultMappingIssue(
+                  vault,
+                  hubChain.id,
+                  CONTRACT_ADDRESSES.familyHub,
+                ),
+            ),
+          )
+          .map((request: any) => ({
+            ...request,
+            exactAmount: request.amount,
+            amount: Number(request.amount),
+            requesterName: request.requesterName || "Thành viên",
+            requesterAddress: request.requesterAddress || "",
+            guardianSignatures: [],
+            createdAt: request.createdAt,
+          })),
       );
     if (choresData)
       setChores(
-        choresData.data.map((chore: any) => ({
-          ...chore,
-          exactRewardAmount: chore.rewardAmount,
-          rewardAmount: Number(chore.rewardAmount),
-        })),
+        choresData.data
+          .filter((chore: any) =>
+            mappedVaults.some(
+              (vault) =>
+                vault.id === chore.vaultId &&
+                !vaultMappingIssue(
+                  vault,
+                  hubChain.id,
+                  CONTRACT_ADDRESSES.familyHub,
+                ),
+            ),
+          )
+          .map((chore: any) => ({
+            ...chore,
+            exactRewardAmount: chore.rewardAmount,
+            rewardAmount: Number(chore.rewardAmount),
+          })),
       );
     if (notices)
       setNotifications(
@@ -590,13 +622,18 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       return { success: false, error: error.shortMessage || error.message };
     }
   };
-  const depositToVault = async (vaultId: number, amount: number) => {
+  const depositToVault = async (vaultId: number, amount: string | number) => {
     try {
-      if (!Number.isFinite(amount) || amount <= 0)
-        throw new Error("Số tiền phải lớn hơn 0.");
+      if (
+        !/^\d+(\.\d{1,18})?$/.test(String(amount)) ||
+        parseEther(String(amount)) <= 0n
+      )
+        throw new Error("Số tiền phải lớn hơn 0, tối đa 18 chữ số thập phân.");
       const vault = vaultByChainId(vaultId);
       const txHash = await write(
-        "depositToVault",
+        vault.ruleTemplate === "ROSCA"
+          ? "contributeRoscaRound"
+          : "depositToVault",
         [BigInt(vaultId)],
         parseEther(amount.toString()),
         false,
@@ -616,7 +653,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           id: txHash,
           vaultId,
           vaultName: vault.name,
-          amount,
+          amount: Number(amount),
           txHash,
           senderAddress: auth.linkedWallet!.address,
           senderName: auth.user!.fullName,
@@ -664,16 +701,16 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   };
   const requestVaultWithdrawal = async (
     vaultId: number,
-    amount: number,
+    amount: number | string,
     reason: string,
   ) => {
     try {
       const vault = vaultByChainId(vaultId);
-      if (!Number.isFinite(amount) || amount <= 0 || !reason.trim())
+      if (parseAmount(String(amount)) <= 0n || !reason.trim())
         return { success: false };
       const txHash = await write(
         "requestLargeWithdrawal",
-        [BigInt(vaultId), parseEther(amount.toString()), reason],
+        [BigInt(vaultId), parseAmount(String(amount)), reason],
         undefined,
         false,
         { path: "/api/withdrawals/create", body: { vaultId: vault.id } },
@@ -760,6 +797,18 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
               : "Không thể hoàn tất giao dịch.",
         }),
       );
+      return false;
+    }
+  };
+  const cancelChore: FamilyContextType["cancelChore"] = async (id) => {
+    try {
+      const chore = chores.find((item) => String(item.id) === String(id));
+      if (chore?.onchainTaskId === undefined) return false;
+      const txHash = await write("cancelChore", [BigInt(chore.onchainTaskId)], undefined, false, { path: "/api/chores/cancel", body: { choreId: String(id) } });
+      await sync("/api/chores/cancel", { choreId: String(id), txHash });
+      return true;
+    } catch (error) {
+      window.dispatchEvent(new CustomEvent("kinetix-operation-error", { detail: error instanceof Error ? error.message : "Chưa hủy được nhiệm vụ." }));
       return false;
     }
   };
@@ -1013,6 +1062,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         kidsXp,
         submitChoreProof,
         verifyAndRewardChore,
+        cancelChore,
         createChore,
         notifications,
         unreadNotificationCount: notifications.filter(

@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React from 'react';
+import React from "react";
 
 interface MobilePhoneContainerProps {
   children: React.ReactNode;
@@ -17,7 +17,6 @@ export const MobilePhoneContainer: React.FC<MobilePhoneContainerProps> = ({
     <div className="w-full flex flex-col items-center justify-center py-4 sm:py-8 px-2">
       {/* Khung viền Điện thoại cao cấp (Mockup Smartphone Frame) */}
       <div className="w-full max-w-[410px] bg-slate-900 rounded-[48px] p-3 shadow-2xl border-4 border-slate-700/80 ring-1 ring-white/10 relative transition-all">
-        
         {/* Nút vật lý bên cạnh máy */}
         <div className="absolute -left-[7px] top-24 w-[3px] h-10 bg-slate-600 rounded-l-md" />
         <div className="absolute -left-[7px] top-38 w-[3px] h-12 bg-slate-600 rounded-l-md" />
@@ -25,11 +24,12 @@ export const MobilePhoneContainer: React.FC<MobilePhoneContainerProps> = ({
 
         {/* Màn hình điện thoại (Screen Canvas) */}
         <div className="w-full bg-slate-50 text-slate-900 rounded-[38px] overflow-hidden flex flex-col min-h-[720px] max-h-[820px] shadow-inner relative">
-          
           {/* Status Bar: Thời gian & Dynamic Island */}
           <div className="h-10 w-full bg-slate-100/90 backdrop-blur-md px-6 flex items-center justify-between shrink-0 select-none border-b border-slate-200/50 z-20">
-            <span className="text-[12px] font-bold font-mono text-slate-800">9:41</span>
-            
+            <span className="text-[12px] font-bold font-mono text-slate-800">
+              9:41
+            </span>
+
             {/* Dynamic Island */}
             <div className="w-20 h-4 bg-black rounded-full flex items-center justify-center">
               <div className="w-2 h-2 rounded-full bg-slate-900 mr-2" />
@@ -37,9 +37,15 @@ export const MobilePhoneContainer: React.FC<MobilePhoneContainerProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5 text-slate-700">
-              <span className="material-symbols-outlined text-[14px]">signal_cellular_alt</span>
-              <span className="material-symbols-outlined text-[14px]">wifi</span>
-              <span className="material-symbols-outlined text-[16px]">battery_full</span>
+              <span className="material-symbols-outlined text-[14px]">
+                signal_cellular_alt
+              </span>
+              <span className="material-symbols-outlined text-[14px]">
+                wifi
+              </span>
+              <span className="material-symbols-outlined text-[16px]">
+                battery_full
+              </span>
             </div>
           </div>
 
@@ -54,7 +60,7 @@ export const MobilePhoneContainer: React.FC<MobilePhoneContainerProps> = ({
                   {title}
                 </span>
                 <span className="text-[10px] text-slate-500 font-mono">
-                  Family L1 • 0 Gas
+                  Fuji T1
                 </span>
               </div>
             </div>
@@ -73,12 +79,13 @@ export const MobilePhoneContainer: React.FC<MobilePhoneContainerProps> = ({
           <div className="h-6 w-full bg-white/80 backdrop-blur-md flex items-center justify-center shrink-0 border-t border-slate-100">
             <div className="w-32 h-1 bg-slate-300 rounded-full" />
           </div>
-
         </div>
       </div>
 
       <div className="mt-3 text-center text-[11px] text-slate-500 font-mono flex items-center gap-1.5">
-        <span className="material-symbols-outlined text-[14px] text-emerald-500">lock</span>
+        <span className="material-symbols-outlined text-[14px] text-emerald-500">
+          lock
+        </span>
         <span>Avalanche Family L1 Private Network • Zero Gas Experience</span>
       </div>
     </div>

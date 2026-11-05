@@ -21,8 +21,8 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
   >("SHIELD");
   const [vaultName, setVaultName] = useState("");
   const [vaultDescription, setVaultDescription] = useState("");
-  const [bufferRatioBps, setBufferRatioBps] = useState<number>(1000); // 1000 = 10%
-  const [fastWithdrawLimit, setFastWithdrawLimit] = useState<number>(50);
+  const [bufferRatioBps, setBufferRatioBps] = useState<number>(10000); // 1000 = 10%
+  const [fastWithdrawLimit, setFastWithdrawLimit] = useState<string>("0.01");
   const [requiredApprovals, setRequiredApprovals] = useState<number>(1);
   const [selectedGuardianWallets, setSelectedGuardianWallets] = useState<
     string[]
@@ -31,7 +31,7 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
     string[]
   >([]);
   // Thuộc tính chuyên biệt theo quy tắc ROSCA & SHARED_GOAL
-  const [targetGoalAmount, setTargetGoalAmount] = useState<number>(100);
+  const [targetGoalAmount, setTargetGoalAmount] = useState<string>("1");
   const [targetDeadline, setTargetDeadline] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() + 30);
@@ -41,7 +41,7 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
     7 * 24 * 3600,
   ); // 7 ngày
   const [roscaRoundContribution, setRoscaRoundContribution] =
-    useState<number>(10); // 10 AVAX
+    useState<string>("0.01"); // 10 AVAX
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -61,23 +61,23 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
   ) => {
     setRuleTemplate(tmpl);
     if (tmpl === "SHIELD") {
-      setBufferRatioBps(1000); // 10% L1
-      setFastWithdrawLimit(50);
+      setBufferRatioBps(10000);
+      setFastWithdrawLimit("0.01");
       setRequiredApprovals(1);
       if (!vaultName) setVaultName("Quỹ Bảo Vệ An Sinh");
     } else if (tmpl === "MILESTONE") {
-      setBufferRatioBps(2000); // 20% L1
-      setFastWithdrawLimit(20);
+      setBufferRatioBps(10000);
+      setFastWithdrawLimit("0");
       setRequiredApprovals(1);
       if (!vaultName) setVaultName("Quỹ Khen Thưởng & Cột Mốc");
     } else if (tmpl === "ROSCA") {
-      setBufferRatioBps(0); // 0% L1, 100% C-Chain
-      setFastWithdrawLimit(0);
+      setBufferRatioBps(10000);
+      setFastWithdrawLimit("0");
       setRequiredApprovals(1);
       if (!vaultName) setVaultName("Hụi Họ Tương Trợ");
     } else if (tmpl === "SHARED_GOAL") {
-      setBufferRatioBps(1500); // 15% L1
-      setFastWithdrawLimit(100);
+      setBufferRatioBps(10000);
+      setFastWithdrawLimit("0");
       setRequiredApprovals(1);
       if (!vaultName) setVaultName("Quỹ Mục Tiêu Chung");
     }
@@ -103,16 +103,16 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
       description: vaultDescription.trim(),
       ruleTemplate,
       bufferRatioBps,
-      fastWithdrawLimit,
+      fastWithdrawLimit: ruleTemplate === "SHIELD" ? fastWithdrawLimit : "0",
       requiredApprovals,
       guardianWallets: guardians,
       beneficiaryWallets: selectedBeneficiaryWallets,
-      targetGoalAmount: ruleTemplate === "SHARED_GOAL" ? targetGoalAmount : 0,
+      targetGoalAmount: ruleTemplate === "SHARED_GOAL" ? targetGoalAmount : "0",
       targetDeadline:
         ruleTemplate === "SHARED_GOAL" ? targetDeadline : undefined,
       roscaRoundDuration: ruleTemplate === "ROSCA" ? roscaRoundDuration : 0,
       roscaRoundContribution:
-        ruleTemplate === "ROSCA" ? roscaRoundContribution : 0,
+        ruleTemplate === "ROSCA" ? roscaRoundContribution : "0",
     });
     setIsSubmitting(false);
 
@@ -142,7 +142,7 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
                 Tạo Hũ Tiền Mới (Dynamic Vault)
               </h3>
               <p className="text-xs text-on-surface-variant">
-                Bước {step}/3 • Tùy biến bộ quy tắc & đệm thanh khoản liên chuỗi
+                Bước {step}/3 • Cấu hình hũ AVAX trên Fuji
               </p>
             </div>
           </div>
@@ -179,15 +179,15 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
                     </span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container/15 text-secondary-container">
-                    8% APY
+                    T1 Fuji
                   </span>
                 </div>
                 <h4 className="text-sm font-bold text-on-surface mb-1">
                   SHIELD (Bảo Vệ)
                 </h4>
                 <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Bảo vệ người già: Rút nhỏ ≤ 50 AVAX giải ngân tức thì 0 gas;
-                  Rút lớn cần đa chữ ký 2/3.
+                  Rút nhanh theo hạn mức đã chọn; mỗi ngày tối đa hai lần hạn
+                  mức. Khoản lớn cần quorum của hũ.
                 </p>
               </div>
 
@@ -207,15 +207,15 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
                     </span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container/15 text-secondary-container">
-                    8% APY
+                    T1 Fuji
                   </span>
                 </div>
                 <h4 className="text-sm font-bold text-on-surface mb-1">
                   MILESTONE (Cột Mốc)
                 </h4>
                 <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Chore-to-Earn: Gốc gửi C-Chain sinh lời; mở thưởng tự động khi
-                  người bảo hộ duyệt bài.
+                  Giữ chỗ tiền thưởng; đủ số Guardian đã cấu hình xác nhận mới
+                  chi trả.
                 </p>
               </div>
 
@@ -235,15 +235,15 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
                     </span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700">
-                    100% Sinh Lãi
+                    Góp đủ kỳ
                   </span>
                 </div>
                 <h4 className="text-sm font-bold text-on-surface mb-1">
                   ROSCA (Hụi Xoay Vòng)
                 </h4>
                 <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Góp vốn định kỳ: Vốn gom đẩy 100% sang Fuji C-Chain, đến kỳ
-                  giải ngân gốc và chia đều lãi.
+                  Góp vốn định kỳ: tiền giữ trên Fuji; đủ khoản của mọi thành
+                  viên và đến kỳ giải ngân gốc và chia đều lãi.
                 </p>
               </div>
 
@@ -263,7 +263,7 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
                     </span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container/15 text-secondary-container">
-                    8% APY
+                    T1 Fuji
                   </span>
                 </div>
                 <h4 className="text-sm font-bold text-on-surface mb-1">
@@ -291,76 +291,26 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
         {/* STEP 2: TÙY CHỈNH TỶ LỆ ĐỆM L1 / C-CHAIN */}
         {step === 2 && (
           <div className="space-y-6">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-on-surface-variant/80 mb-1">
-                Tỷ Lệ Đệm Thanh Khoản Liên Chuỗi (Buffer Ratio)
-              </div>
-              <p className="text-xs text-on-surface-variant">
-                Cơ chế chia vốn tự động: Một phần giữ tại Family L1 để rút tức
-                thì 0 gas, phần còn lại chuyển tiếp sang Avalanche Fuji C-Chain
-                tích lũy 8% APY DeFi.
+            <div className="p-5 rounded-2xl bg-slate-50 border space-y-3">
+              <h4 className="font-bold">
+                T1 Fuji · 100% tài sản trên cùng chain
+              </h4>
+              <p>
+                Tiền nạp nằm tại kho Cashflow, được chi theo quy tắc của hũ.
+                Core hiển thị phí mạng trước khi ký.
               </p>
-            </div>
-
-            {/* Slider */}
-            <div className="bg-surface-container-low p-5 rounded-2xl border border-outline-variant/20 space-y-4">
-              <div className="flex justify-between items-center text-sm font-bold">
-                <span className="text-primary flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[18px]">
-                    bolt
-                  </span>
-                  Đệm L1 (Rút Tức Thì): {bufferPercent}%
-                </span>
-                <span className="text-secondary-container flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[18px]">
-                    trending_up
-                  </span>
-                  DeFi C-Chain (8% APY): {yieldPercent}%
-                </span>
-              </div>
-
-              <input
-                type="range"
-                min="0"
-                max="50"
-                step="5"
-                value={bufferPercent}
-                onChange={(e) =>
-                  setBufferRatioBps(Number(e.target.value) * 100)
-                }
-                className="w-full h-2.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary"
-              />
-
-              {/* Visual Split Bar */}
-              <div className="h-4 w-full bg-surface-container rounded-full overflow-hidden flex">
-                <div
-                  style={{ width: `${bufferPercent}%` }}
-                  className="bg-primary transition-all duration-300 flex items-center justify-center text-[9px] font-bold text-white"
-                  title={`Đệm L1: ${bufferPercent}%`}
-                >
-                  {bufferPercent > 5 && `${bufferPercent}%`}
-                </div>
-                <div
-                  style={{ width: `${yieldPercent}%` }}
-                  className="bg-secondary-container transition-all duration-300 flex items-center justify-center text-[9px] font-bold text-white"
-                  title={`Sinh lời C-Chain: ${yieldPercent}%`}
-                >
-                  {yieldPercent}% Fuji C-Chain
-                </div>
-              </div>
-
-              <div className="text-[11px] text-on-surface-variant bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/15 flex items-start gap-2">
-                <span className="material-symbols-outlined text-[16px] text-primary shrink-0 mt-0.5">
-                  info
-                </span>
-                <span>
-                  Ví dụ: Khi nạp 100 AVAX, hệ thống sẽ tự động chuyển{" "}
-                  <strong>{bufferPercent} AVAX</strong> vào đệm Family L1 phục
-                  vụ chi tiêu tức thì, và <strong>{yieldPercent} AVAX</strong>{" "}
-                  sang C-Chain tạo lợi nhuận ~{(yieldPercent * 0.08).toFixed(2)}{" "}
-                  AVAX/năm.
-                </span>
-              </div>
+              <p>
+                Chưa bật bridge, ERC20 hoặc lợi suất. Hạn mức và quorum được
+                khóa lúc tạo.
+              </p>
+              <p>
+                ROSCA kết thúc sau một chu kỳ thành viên. Kỳ thiếu khoản tiếp
+                tục chờ; T1 không có hoàn tiền tự động.
+              </p>
+              <p>
+                SHARED_GOAL hết hạn có thể tạo yêu cầu quyết toán cần đủ
+                Guardian; không tự hoàn tiền theo người góp.
+              </p>
             </div>
 
             <div className="flex justify-between pt-2">
@@ -418,15 +368,17 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
                   Hạn Mức Rút Nhanh (AVAX)
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   min="0"
-                  max="1000"
+                  disabled={ruleTemplate !== "SHIELD"}
+                  inputMode="decimal"
+                  step="any"
                   value={fastWithdrawLimit}
-                  onChange={(e) => setFastWithdrawLimit(Number(e.target.value))}
+                  onChange={(e) => setFastWithdrawLimit(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/30 text-xs sm:text-sm font-mono text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
                 <span className="text-[10px] text-on-surface-variant">
-                  Rút ≤ số này giải ngân tức thì 0 gas
+                  Chỉ SHIELD. Hạn mức ngày = 2 × hạn mức mỗi lần.
                 </span>
               </div>
 
@@ -556,11 +508,11 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
                       Đóng Góp Mỗi Kỳ (AVAX)
                     </label>
                     <input
-                      type="number"
-                      min="1"
+                      type="text"
+                      inputMode="decimal"
                       value={roscaRoundContribution}
                       onChange={(e) =>
-                        setRoscaRoundContribution(Number(e.target.value))
+                        setRoscaRoundContribution(e.target.value)
                       }
                       className="w-full px-3 py-2 rounded-xl bg-surface-container-lowest border border-outline-variant/30 text-xs font-mono text-on-surface focus:outline-none"
                     />
@@ -584,12 +536,10 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
                       Mục Tiêu Cần Gom (AVAX)
                     </label>
                     <input
-                      type="number"
-                      min="1"
+                      type="text"
+                      inputMode="decimal"
                       value={targetGoalAmount}
-                      onChange={(e) =>
-                        setTargetGoalAmount(Number(e.target.value))
-                      }
+                      onChange={(e) => setTargetGoalAmount(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl bg-surface-container-lowest border border-outline-variant/30 text-xs font-mono text-on-surface focus:outline-none"
                       required
                     />

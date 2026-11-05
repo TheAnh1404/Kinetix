@@ -11,6 +11,13 @@ import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
 import { ChoreProofModal } from "@/components/dashboard/ChoreProofModal";
 import { DynamicVaultItem } from "@/types";
 import { useAuth } from "@/hooks/useAuth";
+import { hubChain } from "@/contracts/config";
+import { vaultMappingIssue } from "../../../../shared/vaultMapping";
+import { VaultWorkflowPanel } from "@/components/vaults/VaultWorkflowPanel";
+import { useVaultStates } from "@/hooks/useVaultStates";
+import { CoreDeploymentConsole } from "@/components/dashboard/CoreDeploymentConsole";
+import { ProvisioningPanel } from "@/components/dashboard/ProvisioningPanel";
+import { requestStatus } from "@/lib/member";
 
 export const GuardianView: React.FC = () => {
   const {
@@ -24,6 +31,7 @@ export const GuardianView: React.FC = () => {
     currentWorkspace,
   } = useFamily();
   const auth = useAuth();
+  const { states: liveStates } = useVaultStates();
   const canManageMembers = auth.workspaces.some(
     (workspace) =>
       workspace.id === currentWorkspace?.id &&
@@ -70,7 +78,7 @@ export const GuardianView: React.FC = () => {
     const success = await verifyAndRewardChore(taskId);
     if (success) {
       setFeedback(
-        `Đã xác nhận duyệt và chi trả ${rewardAmount} AVAX về ví người được giao việc.`,
+        "Chữ ký duyệt đã xác nhận. Phần thưởng chỉ được chi khi đủ quorum; trạng thái được đọc từ contract.",
       );
     }
     return success;
@@ -100,6 +108,9 @@ export const GuardianView: React.FC = () => {
 
       {/* 2. KHỐI TỔNG QUAN TÀI SẢN (3 CHỈ SỐ LỚN CHO LAPTOP) */}
       <FamilyStatsCards />
+      <CoreDeploymentConsole />
+      <ProvisioningPanel />
+      <VaultWorkflowPanel />
 
       {/* 3. BỐ CỤC 2 CỘT CHÍNH CHO CHỦ GIA ĐÌNH TRÊN LAPTOP */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -115,7 +126,7 @@ export const GuardianView: React.FC = () => {
                   Danh Mục Hũ Tiền Động
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Tự động phân bổ đệm L1 (0 gas) và vốn C-Chain (8% APY)
+                  AVAX được giữ trên Fuji và giải ngân theo quy tắc của hũ
                 </p>
               </div>
             </div>
@@ -149,6 +160,24 @@ export const GuardianView: React.FC = () => {
           {/* Lưới các Hũ tiền */}
           <div className="space-y-3">
             {dynamicVaults.map((vault) => {
+              const issue = vaultMappingIssue(
+                vault,
+                hubChain.id,
+                currentWorkspace?.l1HubAddress,
+              );
+              if (issue)
+                return (
+                  <article
+                    key={vault.id}
+                    className="p-5 rounded-2xl border border-amber-200 bg-amber-50"
+                  >
+                    <h3 className="font-bold">{vault.name}</h3>
+                    <p className="text-sm mt-2">{issue.message}</p>
+                    <p className="text-xs mt-2">
+                      Chưa có số dư on-chain đã xác minh để hiển thị.
+                    </p>
+                  </article>
+                );
               const bufferRatio = vault.bufferRatioBps / 100;
               const yieldRatio = 100 - bufferRatio;
               const total = vault.cachedTotalBalance ?? vault.totalBalance ?? 0;
@@ -199,7 +228,7 @@ export const GuardianView: React.FC = () => {
                   <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
                     <div className="flex items-center justify-between text-xs font-bold">
                       <span className="text-emerald-700 flex items-center gap-1">
-                        <span>⚡ Đệm Family L1: {bufferRatio}%</span>
+                        <span>⚡ Tài sản tại Fuji: {bufferRatio}%</span>
                         <span className="text-[10px] text-slate-400 font-normal">
                           ({l1Buffer.toFixed(2)} AVAX)
                         </span>
@@ -208,7 +237,7 @@ export const GuardianView: React.FC = () => {
                         <span className="text-[10px] text-slate-400 font-normal">
                           ({cChainYield.toFixed(2)} AVAX)
                         </span>
-                        <span>🌊 C-Chain 8% APY: {yieldRatio}%</span>
+                        <span>🌊 Liên chuỗi chưa bật: {yieldRatio}%</span>
                       </span>
                     </div>
 
@@ -216,13 +245,14 @@ export const GuardianView: React.FC = () => {
                       <div
                         style={{ width: `${bufferRatio}%` }}
                         className="bg-emerald-500 h-full transition-all duration-500"
-                        title={`Đệm Family L1 (${bufferRatio}%)`}
+                        title={`Tài sản tại Fuji (${bufferRatio}%)`}
                       />
                     </div>
 
                     <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mt-0.5">
                       <span>
-                        Rút nhanh &le; {vault.fastWithdrawLimit} AVAX (0 gas)
+                        Rút nhanh &le; {vault.fastWithdrawLimit} AVAX (phí mạng
+                        Fuji)
                       </span>
                       <span>
                         Multisig: {vault.requiredApprovals}/
@@ -280,9 +310,7 @@ export const GuardianView: React.FC = () => {
             <div className="bg-white p-5 rounded-2xl border-2 border-blue-200 shadow-sm flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold font-mono uppercase">
-                  {activeRequest.status === "PENDING"
-                    ? "⏳ Chờ Duyệt On-Chain"
-                    : "✓ Đã Giải Ngân"}
+                  {requestStatus(activeRequest)}
                 </span>
                 <span className="text-xs font-mono font-bold text-slate-400">
                   Phiếu #{activeRequest.id}
@@ -329,7 +357,7 @@ export const GuardianView: React.FC = () => {
                 </div>
               </div>
 
-              {activeRequest.status === "PENDING" ? (
+              {activeRequest.status === "PENDING" && liveStates[activeRequest.vaultId || ""]?.requests.some((item: any) => item.id === activeRequest.id && item.canApprove) ? (
                 <button
                   onClick={() => handleApprove(activeRequest.id)}
                   disabled={isSigning}
@@ -342,19 +370,18 @@ export const GuardianView: React.FC = () => {
                   <span>
                     {isSigning
                       ? "Đang xác nhận on-chain..."
-                      : "Ký Duyệt Lệnh Rút (Bố Ba)"}
+                      : "Ký duyệt lệnh rút"}
                   </span>
                 </button>
               ) : (
                 <div className="w-full py-2.5 rounded-xl bg-emerald-50 text-emerald-800 text-center font-bold text-xs">
-                  ✓ Lệnh đã được giải ngân về ví người thụ hưởng
+                  {activeRequest.status === "EXECUTED" ? "Đã giải ngân về ví người thụ hưởng" : "Xem trạng thái và quyền ký trong chi tiết hũ"}
                 </div>
               )}
             </div>
           ) : (
             <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500">
-              Không có yêu cầu rút tiền lớn nào đang chờ duyệt. Mọi tài sản đang
-              an toàn!
+              Không có yêu cầu rút tiền lớn nào đang chờ duyệt.
             </div>
           )}
 
@@ -408,6 +435,7 @@ export const GuardianView: React.FC = () => {
                           <span>Xem Ảnh</span>
                         </button>
                         <button
+                          disabled={!liveStates[chore.vaultId]?.tasks.some((task: any) => task.id === chore.id && task.canApprove)}
                           onClick={() =>
                             handleVerifyChore(chore.id, chore.rewardAmount)
                           }

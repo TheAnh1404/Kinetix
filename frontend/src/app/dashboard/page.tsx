@@ -53,7 +53,7 @@ function DashboardContent() {
     previousWorkspace.current = family.currentWorkspace?.id;
     if (
       switched ||
-      (!admin && group !== (role === "ELDERLY" ? "elderly" : "kids"))
+      (!admin && group !== "rosca" && group !== (role === "ELDERLY" ? "elderly" : "kids"))
     ) {
       router.replace(memberHome(role));
       return;
@@ -119,7 +119,7 @@ function DashboardContent() {
       </div>
     );
   // Membership của workspace quyết định quyền, không dùng vai trò toàn cục hoặc nút preview.
-  if (!group || (!admin && group !== (role === "ELDERLY" ? "elderly" : "kids")))
+  if (!group || (!admin && group !== "rosca" && group !== (role === "ELDERLY" ? "elderly" : "kids")))
     return <Loading />;
   const notices = (
     <>
@@ -144,7 +144,7 @@ function DashboardContent() {
     </>
   );
   const memberView =
-    group === "elderly" ? (
+    group === "rosca" ? <RoscaView /> : group === "elderly" ? (
       <ElderlyPortal preview={admin} />
     ) : (
       <KidsPortal preview={admin} />

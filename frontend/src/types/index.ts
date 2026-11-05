@@ -44,6 +44,8 @@ export interface DynamicVaultItem {
   onchainVaultId: number;
   onchainHub?: string | null;
   onchainChainId?: number | null;
+  onchainCreationTx?: string | null;
+  onchainCreationLogIndex?: number | null;
   name: string;
   description?: string;
   icon?: string;

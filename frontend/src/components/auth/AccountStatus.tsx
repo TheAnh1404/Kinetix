@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Wallet, Clock3 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { WalletRecoveryPanel } from "./WalletRecoveryPanel";
 import {
   pendingTransactions,
   reconcileTransactions,
@@ -42,6 +43,7 @@ export function AccountStatus() {
   );
   return (
     <div className="space-y-2 mb-4">
+      <WalletRecoveryPanel />
       {auth.sessionError && (
         <p className="auth-error" role="alert">
           {auth.sessionError}

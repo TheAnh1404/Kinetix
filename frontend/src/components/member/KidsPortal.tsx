@@ -27,6 +27,7 @@ const choreLabels = {
   SUBMITTED: "Chờ người thân duyệt",
   VERIFIED: "Đã duyệt, đang kiểm tra chi trả",
   REWARDED: "Đã nhận thưởng",
+  CANCELLED: "Đã hủy",
 };
 export function ChoreCard({ chore }: { chore: ChoreItem }) {
   const Icon =

@@ -42,6 +42,16 @@ export const FAMILY_HUB_ABI = [
   },
   {
     "inputs": [],
+    "name": "ConfigurationLocked",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DuplicateMember",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "EnforcedPause",
     "type": "error"
   },
@@ -83,6 +93,11 @@ export const FAMILY_HUB_ABI = [
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "FeatureDisabled",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -96,6 +111,11 @@ export const FAMILY_HUB_ABI = [
       }
     ],
     "name": "GoalNotReached",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IncompleteRoscaRound",
     "type": "error"
   },
   {
@@ -142,7 +162,17 @@ export const FAMILY_HUB_ABI = [
   },
   {
     "inputs": [],
+    "name": "InvalidRecovery",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "InvalidRuleAction",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotAllowlisted",
     "type": "error"
   },
   {
@@ -212,6 +242,11 @@ export const FAMILY_HUB_ABI = [
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "RoscaCycleEnded",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -224,7 +259,17 @@ export const FAMILY_HUB_ABI = [
   },
   {
     "inputs": [],
+    "name": "StaleAuthorization",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "TaskAlreadyRewarded",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TaskCancelled",
     "type": "error"
   },
   {
@@ -279,6 +324,44 @@ export const FAMILY_HUB_ABI = [
       }
     ],
     "name": "AllowlistStatusChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "taskId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "guardian",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "approvals",
+        "type": "uint256"
+      }
+    ],
+    "name": "ChoreApproved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "taskId",
+        "type": "uint256"
+      }
+    ],
+    "name": "ChoreCancelled",
     "type": "event"
   },
   {
@@ -497,6 +580,25 @@ export const FAMILY_HUB_ABI = [
       }
     ],
     "name": "MemberWalletRecovered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "vaultId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "epoch",
+        "type": "uint256"
+      }
+    ],
+    "name": "MembershipEpochChanged",
     "type": "event"
   },
   {
@@ -882,6 +984,38 @@ export const FAMILY_HUB_ABI = [
         "type": "uint256"
       }
     ],
+    "name": "cancelChore",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "cancelledTasks",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "taskId",
+        "type": "uint256"
+      }
+    ],
     "name": "claimChoreCompleted",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -1053,6 +1187,19 @@ export const FAMILY_HUB_ABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "crossChainEnabled",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -1077,6 +1224,19 @@ export const FAMILY_HUB_ABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "deploymentVersion",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -1093,23 +1253,23 @@ export const FAMILY_HUB_ABI = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "vaultId",
+        "name": "",
         "type": "uint256"
       },
       {
         "internalType": "address",
-        "name": "token",
+        "name": "",
         "type": "address"
       },
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "",
         "type": "uint256"
       }
     ],
     "name": "depositTokenToVault",
     "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -1165,23 +1325,23 @@ export const FAMILY_HUB_ABI = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "vaultId",
+        "name": "",
         "type": "uint256"
       },
       {
         "internalType": "address",
-        "name": "token",
+        "name": "",
         "type": "address"
       },
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "",
         "type": "uint256"
       }
     ],
     "name": "fastWithdrawToken",
     "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -1555,6 +1715,25 @@ export const FAMILY_HUB_ABI = [
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "membershipEpoch",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "pause",
     "outputs": [],
@@ -1607,7 +1786,7 @@ export const FAMILY_HUB_ABI = [
     ],
     "name": "receiveTeleporterMessage",
     "outputs": [],
-    "stateMutability": "view",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -1631,6 +1810,30 @@ export const FAMILY_HUB_ABI = [
     "name": "recoverMemberWallet",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "recoveredWallets",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1689,6 +1892,25 @@ export const FAMILY_HUB_ABI = [
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "requestEpoch",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "vaultId",
         "type": "uint256"
       },
@@ -1712,6 +1934,25 @@ export const FAMILY_HUB_ABI = [
       }
     ],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "reservedRewards",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1760,23 +2001,23 @@ export const FAMILY_HUB_ABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "_messenger",
+        "name": "",
         "type": "address"
       },
       {
         "internalType": "bytes32",
-        "name": "_cChainId",
+        "name": "",
         "type": "bytes32"
       },
       {
         "internalType": "address",
-        "name": "_vault",
+        "name": "",
         "type": "address"
       }
     ],
     "name": "setTeleporterConfig",
     "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -1796,7 +2037,7 @@ export const FAMILY_HUB_ABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "_cashflow",
+        "name": "cashflow",
         "type": "address"
       }
     ],
@@ -1809,18 +2050,71 @@ export const FAMILY_HUB_ABI = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "vaultId",
+        "name": "",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "newDailyLimit",
+        "name": "",
         "type": "uint256"
       }
     ],
     "name": "setVaultDailyLimit",
     "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "taskApprovalCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "taskApprovals",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1840,7 +2134,7 @@ export const FAMILY_HUB_ABI = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "taskId",
         "type": "uint256"
       }
     ],
@@ -1848,7 +2142,7 @@ export const FAMILY_HUB_ABI = [
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "taskId",
+        "name": "id",
         "type": "uint256"
       },
       {
@@ -2136,6 +2430,19 @@ export const FAMILY_HUB_ABI = [
   },
   {
     "inputs": [],
+    "name": "yieldEnabled",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "yieldVaultAddress",
     "outputs": [
       {
@@ -2183,6 +2490,11 @@ export const FAMILY_YIELD_VAULT_ABI = [
   {
     "inputs": [],
     "name": "ExpectedPause",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "FeatureDisabled",
     "type": "error"
   },
   {
@@ -2278,6 +2590,11 @@ export const FAMILY_YIELD_VAULT_ABI = [
   {
     "inputs": [],
     "name": "UnauthorizedSender",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UnfundedPrincipal",
     "type": "error"
   },
   {
@@ -2713,7 +3030,7 @@ export const FAMILY_YIELD_VAULT_ABI = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "vaultId",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -2726,23 +3043,23 @@ export const FAMILY_YIELD_VAULT_ABI = [
     "inputs": [
       {
         "internalType": "bytes32",
-        "name": "originChainID",
+        "name": "",
         "type": "bytes32"
       },
       {
         "internalType": "address",
-        "name": "originSenderAddress",
+        "name": "",
         "type": "address"
       },
       {
         "internalType": "bytes",
-        "name": "message",
+        "name": "",
         "type": "bytes"
       }
     ],
     "name": "receiveTeleporterMessage",
     "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -2760,6 +3077,19 @@ export const FAMILY_YIELD_VAULT_ABI = [
         "internalType": "contract ITeleporterMessenger",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalPrincipal",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -2817,6 +3147,38 @@ export const FAMILY_YIELD_VAULT_ABI = [
       }
     ],
     "name": "vaultPrincipals",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "yieldModel",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "yieldRemainder",
     "outputs": [
       {
         "internalType": "uint256",
@@ -2902,9 +3264,9 @@ export const TELEPORTER_MESSENGER_ABI = [
     "name": "sendCrossChainMessage",
     "outputs": [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
+        "internalType": "bytes32",
+        "name": "messageID",
+        "type": "bytes32"
       }
     ],
     "stateMutability": "nonpayable",
@@ -2917,32 +3279,37 @@ export const VAULT_CASHFLOW_ABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "_owner",
+        "name": "initialOwner",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "_controller",
+        "name": "initialController",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "_teleporterMessenger",
+        "name": "messenger",
         "type": "address"
       },
       {
         "internalType": "bytes32",
-        "name": "_cChainBlockchainId",
+        "name": "remoteId",
         "type": "bytes32"
       },
       {
         "internalType": "address",
-        "name": "_yieldVaultAddress",
+        "name": "remoteVault",
         "type": "address"
       }
     ],
     "stateMutability": "nonpayable",
     "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "ConfigurationLocked",
+    "type": "error"
   },
   {
     "inputs": [],
@@ -2952,6 +3319,11 @@ export const VAULT_CASHFLOW_ABI = [
   {
     "inputs": [],
     "name": "ExpectedPause",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "FeatureDisabled",
     "type": "error"
   },
   {
@@ -3000,17 +3372,6 @@ export const VAULT_CASHFLOW_ABI = [
   {
     "inputs": [],
     "name": "ReentrancyGuardReentrantCall",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
-      }
-    ],
-    "name": "SafeERC20FailedOperation",
     "type": "error"
   },
   {
@@ -3156,93 +3517,6 @@ export const VAULT_CASHFLOW_ABI = [
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "messenger",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "cChainId",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "yieldVault",
-        "type": "address"
-      }
-    ],
-    "name": "TeleporterConfigUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "vaultId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "depositor",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokenDeposited",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "vaultId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "recipient",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokenWithdrawn",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
         "indexed": false,
         "internalType": "address",
         "name": "account",
@@ -3273,12 +3547,12 @@ export const VAULT_CASHFLOW_ABI = [
   },
   {
     "inputs": [],
-    "name": "cChainBlockchainId",
+    "name": "controller",
     "outputs": [
       {
-        "internalType": "bytes32",
+        "internalType": "address",
         "name": "",
-        "type": "bytes32"
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -3286,12 +3560,12 @@ export const VAULT_CASHFLOW_ABI = [
   },
   {
     "inputs": [],
-    "name": "controller",
+    "name": "deploymentVersion",
     "outputs": [
       {
-        "internalType": "address",
+        "internalType": "string",
         "name": "",
-        "type": "address"
+        "type": "string"
       }
     ],
     "stateMutability": "view",
@@ -3319,56 +3593,56 @@ export const VAULT_CASHFLOW_ABI = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "vaultId",
+        "name": "",
         "type": "uint256"
       },
       {
         "internalType": "address",
-        "name": "token",
+        "name": "",
         "type": "address"
       },
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "",
         "type": "uint256"
       },
       {
         "internalType": "address",
-        "name": "depositor",
+        "name": "",
         "type": "address"
       }
     ],
     "name": "depositToken",
     "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "vaultId",
+        "name": "",
         "type": "uint256"
       },
       {
         "internalType": "address",
-        "name": "token",
+        "name": "",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "recipient",
+        "name": "",
         "type": "address"
       },
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "",
         "type": "uint256"
       }
     ],
     "name": "executeTokenWithdrawal",
     "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -3393,7 +3667,7 @@ export const VAULT_CASHFLOW_ABI = [
     "outputs": [
       {
         "internalType": "bool",
-        "name": "fullyFundedFromLocalBuffer",
+        "name": "",
         "type": "bool"
       }
     ],
@@ -3404,12 +3678,12 @@ export const VAULT_CASHFLOW_ABI = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "vaultId",
+        "name": "",
         "type": "uint256"
       },
       {
         "internalType": "address",
-        "name": "token",
+        "name": "",
         "type": "address"
       }
     ],
@@ -3421,7 +3695,7 @@ export const VAULT_CASHFLOW_ABI = [
         "type": "uint256"
       }
     ],
-    "stateMutability": "view",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -3436,22 +3710,22 @@ export const VAULT_CASHFLOW_ABI = [
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "total",
+        "name": "",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "l1Buffer",
+        "name": "",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "cChainPrincipal",
+        "name": "",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "bufferRatioBps",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -3520,6 +3794,19 @@ export const VAULT_CASHFLOW_ABI = [
     "name": "initializeVaultLedger",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "initializedVaults",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -3605,7 +3892,7 @@ export const VAULT_CASHFLOW_ABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "_newController",
+        "name": "next",
         "type": "address"
       }
     ],
@@ -3618,52 +3905,28 @@ export const VAULT_CASHFLOW_ABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "_messenger",
+        "name": "",
         "type": "address"
       },
       {
         "internalType": "bytes32",
-        "name": "_cChainId",
+        "name": "",
         "type": "bytes32"
       },
       {
         "internalType": "address",
-        "name": "_yieldVault",
+        "name": "",
         "type": "address"
       }
     ],
     "name": "setTeleporterConfig",
     "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "teleporterMessenger",
-    "outputs": [
-      {
-        "internalType": "contract ITeleporterMessenger",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "tokenBalances",
+    "name": "totalLiabilities",
     "outputs": [
       {
         "internalType": "uint256",
@@ -3695,19 +3958,6 @@ export const VAULT_CASHFLOW_ABI = [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "yieldVaultAddress",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "stateMutability": "payable",
     "type": "receive"
   }
@@ -3720,30 +3970,122 @@ export const KINETIX_FORWARDER_ABI = [
     "type": "constructor"
   },
   {
-    "inputs": [],
-    "name": "InvalidNonce",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidSigner",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "RequestExpired",
+    "inputs": [
+      {
+        "internalType": "uint48",
+        "name": "deadline",
+        "type": "uint48"
+      }
+    ],
+    "name": "ERC2771ForwarderExpiredRequest",
     "type": "error"
   },
   {
     "inputs": [
       {
-        "internalType": "bytes",
-        "name": "returnData",
-        "type": "bytes"
+        "internalType": "address",
+        "name": "signer",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
       }
     ],
-    "name": "TargetCallFailed",
+    "name": "ERC2771ForwarderInvalidSigner",
     "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "requestedValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "msgValue",
+        "type": "uint256"
+      }
+    ],
+    "name": "ERC2771ForwarderMismatchedValue",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "target",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "forwarder",
+        "type": "address"
+      }
+    ],
+    "name": "ERC2771UntrustfulTarget",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "FailedCall",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "balance",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "needed",
+        "type": "uint256"
+      }
+    ],
+    "name": "InsufficientBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "currentNonce",
+        "type": "uint256"
+      }
+    ],
+    "name": "InvalidAccountNonce",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidShortString",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "str",
+        "type": "string"
+      }
+    ],
+    "name": "StringTooLong",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [],
+    "name": "EIP712DomainChanged",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -3751,52 +4093,63 @@ export const KINETIX_FORWARDER_ABI = [
       {
         "indexed": true,
         "internalType": "address",
-        "name": "from",
+        "name": "signer",
         "type": "address"
       },
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "nonce",
+        "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "bool",
         "name": "success",
         "type": "bool"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes",
-        "name": "returnData",
-        "type": "bytes"
       }
     ],
-    "name": "ForwardExecuted",
+    "name": "ExecutedForwardRequest",
     "type": "event"
   },
   {
     "inputs": [],
-    "name": "DOMAIN_SEPARATOR",
+    "name": "eip712Domain",
     "outputs": [
       {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "FORWARD_REQUEST_TYPEHASH",
-    "outputs": [
+        "internalType": "bytes1",
+        "name": "fields",
+        "type": "bytes1"
+      },
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "version",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "verifyingContract",
+        "type": "address"
+      },
       {
         "internalType": "bytes32",
-        "name": "",
+        "name": "salt",
         "type": "bytes32"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "extensions",
+        "type": "uint256[]"
       }
     ],
     "stateMutability": "view",
@@ -3827,44 +4180,83 @@ export const KINETIX_FORWARDER_ABI = [
             "type": "uint256"
           },
           {
-            "internalType": "uint256",
-            "name": "nonce",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
+            "internalType": "uint48",
             "name": "deadline",
-            "type": "uint256"
+            "type": "uint48"
           },
           {
             "internalType": "bytes",
             "name": "data",
             "type": "bytes"
+          },
+          {
+            "internalType": "bytes",
+            "name": "signature",
+            "type": "bytes"
           }
         ],
-        "internalType": "struct KinetixForwarder.ForwardRequest",
-        "name": "req",
+        "internalType": "struct ERC2771Forwarder.ForwardRequestData",
+        "name": "request",
         "type": "tuple"
-      },
-      {
-        "internalType": "bytes",
-        "name": "signature",
-        "type": "bytes"
       }
     ],
     "name": "execute",
-    "outputs": [
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {
-        "internalType": "bool",
-        "name": "success",
-        "type": "bool"
+        "components": [
+          {
+            "internalType": "address",
+            "name": "from",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "to",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "value",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "gas",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint48",
+            "name": "deadline",
+            "type": "uint48"
+          },
+          {
+            "internalType": "bytes",
+            "name": "data",
+            "type": "bytes"
+          },
+          {
+            "internalType": "bytes",
+            "name": "signature",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct ERC2771Forwarder.ForwardRequestData[]",
+        "name": "requests",
+        "type": "tuple[]"
       },
       {
-        "internalType": "bytes",
-        "name": "returnData",
-        "type": "bytes"
+        "internalType": "address payable",
+        "name": "refundReceiver",
+        "type": "address"
       }
     ],
+    "name": "executeBatch",
+    "outputs": [],
     "stateMutability": "payable",
     "type": "function"
   },
@@ -3872,82 +4264,7 @@ export const KINETIX_FORWARDER_ABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "from",
-        "type": "address"
-      }
-    ],
-    "name": "getNonce",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "from",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "to",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "value",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "gas",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "nonce",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "deadline",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes",
-            "name": "data",
-            "type": "bytes"
-          }
-        ],
-        "internalType": "struct KinetixForwarder.ForwardRequest",
-        "name": "req",
-        "type": "tuple"
-      }
-    ],
-    "name": "hashRequest",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
+        "name": "owner",
         "type": "address"
       }
     ],
@@ -3987,29 +4304,24 @@ export const KINETIX_FORWARDER_ABI = [
             "type": "uint256"
           },
           {
-            "internalType": "uint256",
-            "name": "nonce",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
+            "internalType": "uint48",
             "name": "deadline",
-            "type": "uint256"
+            "type": "uint48"
           },
           {
             "internalType": "bytes",
             "name": "data",
             "type": "bytes"
+          },
+          {
+            "internalType": "bytes",
+            "name": "signature",
+            "type": "bytes"
           }
         ],
-        "internalType": "struct KinetixForwarder.ForwardRequest",
-        "name": "req",
+        "internalType": "struct ERC2771Forwarder.ForwardRequestData",
+        "name": "request",
         "type": "tuple"
-      },
-      {
-        "internalType": "bytes",
-        "name": "signature",
-        "type": "bytes"
       }
     ],
     "name": "verify",
@@ -4022,9 +4334,5 @@ export const KINETIX_FORWARDER_ABI = [
     ],
     "stateMutability": "view",
     "type": "function"
-  },
-  {
-    "stateMutability": "payable",
-    "type": "receive"
   }
 ] as const;

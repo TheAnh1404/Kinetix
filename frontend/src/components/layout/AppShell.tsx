@@ -70,7 +70,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       id: "kinetix-shield" as ActiveTab,
       label: language === "vi" ? "Hũ An Sinh Ông Bà" : "Elderly Shield Vault",
       icon: "shield",
-      description: "Xem trước giao diện Ông Bà (0 gas)",
+      description: "Xem trước giao diện Ông Bà (phí mạng Fuji)",
     },
     {
       id: "kinetix-kids" as ActiveTab,
@@ -82,7 +82,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       id: "quy-rosca" as ActiveTab,
       label: language === "vi" ? "Quỹ Họ Hụi Xoay Vòng" : "ROSCA Savings Vault",
       icon: "groups",
-      description: "Xem trước quỹ họ hụi & lãi C-Chain",
+      description: "Xem trước quỹ góp vốn",
     },
   ];
 
@@ -262,7 +262,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 </span>
                 <span>⇄</span>
                 <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                  🌊 Fuji C-Chain (8% APY)
+                  🌊 Fuji T1 · lợi suất chưa bật
                 </span>
               </div>
             </div>

@@ -6,12 +6,18 @@ import {
   PublicClient,
   WalletClient,
 } from "viem";
-import { avalancheFamilyL1, avalancheFuji, hubChain } from "@/contracts/config";
+import {
+  avalancheFamilyL1,
+  avalancheFuji,
+  hubChain,
+  DEPLOYMENT,
+} from "@/contracts/config";
 import {
   TRANSACTION_ALLOWLIST_ADDRESS,
   TRANSACTION_ALLOWLIST_ABI,
 } from "../../../../shared/networkPermissions";
 import { FAMILY_HUB_ABI } from "@/contracts/abis";
+import { syncRetryPolicy } from "../../../../shared/transactionErrors";
 
 declare global {
   interface Window {
@@ -81,16 +87,22 @@ export interface PendingTransaction {
   chainId: number;
   submittedAt: string;
   status: "PENDING" | "CONFIRMED" | "REVERTED";
+  workspaceId?: string;
+  operationId?: string;
   sync?: {
     path: string;
     body: object;
     method: string;
     status: "PENDING" | "DONE" | "BLOCKED";
+    errorCode?: string;
+    attempts?: number;
   };
 }
 const transactionMemory = new Map<string, PendingTransaction[]>();
 function saveTransaction(userId: string, transaction: PendingTransaction) {
   if (clearedAccountIds.has(userId)) return;
+  const previous = pendingTransactions(userId).find((item) => item.hash === transaction.hash);
+  transaction = { ...transaction, operationId: transaction.operationId || previous?.operationId };
   const records = [
     transaction,
     ...pendingTransactions(userId).filter(
@@ -140,8 +152,34 @@ const syncPaths = new Set([
   "/api/chores/create",
   "/api/chores/submit",
   "/api/chores/verify",
+  "/api/chores/cancel",
+  "/api/withdrawals/execute-signatures",
   "/api/vaults/rosca-payout",
+  "/api/recovery/confirm",
 ]);
+
+async function persistOperation(userId: string, transaction: PendingTransaction) {
+  if (!transaction.workspaceId || transaction.operationId) return;
+  try {
+    const response = await fetch("/api/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workspaceId: transaction.workspaceId, txHash: transaction.hash, attachmentId: (transaction.sync?.body as any)?.attachmentId }), cache: "no-store" });
+    const data = await response.json();
+    if (response.ok && data.operation?.id) saveTransaction(userId, { ...(pendingTransactions(userId).find((item) => item.hash === transaction.hash) || transaction), operationId: data.operation.id });
+  } catch { /* Receipt tracking tiếp tục; đăng ký operation sẽ retry theo hash cũ. */ }
+}
+
+export async function restoreOperations(userId: string, workspaceId: string) {
+  try {
+    const response = await fetch(`/api/operations?workspaceId=${encodeURIComponent(workspaceId)}`, { cache: "no-store" });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!Array.isArray(data.operations)) return;
+    for (const operation of [...data.operations].reverse()) {
+      if (operation.workspaceId !== workspaceId || !/^0x[0-9a-f]{64}$/i.test(operation.hash)) continue;
+      const existing = pendingTransactions(userId).find((item) => item.hash === operation.hash);
+      saveTransaction(userId, { hash: operation.hash, chainId: operation.chainId, workspaceId, operationId: operation.id, submittedAt: operation.submittedAt, status: operation.status === "REVERTED" ? "REVERTED" : ["CONFIRMED", "SYNC_PENDING", "COMPLETED"].includes(operation.status) ? "CONFIRMED" : "PENDING", ...(operation.sync && syncPaths.has(operation.sync.path) ? { sync: { ...operation.sync, status: operation.status === "COMPLETED" || existing?.sync?.status === "DONE" ? "DONE" : "PENDING" } } : existing?.sync ? { sync: existing.sync } : {}) });
+    }
+  } catch { /* Dữ liệu tài chính vẫn được đọc từ API; không tạo kết quả giả khi server lỗi. */ }
+}
 async function syncRecord(userId: string, transaction: PendingTransaction) {
   const sync = transaction.sync;
   if (
@@ -165,15 +203,20 @@ async function syncRecord(userId: string, transaction: PendingTransaction) {
       ...sync,
       status: response.ok
         ? "DONE"
-        : response.status >= 500 || response.status === 429
+        : syncRetryPolicy(response.status, data.code).retryable
           ? "PENDING"
           : "BLOCKED",
+      errorCode: response.ok ? undefined : data.code,
+      attempts: (sync.attempts || 0) + 1,
     },
   });
   if (!response.ok)
     throw new Error(
       "Giao dịch đã xác nhận, cần đồng bộ dữ liệu. Không gửi lại giao dịch.",
     );
+  if (transaction.operationId) {
+    void fetch(`/api/operations/${transaction.operationId}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
+  }
   window.dispatchEvent(new Event("kinetix-sync-complete"));
   return data;
 }
@@ -201,6 +244,16 @@ export async function queueTransactionSync(
   }
 }
 export async function reconcileTransactions(userId: string) {
+  for (const transaction of pendingTransactions(userId)) {
+    await persistOperation(userId, transaction);
+    if (transaction.operationId && (transaction.status === "PENDING" || !transaction.sync)) {
+      try {
+        const response = await fetch(`/api/operations/${transaction.operationId}/reconcile`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        const data = await response.json();
+        if (response.ok && data.operation?.sync && syncPaths.has(data.operation.sync.path)) saveTransaction(userId, { ...transaction, sync: { ...data.operation.sync, status: data.operation.status === "COMPLETED" ? "DONE" : "PENDING" } });
+      } catch { /* retry sau */ }
+    }
+  }
   await Promise.all(
     pendingTransactions(userId)
       .filter((item) => item.status === "PENDING")
@@ -303,7 +356,16 @@ export function getWalletClient(
           `/api/workspaces/${encodeURIComponent(workspaceId)}`,
         );
         const contextUrl = `/api/workspaces/${encodeURIComponent(workspaceId)}/transaction-context?functionName=${encodeURIComponent(args.functionName)}&resourceId=${encodeURIComponent(String(args.args?.[0] ?? ""))}`;
-        await apiGet(contextUrl);
+        const context = await apiGet(contextUrl);
+        if (
+          context.deploymentVersion !== DEPLOYMENT.version ||
+          context.chainId !== hubChain.id ||
+          String(context.hub).toLowerCase() !==
+            String(args.address).toLowerCase()
+        )
+          throw new Error(
+            "Deployment đã thay đổi. Tải lại ứng dụng trước khi ký.",
+          );
         if (Number(workspace.hubChainId) !== hubChain.id)
           throw new Error(
             "Cấu hình mạng chưa đồng nhất. Hãy liên hệ quản trị viên.",
@@ -430,6 +492,7 @@ export function getWalletClient(
           chainId: targetChain.id,
           submittedAt: new Date().toISOString(),
           status: "PENDING",
+          workspaceId,
           ...(reconciliation && syncPaths.has(reconciliation.path)
             ? {
                 sync: {
@@ -442,6 +505,7 @@ export function getWalletClient(
             : {}),
         };
         saveTransaction(identity.user.id, transaction);
+        await persistOperation(identity.user.id, transaction);
         try {
           const receipt = await publicClient.waitForTransactionReceipt({
             hash,

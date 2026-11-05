@@ -53,6 +53,7 @@ export function RoleNavigation({ elderly }: { elderly: boolean }) {
         { href: "/dashboard/kids/rewards", label: "Tiền thưởng", Icon: Gift },
         { href: "/dashboard/kids/profile", label: "Của con", Icon: UserRound },
       ];
+  entries.push({ href: "/dashboard/rosca", label: "Góp vốn", Icon: ReceiptText });
   return (
     <nav className="role-navigation" aria-label="Điều hướng thành viên">
       {entries.map(({ href, label, Icon }, index) => {

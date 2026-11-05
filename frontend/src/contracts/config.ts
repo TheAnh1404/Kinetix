@@ -1,89 +1,35 @@
-/**
- * Avalanche Network & Contract Addresses Configuration for Kinetix
- */
+import { defineChain, zeroAddress } from "viem";
+import manifest from "../../../shared/deployment.json";
 
-import { defineChain } from "viem";
-
-// Mạng Avalanche Fuji C-Chain (Chain ID 43113)
+export const DEPLOYMENT = manifest;
 export const avalancheFuji = defineChain({
-  id: 43113,
+  id: manifest.chainId,
   name: "Avalanche Fuji",
-  nativeCurrency: {
-    decimals: 18,
-    name: "Avalanche",
-    symbol: "AVAX",
-  },
-  rpcUrls: {
-    default: { http: ["https://api.avax-test.network/ext/bc/C/rpc"] },
-    public: { http: ["https://api.avax-test.network/ext/bc/C/rpc"] },
-  },
-  blockExplorers: {
-    default: { name: "SnowTrace", url: "https://testnet.snowtrace.io" },
-  },
+  nativeCurrency: { decimals: 18, name: "Avalanche", symbol: "AVAX" },
+  rpcUrls: { default: { http: [manifest.rpcUrl] } },
+  blockExplorers: { default: { name: "SnowTrace", url: manifest.explorerUrl } },
   testnet: true,
 });
-
-// Mạng tùy biến Avalanche Family L1 (Chain ID 43114, 0 Gas Fee)
-export const avalancheFamilyL1 = defineChain({
-  id: Number(process.env.NEXT_PUBLIC_FAMILY_L1_CHAIN_ID || 99999),
-  name: "Avalanche Family L1",
-  nativeCurrency: {
-    decimals: 18,
-    name: "Family AVAX",
-    symbol: "AVAX",
-  },
-  rpcUrls: {
-    default: {
-      http: [
-        process.env.NEXT_PUBLIC_FAMILY_L1_RPC ||
-          "http://127.0.0.1:9650/ext/bc/FamilyL1/rpc",
-      ],
-    },
-    public: {
-      http: [
-        process.env.NEXT_PUBLIC_FAMILY_L1_RPC ||
-          "http://127.0.0.1:9650/ext/bc/FamilyL1/rpc",
-      ],
-    },
-  },
-  testnet: true,
-});
-
-// Trình khám phá khối Avalanche Fuji Testnet Explorer (SnowTrace)
-export const hubChain =
-  Number(process.env.NEXT_PUBLIC_HUB_CHAIN_ID || avalancheFamilyL1.id) === 43113
-    ? avalancheFuji
-    : avalancheFamilyL1;
-
-export const SNOWTRACE_TESTNET_URL = "https://testnet.snowtrace.io";
-
-// Địa chỉ Smart Contract mặc định (Deployments)
+export const hubChain = avalancheFuji;
+// Alias cho client cũ: T1 chỉ có cùng một Fuji chain.
+export const avalancheFamilyL1 = hubChain;
+export const SNOWTRACE_TESTNET_URL = manifest.explorerUrl;
+const contracts = manifest.contracts as Record<
+  string,
+  { address: `0x${string}` } | null
+>;
 export const CONTRACT_ADDRESSES = {
-  // Hợp đồng FamilyHub.sol trên Fuji C-Chain (Live & Verified)
-  familyHub: (process.env.NEXT_PUBLIC_FAMILY_HUB_ADDRESS ||
-    "0x2873c3B76364E6377912F174e3754AFdfCeae1F6") as `0x${string}`,
-
-  // Hợp đồng FamilyYieldVault.sol trên Fuji C-Chain
-  familyYieldVault: (process.env.NEXT_PUBLIC_FAMILY_VAULT_ADDRESS ||
-    "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512") as `0x${string}`,
-
-  // Hợp đồng KinetixForwarder.sol trên Family L1
-  kinetixForwarder: (process.env.NEXT_PUBLIC_FORWARDER_ADDRESS ||
-    "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0") as `0x${string}`,
+  familyHub: contracts.hub?.address || zeroAddress,
+  familyYieldVault: zeroAddress,
+  kinetixForwarder: contracts.forwarder?.address || zeroAddress,
 };
-
-// URL Backend API (Ưu tiên gọi trực tiếp qua Next.js API /api để tránh 404 và đồng bộ 100% dữ liệu)
 export const BACKEND_API_BASE_URL = "/api";
-
-// Enum 4 Bộ Quy Tắc Hũ Tiền Động (RuleTemplate) khớp với Smart Contract FamilyHub.sol
 export enum RuleTemplate {
-  SHIELD = 0, // Bảo vệ & Trợ cấp (Rút nhỏ <= limit giải ngân tức thì, rút lớn cần M/N approvals)
-  MILESTONE = 1, // Nhiệm vụ & Cột mốc (Chore-to-Earn, gốc gửi C-Chain sinh lời, mở thưởng khi duyệt)
-  ROSCA = 2, // Góp vốn xoay vòng (Định kỳ góp vốn, sinh lời C-Chain, xoay vòng giải ngân)
-  SHARED_GOAL = 3, // Mục tiêu chung (Góp tiền du lịch/mua sắm chung, sinh lãi đến khi đạt target)
+  SHIELD = 0,
+  MILESTONE = 1,
+  ROSCA = 2,
+  SHARED_GOAL = 3,
 }
-
-// Backward-compatibility alias
 export const VaultType = {
   RetirementShield: 0,
   KidsSavings: 1,
