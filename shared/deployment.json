@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "version": "2.0.0-t1",
+  "mode": "single-chain",
+  "status": "configured",
+  "enabled": false,
+  "chainId": 43113,
+  "avalancheBlockchainId": null,
+  "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
+  "explorerUrl": "https://testnet.snowtrace.io",
+  "deploymentBlock": null,
+  "compiler": "0.8.26",
+  "evmVersion": "cancun",
+  "sourceHash": null,
+  "admin": null,
+  "features": { "native": true, "erc20": false, "crossChain": false, "yield": false, "relayer": false },
+  "contracts": { "hub": null, "cashflow": null, "forwarder": null, "yieldVault": null },
+  "wiring": []
+}

@@ -8,17 +8,8 @@ import "./interfaces/ITeleporterMessenger.sol";
 
 /**
  * @title FamilyYieldVault
- * @author Kinetix Team (UniHack - Avalanche Team1 Vietnam)
- * @notice Hợp đồng tích lũy và sinh lời tài sản theo Hũ động (Dynamic Vaults) trên Avalanche Fuji C-Chain (Chain ID: 43113)
- * Đặc tính:
- * 1. Quản lý vốn gốc và sinh lời DeFi độc lập theo định danh `vaultId` của từng Hũ tiền.
- * 2. Tiếp nhận vốn nhàn rỗi được chuyển tiếp từ Family L1 thông qua Avalanche Teleporter (ICM).
- * 3. Tự động sinh lời mô phỏng giao thức Lending (Aave/Benqi) với mức lãi suất cố định 8% APY.
- * 4. Tính toán lãi suất nghiêm ngặt theo thời gian thực (block.timestamp) - TUYỆT ĐỐI KHÔNG dùng hàm tua nhanh thời gian giả tạo.
- * 5. Tối ưu độ chính xác lãi suất (Precision Loss Prevention) bảo lưu thời gian khi nạp liên tiếp.
- * 6. Hỗ trợ Quỹ dự trữ bảo chứng (Yield Reserve Pool) đảm bảo thanh khoản trả lãi, không xâm phạm vốn gốc.
- * 7. Kiểm soát xác thực liên chuỗi nghiêm ngặt (Strict Teleporter Authentication).
- * 8. Hỗ trợ cơ chế tạm dừng khẩn cấp (Pausable).
+ * @notice Mô hình lãi từ reserve của operator, không phải strategy DeFi và không bật ở T1.
+ * Tổng principal + reserve luôn được bảo chứng. Lãi danh nghĩa không phải cam kết thanh khoản.
  */
 contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterReceiver {
     // -------------------------------------------------------------
@@ -44,6 +35,8 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
     // -------------------------------------------------------------
     // CUSTOM ERRORS
     // -------------------------------------------------------------
+    error FeatureDisabled();
+    error UnfundedPrincipal();
     error ZeroAddress();
     error ZeroAmount();
     error OnlyTeleporterMessenger();
@@ -65,6 +58,9 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
 
     /// @notice Quỹ dự trữ bảo chứng thanh khoản chi trả lãi suất 8% APY
     uint256 public yieldReservePool;
+    uint256 public totalPrincipal;
+    mapping(uint256 => uint256) public yieldRemainder;
+    string public constant yieldModel = "reserve-funded-simulation";
 
     /// @notice Vốn gốc nạp vào theo từng Hũ: vaultId => principal
     mapping(uint256 => uint256) public vaultPrincipals;
@@ -159,7 +155,7 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
     }
 
     // -------------------------------------------------------------
-    // 2. TÍNH TOÁN LỢI SUẤT THỰC TẾ (REAL-YIELD CALCULATION THEO VAULT ID)
+    // 2. LÃI DANH NGHĨA THEO THỜI GIAN, CHỈ CHI TỪ RESERVE
     // -------------------------------------------------------------
 
     /**
@@ -169,18 +165,30 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
      * @param vaultId Mã định danh Hũ tiền
      */
     function calculateAccruedYield(uint256 vaultId) public view returns (uint256) {
-        uint256 principal = vaultPrincipals[vaultId];
-        if (principal == 0) return 0;
+        uint256 timestamp = lastDepositTimestamp[vaultId];
+        if (timestamp == 0 || block.timestamp <= timestamp) return 0;
+        return
+            (vaultPrincipals[vaultId] * APY_RATE * (block.timestamp - timestamp) +
+                yieldRemainder[vaultId]) / (100 * SECONDS_PER_YEAR);
+    }
 
-        uint256 lastDeposit = lastDepositTimestamp[vaultId];
-        if (block.timestamp <= lastDeposit) return 0;
-
-        uint256 timeElapsed = block.timestamp - lastDeposit;
-        return (principal * APY_RATE * timeElapsed) / (100 * SECONDS_PER_YEAR);
+    /// @dev Chốt mốc ở mọi thay đổi vốn, giữ phần dư thay vì cho vốn mới hưởng thời gian cũ.
+    function _checkpoint(uint256 vaultId) internal {
+        uint256 timestamp = lastDepositTimestamp[vaultId];
+        if (timestamp != 0) {
+            uint256 numerator =
+                vaultPrincipals[vaultId] * APY_RATE * (block.timestamp - timestamp) +
+                    yieldRemainder[vaultId];
+            uint256 earned = numerator / (100 * SECONDS_PER_YEAR);
+            yieldRemainder[vaultId] = numerator % (100 * SECONDS_PER_YEAR);
+            accruedYields[vaultId] += earned;
+            if (earned > 0) emit YieldAccrued(vaultId, earned, accruedYields[vaultId]);
+        }
+        lastDepositTimestamp[vaultId] = block.timestamp;
     }
 
     /**
-     * @notice Tính tổng lãi thực tế tích lũy của Hũ (lãi quá khứ + lãi phát sinh hiện tại)
+     * @notice Lãi danh nghĩa theo thời gian; chưa phải tiền có thể chi nếu reserve thiếu.
      * @param vaultId Mã định danh Hũ tiền
      */
     function calculateTotalYield(uint256 vaultId) public view returns (uint256) {
@@ -195,10 +203,10 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
     }
 
     /**
-     * @notice Xem tổng tài sản của Hũ trên C-Chain (Vốn gốc + Lợi suất tích lũy)
+     * @notice Vốn đã được bảo chứng. Không tính lãi danh nghĩa chưa có reserve vào TVL.
      */
     function getTotalValueLocked(uint256 vaultId) external view returns (uint256) {
-        return vaultPrincipals[vaultId] + calculateTotalYield(vaultId);
+        return vaultPrincipals[vaultId];
     }
 
     // -------------------------------------------------------------
@@ -212,37 +220,9 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
      * 2. originChainID == familyL1BlockchainId
      * 3. originSenderAddress == familyHubAddress
      */
-    function receiveTeleporterMessage(
-        bytes32 originChainID,
-        address originSenderAddress,
-        bytes calldata message
-    ) external override nonReentrant whenNotPaused {
-        // 1. Kiểm tra caller bắt buộc phải là Teleporter Messenger hợp lệ
-        if (address(teleporterMessenger) == address(0) || msg.sender != address(teleporterMessenger)) {
-            revert OnlyTeleporterMessenger();
-        }
-
-        // 2. Kiểm tra chuỗi gốc phát tin phải khớp tuyệt đối với Family L1 Blockchain ID
-        if (familyL1BlockchainId == bytes32(0) || originChainID != familyL1BlockchainId) {
-            revert InvalidChainID();
-        }
-
-        // 3. Kiểm tra địa chỉ gửi phải khớp tuyệt đối với FamilyHub hợp lệ
-        if (familyHubAddress == address(0) || originSenderAddress != familyHubAddress) {
-            revert UnauthorizedSender();
-        }
-
-        // Giải mã thông điệp nhận từ Family L1: (BridgeAction, vaultId, amount, targetAddress)
-        (BridgeAction action, uint256 vaultId, uint256 amount, address targetAddress) = abi.decode(
-            message,
-            (BridgeAction, uint256, uint256, address)
-        );
-
-        if (action == BridgeAction.DEPOSIT) {
-            _handleDeposit(vaultId, amount);
-        } else if (action == BridgeAction.WITHDRAW) {
-            _handleWithdrawal(vaultId, targetAddress, amount);
-        }
+    function receiveTeleporterMessage(bytes32, address, bytes calldata) external pure override {
+        // ICM chỉ là message, không chứng minh đã nhận tài sản. Tắt tới khi có adapter funded.
+        revert FeatureDisabled();
     }
 
     /**
@@ -250,30 +230,20 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
      * Bảo đảm: Tránh Precision Loss khi nạp liên tiếp nhiều lần trong khoảng thời gian ngắn
      */
     function _handleDeposit(uint256 vaultId, uint256 amount) internal {
-        if (amount == 0) revert ZeroAmount();
-
-        // 1. Chốt lãi suất đã tích lũy từ mốc nạp trước
-        uint256 newAccrued = calculateAccruedYield(vaultId);
-        if (newAccrued > 0) {
-            accruedYields[vaultId] += newAccrued;
-            lastDepositTimestamp[vaultId] = block.timestamp;
-            emit YieldAccrued(vaultId, newAccrued, accruedYields[vaultId]);
-        } else if (lastDepositTimestamp[vaultId] == 0) {
-            lastDepositTimestamp[vaultId] = block.timestamp;
-        }
-
-        // 2. Cập nhật vốn gốc
+        if (amount == 0 || vaultId == 0) revert ZeroAmount();
+        if (address(this).balance < totalPrincipal + yieldReservePool + amount)
+            revert UnfundedPrincipal();
+        _checkpoint(vaultId);
         vaultPrincipals[vaultId] += amount;
-
+        totalPrincipal += amount;
         emit PrincipalDeposited(vaultId, amount, block.timestamp);
     }
 
     /**
      * @notice Tiếp nhận tiền gửi xuyên chuỗi trực tiếp kèm msg.value (alias của depositPrincipal)
      */
-    function receiveCrossChainDeposit(uint256 vaultId) external payable nonReentrant whenNotPaused {
-        if (msg.value == 0) revert ZeroAmount();
-        _handleDeposit(vaultId, msg.value);
+    function receiveCrossChainDeposit(uint256) external payable {
+        revert FeatureDisabled();
     }
 
     /**
@@ -283,41 +253,20 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
     function _handleWithdrawal(uint256 vaultId, address recipient, uint256 amount) internal {
         if (amount == 0) revert ZeroAmount();
         if (recipient == address(0)) revert ZeroAddress();
-
-        // 1. Kiểm tra thanh khoản khả dụng trên C-Chain trước khi trừ số dư nội bộ (CEI chuẩn mực)
-        if (address(this).balance < amount) {
-            revert InsufficientContractBalance(address(this).balance, amount);
-        }
-
-        // 2. Chốt lãi suất hiện tại trước khi giảm vốn
-        uint256 newAccrued = calculateAccruedYield(vaultId);
-        if (newAccrued > 0) {
-            accruedYields[vaultId] += newAccrued;
-            lastDepositTimestamp[vaultId] = block.timestamp;
-        }
-
-        // 3. Khấu trừ từ vốn gốc hoặc từ lãi tích lũy của Hũ
-        if (vaultPrincipals[vaultId] >= amount) {
-            vaultPrincipals[vaultId] -= amount;
-        } else {
-            uint256 remainder = amount - vaultPrincipals[vaultId];
-            vaultPrincipals[vaultId] = 0;
-
-            if (accruedYields[vaultId] < remainder) {
-                revert InsufficientBalance(accruedYields[vaultId], remainder);
-            }
-            accruedYields[vaultId] -= remainder;
-
-            // Khấu trừ từ Quỹ dự trữ bảo chứng nếu có
-            if (yieldReservePool >= remainder) {
-                yieldReservePool -= remainder;
-            }
-        }
-
-        // 4. Giải ngân Native AVAX về địa chỉ ví người nhận
+        _checkpoint(vaultId);
+        uint256 principal = vaultPrincipals[vaultId];
+        uint256 principalOut = amount < principal ? amount : principal;
+        uint256 interestOut = amount - principalOut;
+        if (interestOut > accruedYields[vaultId])
+            revert InsufficientBalance(principal + accruedYields[vaultId], amount);
+        if (interestOut > yieldReservePool)
+            revert InsufficientReservePool(yieldReservePool, interestOut);
+        vaultPrincipals[vaultId] -= principalOut;
+        totalPrincipal -= principalOut;
+        accruedYields[vaultId] -= interestOut;
+        yieldReservePool -= interestOut;
         (bool success, ) = payable(recipient).call{value: amount}("");
         if (!success) revert TransferFailed();
-
         emit FundsWithdrawn(vaultId, recipient, amount);
     }
 
@@ -328,11 +277,8 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
         uint256 vaultId,
         address recipient,
         uint256 amount
-    ) external nonReentrant whenNotPaused {
-        // Cho phép Owner hoặc FamilyHub gọi
-        if (msg.sender != owner() && msg.sender != familyHubAddress) {
-            revert UnauthorizedSender();
-        }
+    ) external onlyOwner nonReentrant whenNotPaused {
+        // Chỉ operator tự nạp/rút vốn của mình; không nhận deposit công khai hay message chưa funded.
         _handleWithdrawal(vaultId, recipient, amount);
     }
 
@@ -343,7 +289,9 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
     /**
      * @notice Cho phép nạp trực tiếp vào Vault trên C-Chain theo vaultId
      */
-    function depositPrincipal(uint256 vaultId) external payable nonReentrant whenNotPaused {
+    function depositPrincipal(
+        uint256 vaultId
+    ) external payable onlyOwner nonReentrant whenNotPaused {
         if (msg.value == 0) revert ZeroAmount();
         _handleDeposit(vaultId, msg.value);
     }
@@ -351,20 +299,16 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
     /**
      * @notice Cho phép tái đầu tư lãi phát sinh vào vốn gốc (Compound Interest) cho vaultId
      */
-    function compoundYield(uint256 vaultId) external nonReentrant whenNotPaused {
-        uint256 newYield = calculateAccruedYield(vaultId);
-        uint256 totalYield = accruedYields[vaultId] + newYield;
+    function compoundYield(uint256 vaultId) external onlyOwner nonReentrant whenNotPaused {
+        _checkpoint(vaultId);
+        uint256 totalYield = accruedYields[vaultId];
         if (totalYield == 0) revert ZeroAmount();
-
+        if (totalYield > yieldReservePool)
+            revert InsufficientReservePool(yieldReservePool, totalYield);
         accruedYields[vaultId] = 0;
+        yieldReservePool -= totalYield;
         vaultPrincipals[vaultId] += totalYield;
-        lastDepositTimestamp[vaultId] = block.timestamp;
-
-        // Nếu có reserve pool, chuyển từ reserve pool sang principal để bảo chứng vốn gốc mới
-        if (yieldReservePool >= totalYield) {
-            yieldReservePool -= totalYield;
-        }
-
+        totalPrincipal += totalYield;
         emit PrincipalDeposited(vaultId, totalYield, block.timestamp);
     }
 

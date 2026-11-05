@@ -51,7 +51,7 @@
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@openzeppelin/contracts": "^5.0.2",
+    "@openzeppelin/contracts": "5.6.1",
     "@types/chai": "^4.3.16",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
@@ -66,7 +66,8 @@
     "solhint": "^6.2.5",
     "ts-node": "^10.9.2",
     "tsx": "^4.10.5",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "solc": "0.8.26"
   },
   "engines": {
     "node": ">=24.7.0"

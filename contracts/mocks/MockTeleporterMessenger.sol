@@ -15,11 +15,12 @@ contract MockTeleporterMessenger is ITeleporterMessenger {
     bytes32 public mockOriginBlockchainID = keccak256(bytes("Family-L1"));
 
     event MockMessageSent(
-        uint256 indexed messageId,
+        bytes32 indexed messageId,
         bytes32 indexed destinationBlockchainID,
         address indexed destinationAddress,
         bytes message
     );
+    event MockDeliveryFailed(bytes32 indexed messageId, address indexed receiver, bytes reason);
 
     /**
      * @notice Cho phép cấu hình mockOriginBlockchainID phục vụ kiểm thử bảo mật
@@ -33,9 +34,9 @@ contract MockTeleporterMessenger is ITeleporterMessenger {
      */
     function sendCrossChainMessage(
         TeleporterMessageInput calldata messageInput
-    ) external override returns (uint256) {
+    ) external override returns (bytes32) {
         _messageIdCounter++;
-        uint256 messageId = _messageIdCounter;
+        bytes32 messageId = bytes32(_messageIdCounter);
 
         emit MockMessageSent(
             messageId,
@@ -55,8 +56,9 @@ contract MockTeleporterMessenger is ITeleporterMessenger {
                 )
             {
                 // Phân phối thành công
-            } catch {
-                // Trong môi trường test nếu không gọi trực tiếp được thì bỏ qua (async bridge mock)
+            } catch (bytes memory reason) {
+                // Lỗi receiver luôn quan sát được; event gửi không chứng minh đã nhận vốn.
+                emit MockDeliveryFailed(messageId, messageInput.destinationAddress, reason);
             }
         }
 

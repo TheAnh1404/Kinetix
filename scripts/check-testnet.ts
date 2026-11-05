@@ -1,184 +1,105 @@
-import { createPublicClient, http, isAddress } from "viem";
-import * as dotenv from "dotenv";
-import { readFileSync, existsSync } from "node:fs";
-import { FAMILY_HUB_ABI } from "../shared/abis";
+import "dotenv/config";
+import { verifiedDeployment } from "../backend/src/services/deploymentService";
 import { vaultMappingIssue } from "../shared/vaultMapping";
+import { FAMILY_HUB_ABI } from "../shared/abis";
+import { parseEventLogs } from "viem";
 
-dotenv.config();
-
-/** Chẩn đoán chỉ đọc: không import khóa ký, không gửi tx và không sửa database/.env. */
+/** Chỉ đọc: không khóa ký, không sửa DB/env và không dựng số liệu khi RPC lỗi. */
 async function main() {
-  let failures = 0;
-  const report = (code: string, details: object, failed = false) => {
-    if (failed) failures++;
-    console.log(
-      JSON.stringify({ status: failed ? "BLOCKED" : "INFO", code, ...details }),
-    );
-  };
-  const expectedChainId = Number(
-    process.env.HUB_CHAIN_ID || process.env.FAMILY_L1_CHAIN_ID || 99999,
+  const { manifest, client, chainId } = await verifiedDeployment();
+  const hub = manifest.contracts.hub!.address;
+  console.log(
+    JSON.stringify({
+      status: "VERIFIED",
+      chainId,
+      version: manifest.version,
+      hub,
+      features: manifest.features,
+    }),
   );
-  const rpc = process.env.HUB_RPC_URL || process.env.FAMILY_L1_RPC_URL;
-  const workspaceArg = process.argv.indexOf("--workspace");
-  const workspaceId =
-    workspaceArg >= 0 ? process.argv[workspaceArg + 1] : undefined;
-  let hub = process.env.FAMILY_HUB_ADDRESS;
-  let yieldAddress = process.env.FAMILY_YIELD_VAULT_ADDRESS;
-  let mappedVaults: {
-    onchainVaultId: number;
-    onchainChainId: number | null;
-    onchainHub: string | null;
-  }[] = [];
-  if (workspaceArg >= 0) {
-    if (!workspaceId || !/^[0-9a-f-]{36}$/i.test(workspaceId))
-      throw new Error("WORKSPACE_ARGUMENT_INVALID");
-    const { db, pool, workspaces, vaults } = await import("../backend/src/db");
-    const { eq } = await import("drizzle-orm");
-    try {
-      const [workspace] = await db
-        .select()
-        .from(workspaces)
-        .where(eq(workspaces.id, workspaceId));
-      if (!workspace) throw new Error("WORKSPACE_NOT_FOUND");
-      hub = workspace.l1HubAddress || undefined;
-      yieldAddress = workspace.cchainVaultAddress || undefined;
-      mappedVaults = await db
-        .select()
-        .from(vaults)
-        .where(eq(vaults.workspaceId, workspaceId));
-      for (const vault of mappedVaults) {
-        const issue = vaultMappingIssue(vault, expectedChainId, hub);
-        report(
-          issue?.code || "VAULT_MAPPING_PRESENT",
-          {
-            onchainVaultId: vault.onchainVaultId,
-            chainId: vault.onchainChainId,
-            hub: vault.onchainHub,
-          },
-          !!issue,
-        );
-      }
-    } finally {
-      await pool.end();
-    }
-  }
-  const frontendFile = "frontend/.env.local";
-  if (existsSync(frontendFile)) {
-    const env = dotenv.parse(readFileSync(frontendFile));
-    const frontendChainId = Number(
-      env.NEXT_PUBLIC_HUB_CHAIN_ID ||
-        env.NEXT_PUBLIC_FAMILY_L1_CHAIN_ID ||
-        99999,
-    );
-    report(
-      "CHAIN_CONFIGURATION",
-      {
-        backend: expectedChainId,
-        frontend: frontendChainId,
-        explicitBackendHubChain: !!process.env.HUB_CHAIN_ID,
-        explicitFrontendHubChain: !!env.NEXT_PUBLIC_HUB_CHAIN_ID,
-      },
-      expectedChainId !== frontendChainId,
-    );
-  }
-  if (!rpc) {
-    report("HUB_RPC_MISSING", {}, true);
-    process.exitCode = 1;
-    return;
-  }
-  const client = createPublicClient({
-    transport: http(rpc, { timeout: 5000, retryCount: 0 }),
-  });
+  const index = process.argv.indexOf("--workspace");
+  if (index < 0) return;
+  const workspaceId = process.argv[index + 1];
+  if (!/^[0-9a-f-]{36}$/i.test(workspaceId || ""))
+    throw new Error("WORKSPACE_ARGUMENT_INVALID");
+  const { db, pool, workspaces, vaults } = await import("../backend/src/db");
+  const { eq } = await import("drizzle-orm");
   try {
-    const actual = await client.getChainId();
-    report(
-      "RPC_CHAIN",
-      { expected: expectedChainId, actual },
-      actual !== expectedChainId,
-    );
-    if (actual !== expectedChainId) {
-      process.exitCode = 1;
-      return;
-    }
-    if (!hub || !isAddress(hub)) report("HUB_ADDRESS_INVALID", {}, true);
-    else {
-      const code = await client.getBytecode({ address: hub });
-      report(
-        "HUB_BYTECODE",
-        { address: hub, bytes: code ? (code.length - 2) / 2 : 0 },
-        !code || code === "0x",
-      );
-      if (code && code !== "0x") {
-        for (const functionName of [
-          "familyAdmin",
-          "vaultCounter",
-          "trustedForwarder",
-          "vaultCashflow",
-        ] as const) {
-          try {
-            const value = await client.readContract({
-              address: hub,
-              abi: FAMILY_HUB_ABI,
-              functionName,
-            } as any);
-            report("HUB_INTERFACE", { functionName, value: String(value) });
-          } catch {
-            report("HUB_INTERFACE_MISMATCH", { functionName }, true);
-          }
-        }
-        for (const vault of mappedVaults.filter(
-          (vault) => !vaultMappingIssue(vault, expectedChainId, hub),
-        )) {
-          try {
-            const state: any = await client.readContract({
-              address: hub,
-              abi: FAMILY_HUB_ABI,
-              functionName: "getVault",
-              args: [BigInt(vault.onchainVaultId)],
-            } as any);
-            report(
-              "VAULT_CHAIN_STATE",
-              {
-                vaultId: vault.onchainVaultId,
-                active: state.isActive,
-                returnedId: String(state.vaultId),
-              },
-              !state.isActive || state.vaultId !== BigInt(vault.onchainVaultId),
-            );
-          } catch {
-            report(
-              "VAULT_CHAIN_READ_FAILED",
-              { vaultId: vault.onchainVaultId },
-              true,
-            );
-          }
-        }
+    const [workspace] = await db
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.id, workspaceId));
+    if (
+      !workspace ||
+      workspace.l1HubAddress?.toLowerCase() !== hub.toLowerCase()
+    )
+      throw new Error("WORKSPACE_DEPLOYMENT_MISMATCH");
+    const rows = await db
+      .select()
+      .from(vaults)
+      .where(eq(vaults.workspaceId, workspaceId));
+    let blocked = 0;
+    for (const vault of rows) {
+      let code = vaultMappingIssue(vault, chainId, hub)?.code;
+      if (!code) {
+        const state: any = await client.readContract({
+          address: hub,
+          abi: FAMILY_HUB_ABI,
+          functionName: "getVault",
+          args: [BigInt(vault.onchainVaultId)],
+        });
+        const receipt = await client.getTransactionReceipt({
+          hash: vault.onchainCreationTx as `0x${string}`,
+        });
+        const events: any[] = parseEventLogs({
+          abi: FAMILY_HUB_ABI,
+          eventName: "VaultCreated",
+          strict: true,
+          logs: receipt.logs.filter(
+            (log) =>
+              log.address.toLowerCase() === hub.toLowerCase() &&
+              log.logIndex === vault.onchainCreationLogIndex,
+          ),
+        });
+        if (
+          receipt.status !== "success" ||
+          events.length !== 1 ||
+          events[0].args.vaultId !== BigInt(vault.onchainVaultId) ||
+          !state.isActive ||
+          ["SHIELD", "MILESTONE", "ROSCA", "SHARED_GOAL"][
+            Number(state.ruleType)
+          ] !== vault.ruleTemplate
+        )
+          code = "VAULT_RECEIPT_POLICY_MISMATCH";
       }
+      if (code) blocked++;
+      console.log(
+        JSON.stringify({
+          status: code ? "BLOCKED" : "VERIFIED",
+          vaultId: vault.id,
+          onchainVaultId: vault.onchainVaultId,
+          code: code || "VAULT_EVIDENCE_VERIFIED",
+        }),
+      );
     }
-    report("YIELD_DEPLOYMENT_SCOPE", {
-      address: yieldAddress || null,
-      note: "YieldVault phải được kiểm trên RPC C-Chain của manifest, không suy từ Hub RPC.",
-    });
-  } catch {
-    report("HUB_RPC_UNREACHABLE", { expectedChainId }, true);
+    console.log(JSON.stringify({ vaults: rows.length, blocked }));
+    if (blocked) process.exitCode = 1;
+  } finally {
+    await pool.end();
   }
-  report(
-    "SUMMARY",
-    {
-      failures,
-      note: "Không lỗi cấu hình không đồng nghĩa contract đã được audit hoặc bridge đã nghiệm thu.",
-    },
-    false,
-  );
-  if (failures) process.exitCode = 1;
 }
 main().catch((error) => {
   console.error(
     JSON.stringify({
       status: "BLOCKED",
-      code: /^[A-Z_]+$/.test(error.message)
+      code:
+        error?.code ||
+        (error?.message?.match(/^[A-Z_]+$/)
+          ? error.message
+          : "DOCTOR_UNAVAILABLE"),
+      message: error?.status
         ? error.message
-        : "DIAGNOSTIC_FAILED",
+        : "Không xác minh được cấu hình/RPC/database. Không có dữ liệu nào được sửa.",
     }),
   );
   process.exitCode = 1;

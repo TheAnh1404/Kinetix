@@ -3,25 +3,14 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./interfaces/ITeleporterMessenger.sol";
 import "./VaultCashflow.sol";
 
 /**
  * @title FamilyHub
- * @author Kinetix Team (UniHack - Avalanche Team1 Vietnam)
- * @notice Hợp đồng quản trị tài chính đa không gian và Hũ động (Dynamic & Composable Multi-Space Vaults) trên Avalanche Family L1 (Gas = 0).
- * Kiến trúc Hũ Dòng Tiền Hợp Nhất (Unified Cashflow Engine):
- * 1. Lõi dòng tiền tập trung: Mọi Hũ đều nạp qua depositToVault và giải ngân qua _executeWithdrawal.
- * 2. Tự động chia tách tỷ lệ đệm thanh khoản cục bộ L1 (bufferRatioBps) và vốn gửi C-Chain sinh lời 8% APY.
- * 3. 4 Bộ Quy Tắc (RuleTemplate) đóng vai trò là các chính sách kích hoạt giải ngân khác nhau:
- *    - SHIELD (0): Rút nhỏ <= limit giải ngân tức thì; rút lớn cần M/N Guardians duyệt.
- *    - MILESTONE (1): Nhiệm vụ & Cột mốc (Chore-to-Earn - giải ngân thưởng khi task hoàn thành).
- *    - ROSCA (2): Góp vốn xoay vòng (Họ Hụi - giải ngân quỹ chu kỳ cho thành viên đến lượt).
- *    - SHARED_GOAL (3): Mục tiêu chung (Khóa giải ngân cho đến khi gom đủ targetGoalAmount + M/N duyệt).
- * 4. Đa chữ ký phân tầng (Tiered Multisig M/N) riêng biệt theo từng Hũ.
- * 5. Cơ chế Social Recovery khôi phục ví xã hội an toàn (hỗ trợ chuyển giao cả quyền creator).
- * 6. Cơ chế tạm dừng khẩn cấp (Pausable) bảo vệ tài sản gia đình khi có sự cố.
+ * @notice T1 Fuji: AVAX cùng chain, SHIELD/goal dùng quorum, nhiệm vụ giữ chỗ vốn,
+ * ROSCA đóng đủ kỳ. Bridge, ERC20 và real yield chưa được bật.
  */
 contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     // -------------------------------------------------------------
@@ -30,10 +19,10 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
 
     /// @notice 4 Bộ Quy Tắc linh hoạt cho từng Hũ tiền
     enum RuleTemplate {
-        SHIELD,      // 0: Bảo vệ & Trợ cấp (Rút nhỏ <= limit giải ngân tức thì; rút lớn cần M/N Guardians)
-        MILESTONE,   // 1: Nhiệm vụ & Cột mốc (Chore-to-Earn - mở khóa thưởng khi hoàn thành task)
-        ROSCA,       // 2: Góp vốn xoay vòng (Họ Hụi - đẩy C-Chain sinh lời, định kỳ nhận gốc + lãi)
-        SHARED_GOAL  // 3: Mục tiêu chung (Góp tiền du lịch/mua sắm nhóm, đạt target mới mở khóa M/N)
+        SHIELD, // 0: Bảo vệ & Trợ cấp (Rút nhỏ <= limit giải ngân tức thì; rút lớn cần M/N Guardians)
+        MILESTONE, // 1: Nhiệm vụ & Cột mốc (Chore-to-Earn - mở khóa thưởng khi hoàn thành task)
+        ROSCA, // 2: Góp vốn xoay vòng (Họ Hụi - đóng đủ khoản rồi giải ngân theo kỳ)
+        SHARED_GOAL // 3: Mục tiêu chung (Góp tiền du lịch/mua sắm nhóm, đạt target mới mở khóa M/N)
     }
 
     /// @notice Loại hành động truyền qua cầu nối Teleporter
@@ -48,46 +37,46 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         string name;
         address creator;
         RuleTemplate ruleType;
-        uint256 totalBalance;       // Tổng tài sản trong Hũ
-        uint256 l1BufferBalance;    // Số dư đệm giữ tại L1 để rút tức thì (<1s, 0 gas)
-        uint256 cChainPrincipal;    // Số vốn đang gửi sinh lời bên Avalanche Fuji C-Chain
-        uint256 bufferRatioBps;     // Tỷ lệ giữ lại L1 (VD: 1000 = 10% L1 / 90% C-Chain; 2000 = 20%)
-        uint256 fastWithdrawLimit;  // Hạn mức rút nhanh không cần duyệt (áp dụng cho SHIELD)
-        uint256 requiredApprovals;  // Số chữ ký Guardians cần thiết để duyệt lệnh rút lớn (M/N)
-        address[] guardians;        // Danh sách ví có quyền ký duyệt trong Hũ này
-        address[] beneficiaries;    // Danh sách người thụ hưởng / thành viên Hũ
-        bool isActive;              // Trạng thái hoạt động
+        uint256 totalBalance; // Tổng tài sản trong Hũ
+        uint256 l1BufferBalance; // Số dư tài sản trên cùng chain Hub
+        uint256 cChainPrincipal; // Luôn bằng 0 trong T1, giữ trường ABI tương thích
+        uint256 bufferRatioBps; // T1 chỉ chấp nhận 10000, giữ vốn trên cùng chain
+        uint256 fastWithdrawLimit; // Hạn mức rút nhanh không cần duyệt (áp dụng cho SHIELD)
+        uint256 requiredApprovals; // Số chữ ký Guardians cần thiết để duyệt lệnh rút lớn (M/N)
+        address[] guardians; // Danh sách ví có quyền ký duyệt trong Hũ này
+        address[] beneficiaries; // Danh sách người thụ hưởng / thành viên Hũ
+        bool isActive; // Trạng thái hoạt động
         // Cấu hình chính sách bổ sung cho từng loại Hũ:
-        uint256 targetGoalAmount;        // Ngưỡng mục tiêu tiền cần gom (SHARED_GOAL)
-        uint256 targetDeadline;          // Hạn chót mục tiêu (SHARED_GOAL)
-        uint256 roscaRoundDuration;      // Chu kỳ mỗi vòng họ hụi tính bằng giây (ROSCA)
-        uint256 roscaRoundContribution;  // Mức tiền mỗi người đóng mỗi kỳ (ROSCA)
-        uint256 roscaCurrentRound;       // Chỉ số vòng hiện tại (ROSCA)
+        uint256 targetGoalAmount; // Ngưỡng mục tiêu tiền cần gom (SHARED_GOAL)
+        uint256 targetDeadline; // Hạn chót mục tiêu (SHARED_GOAL)
+        uint256 roscaRoundDuration; // Chu kỳ mỗi vòng họ hụi tính bằng giây (ROSCA)
+        uint256 roscaRoundContribution; // Mức tiền mỗi người đóng mỗi kỳ (ROSCA)
+        uint256 roscaCurrentRound; // Chỉ số vòng hiện tại (ROSCA)
         uint256 roscaLastRoundTimestamp; // Thời điểm bắt đầu vòng hiện tại (ROSCA)
     }
 
     /// @notice Phiếu yêu cầu rút tiền lớn cần đa chữ ký
     struct WithdrawalRequest {
         uint256 requestId;
-        uint256 vaultId;            // Gắn với Hũ tiền cụ thể
-        address requester;          // Người yêu cầu rút tiền
-        uint256 amount;             // Số tiền yêu cầu
-        address recipient;          // Địa chỉ ví nhận tiền
-        string reason;              // Mục đích rút tiền (hiển thị cho Guardians kiểm tra)
-        uint256 approvalsCount;     // Số lượng Guardians đã ký duyệt
-        uint256 deadline;           // Thời hạn hiệu lực của yêu cầu (48 giờ)
-        bool executed;              // Trạng thái đã giải ngân hay chưa
+        uint256 vaultId; // Gắn với Hũ tiền cụ thể
+        address requester; // Người yêu cầu rút tiền
+        uint256 amount; // Số tiền yêu cầu
+        address recipient; // Địa chỉ ví nhận tiền
+        string reason; // Mục đích rút tiền (hiển thị cho Guardians kiểm tra)
+        uint256 approvalsCount; // Số lượng Guardians đã ký duyệt
+        uint256 deadline; // Thời hạn hiệu lực của yêu cầu (48 giờ)
+        bool executed; // Trạng thái đã giải ngân hay chưa
     }
 
     /// @notice Nhiệm vụ việc nhà / cột mốc trong chương trình Chore-to-Earn
     struct Task {
         uint256 taskId;
-        uint256 vaultId;            // Gắn với Hũ tiền cụ thể (RuleTemplate.MILESTONE)
-        string title;               // Tên việc nhà hoặc cột mốc
-        uint256 rewardAmount;       // Số tiền thưởng khi hoàn thành
-        address assignee;           // Địa chỉ ví người thực hiện (con trẻ / thành viên)
-        bool isCompleted;           // Đã báo cáo hoàn thành hay chưa
-        bool isRewarded;            // Đã duyệt và chuyển thưởng hay chưa
+        uint256 vaultId; // Gắn với Hũ tiền cụ thể (RuleTemplate.MILESTONE)
+        string title; // Tên việc nhà hoặc cột mốc
+        uint256 rewardAmount; // Số tiền thưởng khi hoàn thành
+        address assignee; // Địa chỉ ví người thực hiện (con trẻ / thành viên)
+        bool isCompleted; // Đã báo cáo hoàn thành hay chưa
+        bool isRewarded; // Đã duyệt và chuyển thưởng hay chưa
     }
 
     /// @notice Phiếu yêu cầu khôi phục ví xã hội khi mất máy
@@ -102,6 +91,15 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     // -------------------------------------------------------------
     // CUSTOM ERRORS
     // -------------------------------------------------------------
+    error NotAllowlisted();
+    error DuplicateMember();
+    error ConfigurationLocked();
+    error FeatureDisabled();
+    error StaleAuthorization();
+    error InvalidRecovery();
+    error IncompleteRoscaRound();
+    error RoscaCycleEnded();
+    error TaskCancelled();
     error NotFamilyAdmin();
     error NotVaultGuardian();
     error NotVaultBeneficiary();
@@ -137,7 +135,20 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     // -------------------------------------------------------------
 
     /// @notice Người quản trị tối cao của Hub
+    string public constant deploymentVersion = "2.0.0-t1";
+    bool public constant crossChainEnabled = false;
+    bool public constant yieldEnabled = false;
     address public familyAdmin;
+    mapping(uint256 => uint256) public membershipEpoch;
+    mapping(uint256 => uint256) public requestEpoch;
+    mapping(uint256 => uint256) public reservedRewards;
+    mapping(uint256 => bool) public cancelledTasks;
+    mapping(uint256 => mapping(address => address)) public recoveredWallets;
+    mapping(uint256 => mapping(uint256 => uint256)) public taskApprovalCount;
+    mapping(uint256 => mapping(uint256 => mapping(address => bool))) public taskApprovals;
+    event ChoreApproved(uint256 indexed taskId, address indexed guardian, uint256 approvals);
+    event ChoreCancelled(uint256 indexed taskId);
+    event MembershipEpochChanged(uint256 indexed vaultId, uint256 epoch);
 
     /// @notice Bộ đếm tự tăng cho Hũ tiền động
     uint256 public vaultCounter;
@@ -167,7 +178,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     mapping(uint256 => mapping(address => bool)) public hasApprovedRequest;
 
     /// @notice Quản lý danh sách nhiệm vụ Chore-to-Earn: taskId => Task
-    mapping(uint256 => Task) public tasks;
+    mapping(uint256 => Task) private _tasks;
 
     /// @notice Yêu cầu khôi phục ví xã hội: hash(vaultId, oldWallet, newWallet) => RecoveryRequest
     mapping(bytes32 => RecoveryRequest) public recoveryRequests;
@@ -321,20 +332,19 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     }
 
     modifier onlyVaultGuardian(uint256 vaultId) {
-        if (!isVaultGuardian[vaultId][_msgSender()] && _msgSender() != familyAdmin) {
+        if (!isVaultGuardian[vaultId][_msgSender()]) {
             revert NotVaultGuardian();
         }
         _;
     }
 
     modifier onlyVaultBeneficiary(uint256 vaultId) {
-        if (
-            !isVaultBeneficiary[vaultId][_msgSender()] &&
-            _msgSender() != vaults[vaultId].creator &&
-            _msgSender() != familyAdmin
-        ) {
-            revert NotVaultBeneficiary();
-        }
+        if (!isVaultBeneficiary[vaultId][_msgSender()]) revert NotVaultBeneficiary();
+        _;
+    }
+
+    modifier onlyAllowed() {
+        if (!isAllowlisted[_msgSender()]) revert NotAllowlisted();
         _;
     }
 
@@ -356,6 +366,11 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     ) {
         if (_admin == address(0)) revert ZeroAddress();
 
+        if (
+            _teleporterMessenger != address(0) ||
+            _cChainBlockchainId != bytes32(0) ||
+            _yieldVaultAddress != address(0)
+        ) revert FeatureDisabled();
         familyAdmin = _admin;
         isAllowlisted[_admin] = true;
 
@@ -384,6 +399,8 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
      * @notice Thiết lập địa chỉ Trusted Forwarder EIP-2771
      */
     function setTrustedForwarder(address _forwarder) external onlyFamilyAdmin {
+        if (vaultCounter != 0 || trustedForwarder != address(0)) revert ConfigurationLocked();
+        if (_forwarder.code.length == 0) revert ZeroAddress();
         address old = trustedForwarder;
         trustedForwarder = _forwarder;
         if (_forwarder != address(0)) {
@@ -428,25 +445,26 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     }
 
     /**
-     * @notice Cập nhật cấu hình cầu nối Teleporter và Vault C-Chain
+     * @notice Entry point liên chuỗi bị khóa trong T1
      */
-    function setTeleporterConfig(
-        address _messenger,
-        bytes32 _cChainId,
-        address _vault
-    ) external onlyFamilyAdmin {
-        teleporterMessenger = ITeleporterMessenger(_messenger);
-        cChainBlockchainId = _cChainId;
-        yieldVaultAddress = _vault;
+    function setTeleporterConfig(address, bytes32, address) external pure {
+        revert FeatureDisabled();
     }
 
     /**
      * @notice Thiết lập hợp đồng chuyên biệt quản lý quỹ & dòng tiền (VaultCashflow)
      */
-    function setVaultCashflow(address _cashflow) external onlyFamilyAdmin {
-        if (_cashflow == address(0)) revert ZeroAddress();
-        vaultCashflow = VaultCashflow(payable(_cashflow));
-        isAllowlisted[_cashflow] = true;
+    function setVaultCashflow(address cashflow) external onlyFamilyAdmin {
+        // Liên kết trước khi có bất kỳ hũ nào để không tạo ledger thứ hai.
+        if (vaultCounter != 0 || address(vaultCashflow) != address(0)) revert ConfigurationLocked();
+        if (cashflow.code.length == 0) revert ZeroAddress();
+        VaultCashflow next = VaultCashflow(payable(cashflow));
+        if (
+            next.controller() != address(this) ||
+            next.initializedVaults() != 0 ||
+            next.totalLiabilities() != 0
+        ) revert ConfigurationLocked();
+        vaultCashflow = next;
     }
 
     /**
@@ -474,19 +492,20 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         address[] calldata guardians,
         address[] calldata beneficiaries
     ) external returns (uint256 vaultId) {
-        return createAdvancedVault(
-            name,
-            ruleType,
-            bufferRatioBps,
-            fastWithdrawLimit,
-            requiredApprovals,
-            guardians,
-            beneficiaries,
-            0, // targetGoalAmount mặc định
-            0, // targetDeadline mặc định
-            0, // roscaRoundDuration mặc định
-            0  // roscaRoundContribution mặc định
-        );
+        return
+            createAdvancedVault(
+                name,
+                ruleType,
+                bufferRatioBps,
+                fastWithdrawLimit,
+                requiredApprovals,
+                guardians,
+                beneficiaries,
+                0, // targetGoalAmount mặc định
+                0, // targetDeadline mặc định
+                0, // roscaRoundDuration mặc định
+                0 // roscaRoundContribution mặc định
+            );
     }
 
     /**
@@ -504,14 +523,37 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         uint256 targetDeadline,
         uint256 roscaRoundDuration,
         uint256 roscaRoundContribution
-    ) public returns (uint256 vaultId) {
+    ) public whenNotPaused onlyAllowed returns (uint256 vaultId) {
         if (bytes(name).length == 0) revert ZeroAmount();
-        if (bufferRatioBps > 10000) revert InvalidBufferRatio();
+        if (bufferRatioBps != 10000) revert InvalidBufferRatio();
+        if (fastWithdrawLimit > type(uint256).max / 2) revert InvalidRuleAction();
         if (guardians.length == 0) revert InvalidApprovalThreshold();
         if (requiredApprovals == 0 || requiredApprovals > guardians.length) {
             revert InvalidApprovalThreshold();
         }
 
+        if (beneficiaries.length == 0 || guardians.length > 32 || beneficiaries.length > 64)
+            revert InvalidApprovalThreshold();
+        for (uint256 i; i < guardians.length; i++) {
+            if (guardians[i] == address(0)) revert ZeroAddress();
+            if (!isAllowlisted[guardians[i]]) revert NotAllowlisted();
+            for (uint256 j; j < i; j++) if (guardians[i] == guardians[j]) revert DuplicateMember();
+        }
+        for (uint256 i; i < beneficiaries.length; i++) {
+            if (beneficiaries[i] == address(0)) revert ZeroAddress();
+            if (!isAllowlisted[beneficiaries[i]]) revert NotAllowlisted();
+            for (uint256 j; j < i; j++)
+                if (beneficiaries[i] == beneficiaries[j]) revert DuplicateMember();
+        }
+        if (
+            ruleType == RuleTemplate.ROSCA &&
+            (roscaRoundDuration == 0 || roscaRoundContribution == 0)
+        ) revert InvalidRuleAction();
+        if (
+            ruleType == RuleTemplate.SHARED_GOAL &&
+            (targetGoalAmount == 0 || targetDeadline <= block.timestamp)
+        ) revert InvalidRuleAction();
+        if (ruleType != RuleTemplate.SHIELD && fastWithdrawLimit != 0) revert InvalidRuleAction();
         vaultCounter++;
         vaultId = vaultCounter;
 
@@ -542,7 +584,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
             address g = guardians[i];
             if (g == address(0)) revert ZeroAddress();
             isVaultGuardian[vaultId][g] = true;
-            isAllowlisted[g] = true;
+
             _registerUserVault(g, vaultId);
         }
 
@@ -551,7 +593,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
             address b = beneficiaries[i];
             if (b == address(0)) revert ZeroAddress();
             isVaultBeneficiary[vaultId][b] = true;
-            isAllowlisted[b] = true;
+
             _registerUserVault(b, vaultId);
         }
 
@@ -563,14 +605,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
             vaultCashflow.initializeVaultLedger(vaultId, bufferRatioBps);
         }
 
-        emit VaultCreated(
-            vaultId,
-            name,
-            _msgSender(),
-            ruleType,
-            bufferRatioBps,
-            requiredApprovals
-        );
+        emit VaultCreated(vaultId, name, _msgSender(), ruleType, bufferRatioBps, requiredApprovals);
 
         return vaultId;
     }
@@ -588,72 +623,33 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     // -------------------------------------------------------------
 
     /**
-     * @notice Nạp tiền tập trung vào Hũ và tự động tách đệm thanh khoản L1 / C-Chain theo bufferRatioBps
+     * @notice Nạp AVAX vào hũ đã tồn tại, ghi nhận toàn bộ tài sản tại Fuji
      * @param vaultId Mã Hũ tiền nạp
      */
-    function depositToVault(uint256 vaultId) external payable nonReentrant whenNotPaused {
-        if (msg.value == 0) revert ZeroAmount();
+    function depositToVault(
+        uint256 vaultId
+    ) external payable nonReentrant whenNotPaused onlyAllowed {
         DynamicVault storage vault = vaults[vaultId];
-        if (!vault.isActive) {
-            // Tự động kích hoạt Hũ nếu chưa khởi tạo on-chain để đảm bảo nạp tiền an toàn tuyệt đối
-            vault.vaultId = vaultId;
-            vault.name = "Dynamic Family Vault";
-            vault.creator = _msgSender();
-            vault.ruleType = RuleTemplate.SHIELD;
-            vault.bufferRatioBps = 1000;
-            vault.fastWithdrawLimit = 50 ether;
-            vault.requiredApprovals = 2;
-            vault.isActive = true;
-            if (vaultId > vaultCounter) {
-                vaultCounter = vaultId;
-            }
-        }
+        if (vault.vaultId == 0) revert VaultNotFound();
+        if (!vault.isActive) revert VaultInactive();
+        if (vault.ruleType == RuleTemplate.ROSCA) revert InvalidRuleAction();
+        _depositLocal(vaultId, _msgSender(), msg.value);
+    }
 
-        // Phân tách số dư đệm L1 và vốn sinh lời C-Chain chính xác tuyệt đối
-        uint256 toBridge = (msg.value * (10000 - vault.bufferRatioBps)) / 10000;
-        uint256 toBuffer = msg.value - toBridge;
-
-        vault.l1BufferBalance += toBuffer;
-        vault.cChainPrincipal += toBridge;
-        vault.totalBalance += msg.value;
-
-        // Nếu đã kết nối kho tiền chuyên biệt VaultCashflow -> chuyển tiếp dòng tiền quản lý tập trung
-        if (address(vaultCashflow) != address(0)) {
-            vaultCashflow.deposit{value: msg.value}(vaultId, _msgSender());
-        } else {
-            // Chế độ Standalone Fallback: Bắn thông điệp Teleporter sang C-Chain
-            if (
-                toBridge > 0 &&
-                address(teleporterMessenger) != address(0) &&
-                yieldVaultAddress != address(0)
-            ) {
-                bytes memory payload = abi.encode(
-                    BridgeAction.DEPOSIT,
-                    vaultId,
-                    toBridge,
-                    _msgSender()
-                );
-
-                TeleporterMessageInput memory messageInput = TeleporterMessageInput({
-                    destinationBlockchainID: cChainBlockchainId,
-                    destinationAddress: yieldVaultAddress,
-                    feeInfo: TeleporterFeeInfo({feeTokenAddress: address(0), amount: 0}),
-                    requiredGasLimit: 250000,
-                    allowedRelayerAddresses: new address[](0),
-                    message: payload
-                });
-
-                teleporterMessenger.sendCrossChainMessage(messageInput);
-            }
-        }
-
-        emit FundsDeposited(vaultId, _msgSender(), msg.value, toBuffer, toBridge);
-
-        // Kiểm tra nếu là Hũ SHARED_GOAL vừa chạm mốc mục tiêu
-        if (vault.ruleType == RuleTemplate.SHARED_GOAL && vault.targetGoalAmount > 0) {
-            if (vault.totalBalance >= vault.targetGoalAmount) {
-                emit GoalReached(vaultId, vault.totalBalance, vault.targetGoalAmount);
-            }
+    /// @dev Chỉ ghi tài sản có msg.value thực nhận; T1 không có remote principal.
+    function _depositLocal(uint256 vaultId, address depositor, uint256 amount) internal {
+        if (amount == 0) revert ZeroAmount();
+        DynamicVault storage vault = vaults[vaultId];
+        vault.totalBalance += amount;
+        vault.l1BufferBalance += amount;
+        if (address(vaultCashflow) != address(0))
+            vaultCashflow.deposit{value: amount}(vaultId, depositor);
+        emit FundsDeposited(vaultId, depositor, amount, amount, 0);
+        if (
+            vault.ruleType == RuleTemplate.SHARED_GOAL &&
+            vault.totalBalance >= vault.targetGoalAmount
+        ) {
+            emit GoalReached(vaultId, vault.totalBalance, vault.targetGoalAmount);
         }
     }
 
@@ -679,91 +675,27 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
 
     /**
      * @dev Hàm nội bộ duy nhất phụ trách mọi hành động giải ngân trong hệ thống
-     * Bảo đảm: Kiểm tra khả năng chi trả -> Khấu trừ số dư an toàn -> Chuyển AVAX 0 gas -> Đồng bộ Teleporter C-Chain
+     * Bảo đảm: kiểm khả dụng sau reservation, trừ sổ cái rồi chi một lần tại Fuji
      */
     function _executeWithdrawal(
         uint256 vaultId,
         address recipient,
         uint256 amount
-    ) internal returns (bool fullyFundedFromLocalBuffer) {
+    ) internal returns (bool) {
         if (amount == 0) revert ZeroAmount();
         if (recipient == address(0)) revert ZeroAddress();
-
-        uint256 currentTotal = _getVaultTotal(vaultId);
-        if (amount > currentTotal) {
-            revert InsufficientVaultBalance(currentTotal, amount);
-        }
-
+        uint256 available = _getVaultTotal(vaultId) - reservedRewards[vaultId];
+        if (amount > available) revert InsufficientVaultBalance(available, amount);
         DynamicVault storage vault = vaults[vaultId];
-
-        // Cập nhật Checks-Effects-Interactions (CEI)
-        if (vault.totalBalance >= amount) {
-            vault.totalBalance -= amount;
-        } else {
-            vault.totalBalance = 0;
-        }
-
+        vault.totalBalance -= amount;
+        vault.l1BufferBalance -= amount;
         if (address(vaultCashflow) != address(0)) {
-            // Cập nhật trạng thái đệm L1 & C-Chain nội bộ
-            if (vault.l1BufferBalance >= amount) {
-                vault.l1BufferBalance -= amount;
-            } else {
-                uint256 deficit = amount - vault.l1BufferBalance;
-                vault.l1BufferBalance = 0;
-                vault.cChainPrincipal = vault.cChainPrincipal >= deficit
-                    ? vault.cChainPrincipal - deficit
-                    : 0;
-            }
-
-            // Ủy thác toàn bộ việc trích quỹ và chuyển giao Native AVAX cho kho tiền chuyên biệt
-            fullyFundedFromLocalBuffer = vaultCashflow.executeWithdrawal(vaultId, recipient, amount);
+            vaultCashflow.executeWithdrawal(vaultId, recipient, amount);
         } else {
-            // Chế độ Standalone Fallback: Tự giải ngân từ số dư của FamilyHub
-            if (vault.l1BufferBalance >= amount) {
-                vault.l1BufferBalance -= amount;
-                fullyFundedFromLocalBuffer = true;
-            } else {
-                uint256 availableLocal = vault.l1BufferBalance;
-                uint256 deficit = amount - availableLocal;
-
-                vault.l1BufferBalance = 0;
-                vault.cChainPrincipal = vault.cChainPrincipal >= deficit
-                    ? vault.cChainPrincipal - deficit
-                    : 0;
-                fullyFundedFromLocalBuffer = false;
-
-                // Gửi thông điệp Teleporter sang C-Chain để giảm trạng thái vốn gốc tương ứng
-                if (
-                    deficit > 0 &&
-                    address(teleporterMessenger) != address(0) &&
-                    yieldVaultAddress != address(0)
-                ) {
-                    bytes memory payload = abi.encode(
-                        BridgeAction.WITHDRAW,
-                        vaultId,
-                        deficit,
-                        recipient
-                    );
-
-                    TeleporterMessageInput memory messageInput = TeleporterMessageInput({
-                        destinationBlockchainID: cChainBlockchainId,
-                        destinationAddress: yieldVaultAddress,
-                        feeInfo: TeleporterFeeInfo({feeTokenAddress: address(0), amount: 0}),
-                        requiredGasLimit: 250000,
-                        allowedRelayerAddresses: new address[](0),
-                        message: payload
-                    });
-
-                    teleporterMessenger.sendCrossChainMessage(messageInput);
-                }
-            }
-
-            // Giải ngân 100% Native Token tại chỗ cho người nhận
             (bool success, ) = payable(recipient).call{value: amount}("");
             if (!success) revert TransferFailed();
         }
-
-        return fullyFundedFromLocalBuffer;
+        return true;
     }
 
     // -------------------------------------------------------------
@@ -775,27 +707,27 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     /**
      * @notice Thiết lập hạn mức rút nhanh tối đa trong 1 ngày cho Hũ SHIELD
      */
-    function setVaultDailyLimit(uint256 vaultId, uint256 newDailyLimit) external onlyVaultGuardian(vaultId) {
-        vaultDailyLimit[vaultId] = newDailyLimit;
-        emit DailyLimitUpdated(vaultId, newDailyLimit);
+    function setVaultDailyLimit(uint256, uint256) external pure {
+        // Hạn mức T1 cố định khi tạo hũ; không có bypass nâng hạn mức bằng một Guardian.
+        revert ConfigurationLocked();
     }
 
     function fastWithdraw(
         uint256 vaultId,
         uint256 amount
-    ) external nonReentrant whenNotPaused onlyVaultBeneficiary(vaultId) {
+    ) external nonReentrant whenNotPaused onlyAllowed onlyVaultBeneficiary(vaultId) {
         DynamicVault storage vault = vaults[vaultId];
         if (!vault.isActive) revert VaultInactive();
 
+        if (vault.ruleType != RuleTemplate.SHIELD) revert InvalidRuleAction();
         if (amount > vault.fastWithdrawLimit) {
             revert ExceedsFastLimit(amount, vault.fastWithdrawLimit);
         }
 
         // Kiểm tra Daily Spending Limit chống drain liên tục
         uint256 currentDay = block.timestamp / 1 days;
-        uint256 dailyLimit = vaultDailyLimit[vaultId] > 0
-            ? vaultDailyLimit[vaultId]
-            : (vault.fastWithdrawLimit * 2);
+        uint256 dailyLimit =
+            vaultDailyLimit[vaultId] > 0 ? vaultDailyLimit[vaultId] : (vault.fastWithdrawLimit * 2);
         uint256 spentToday = dailyFastWithdrawSpent[vaultId][currentDay];
 
         if (spentToday + amount > dailyLimit) {
@@ -819,10 +751,12 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         uint256 vaultId,
         uint256 amount,
         string calldata reason
-    ) external whenNotPaused onlyVaultBeneficiary(vaultId) returns (uint256 requestId) {
+    ) external whenNotPaused onlyAllowed onlyVaultBeneficiary(vaultId) returns (uint256 requestId) {
         if (amount == 0) revert ZeroAmount();
         DynamicVault storage vault = vaults[vaultId];
         if (!vault.isActive) revert VaultInactive();
+        if (vault.ruleType != RuleTemplate.SHIELD && vault.ruleType != RuleTemplate.SHARED_GOAL)
+            revert InvalidRuleAction();
         uint256 total = _getVaultTotal(vaultId);
         if (amount > total) {
             revert InsufficientVaultBalance(total, amount);
@@ -838,6 +772,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         requestCounter++;
         requestId = requestCounter;
 
+        requestEpoch[requestId] = membershipEpoch[vaultId];
         uint256 deadline = block.timestamp + 48 hours;
 
         withdrawalRequests[requestId] = WithdrawalRequest({
@@ -852,26 +787,26 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
             executed: false
         });
 
-        emit WithdrawalRequested(
-            requestId,
-            vaultId,
-            _msgSender(),
-            amount,
-            reason,
-            deadline
-        );
+        emit WithdrawalRequested(requestId, vaultId, _msgSender(), amount, reason, deadline);
 
         return requestId;
     }
 
-    function approveWithdrawal(uint256 requestId) external nonReentrant whenNotPaused {
+    function approveWithdrawal(uint256 requestId) external nonReentrant whenNotPaused onlyAllowed {
         WithdrawalRequest storage req = withdrawalRequests[requestId];
         if (req.requestId == 0) revert RequestNotFound();
         if (req.executed) revert RequestAlreadyExecuted();
+        if (requestEpoch[requestId] != membershipEpoch[req.vaultId]) revert StaleAuthorization();
+        DynamicVault storage policyVault = vaults[req.vaultId];
+        if (
+            policyVault.ruleType == RuleTemplate.SHARED_GOAL &&
+            _getVaultTotal(req.vaultId) < policyVault.targetGoalAmount &&
+            block.timestamp < policyVault.targetDeadline
+        ) revert GoalNotReached(_getVaultTotal(req.vaultId), policyVault.targetGoalAmount);
         if (block.timestamp > req.deadline) revert RequestExpired();
 
         uint256 vaultId = req.vaultId;
-        if (!isVaultGuardian[vaultId][_msgSender()] && _msgSender() != familyAdmin) {
+        if (!isVaultGuardian[vaultId][_msgSender()]) {
             revert NotVaultGuardian();
         }
 
@@ -899,10 +834,17 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     function executeWithdrawalWithSignatures(
         uint256 requestId,
         bytes[] calldata signatures
-    ) external nonReentrant whenNotPaused {
+    ) external nonReentrant whenNotPaused onlyAllowed {
         WithdrawalRequest storage req = withdrawalRequests[requestId];
         if (req.requestId == 0) revert RequestNotFound();
         if (req.executed) revert RequestAlreadyExecuted();
+        if (requestEpoch[requestId] != membershipEpoch[req.vaultId]) revert StaleAuthorization();
+        DynamicVault storage policyVault = vaults[req.vaultId];
+        if (
+            policyVault.ruleType == RuleTemplate.SHARED_GOAL &&
+            _getVaultTotal(req.vaultId) < policyVault.targetGoalAmount &&
+            block.timestamp < policyVault.targetDeadline
+        ) revert GoalNotReached(_getVaultTotal(req.vaultId), policyVault.targetGoalAmount);
         if (block.timestamp > req.deadline) revert RequestExpired();
 
         uint256 vaultId = req.vaultId;
@@ -928,7 +870,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         for (uint256 i = 0; i < signatures.length; i++) {
             address signer = _recoverSigner(digest, signatures[i]);
             if (signer == address(0)) continue;
-            if (!isVaultGuardian[vaultId][signer] && signer != familyAdmin) continue;
+            if (!isVaultGuardian[vaultId][signer] || !isAllowlisted[signer]) continue;
             if (!hasApprovedRequest[requestId][signer]) {
                 hasApprovedRequest[requestId][signer] = true;
                 req.approvalsCount++;
@@ -945,19 +887,12 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         emit WithdrawalExecuted(requestId, vaultId, req.recipient, req.amount, fullyFunded);
     }
 
-    function _recoverSigner(bytes32 digest, bytes calldata sig) internal pure returns (address) {
-        if (sig.length != 65) return address(0);
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-        assembly {
-            r := calldataload(sig.offset)
-            s := calldataload(add(sig.offset, 32))
-            v := byte(0, calldataload(add(sig.offset, 64)))
-        }
-        if (v < 27) v += 27;
-        if (v != 27 && v != 28) return address(0);
-        return ecrecover(digest, v, r, s);
+    function _recoverSigner(
+        bytes32 digest,
+        bytes calldata signature
+    ) internal pure returns (address) {
+        (address signer, ECDSA.RecoverError err, ) = ECDSA.tryRecover(digest, signature);
+        return err == ECDSA.RecoverError.NoError ? signer : address(0);
     }
 
     // --- POLICY C: CHORE-TO-EARN (ÁP DỤNG CHO MILESTONE VAULTS) ---
@@ -966,56 +901,65 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         string calldata title,
         uint256 rewardAmount,
         address assignee
-    ) external onlyVaultGuardian(vaultId) returns (uint256 taskId) {
-        if (rewardAmount == 0) revert ZeroAmount();
-        if (assignee == address(0)) revert ZeroAddress();
+    ) external whenNotPaused onlyAllowed onlyVaultGuardian(vaultId) returns (uint256 taskId) {
         DynamicVault storage vault = vaults[vaultId];
         if (!vault.isActive) revert VaultInactive();
-        uint256 currentTotal = _getVaultTotal(vaultId);
-        if (rewardAmount > currentTotal) revert InsufficientVaultBalance(currentTotal, rewardAmount);
-
-        taskCounter++;
-        taskId = taskCounter;
-
-        tasks[taskId] = Task({
-            taskId: taskId,
-            vaultId: vaultId,
-            title: title,
-            rewardAmount: rewardAmount,
-            assignee: assignee,
-            isCompleted: false,
-            isRewarded: false
-        });
-
+        if (vault.ruleType != RuleTemplate.MILESTONE) revert InvalidRuleAction();
+        if (rewardAmount == 0 || bytes(title).length == 0) revert ZeroAmount();
+        if (!isVaultBeneficiary[vaultId][assignee] || isVaultGuardian[vaultId][assignee])
+            revert AssigneeMismatch();
+        uint256 available = _getVaultTotal(vaultId) - reservedRewards[vaultId];
+        if (rewardAmount > available) revert InsufficientVaultBalance(available, rewardAmount);
+        reservedRewards[vaultId] += rewardAmount;
+        taskId = ++taskCounter;
+        _tasks[taskId] = Task(taskId, vaultId, title, rewardAmount, assignee, false, false);
         emit ChoreCreated(taskId, vaultId, title, rewardAmount, assignee);
-        return taskId;
     }
 
-    function claimChoreCompleted(uint256 taskId) external {
-        Task storage task = tasks[taskId];
+    function claimChoreCompleted(uint256 taskId) external whenNotPaused onlyAllowed {
+        Task storage task = _tasks[taskId];
         if (task.taskId == 0) revert TaskNotFound();
+        if (cancelledTasks[taskId]) revert TaskCancelled();
+        if (task.isRewarded) revert TaskAlreadyRewarded();
+        if (task.isCompleted) revert AlreadyApproved();
+        task.assignee = _resolveWallet(task.vaultId, task.assignee);
         if (_msgSender() != task.assignee) revert AssigneeMismatch();
-
         task.isCompleted = true;
         emit ChoreClaimed(taskId, _msgSender());
     }
 
-    function verifyAndRewardChore(uint256 taskId) external nonReentrant whenNotPaused {
-        Task storage task = tasks[taskId];
+    function verifyAndRewardChore(uint256 taskId) external nonReentrant whenNotPaused onlyAllowed {
+        Task storage task = _tasks[taskId];
         if (task.taskId == 0) revert TaskNotFound();
-        if (!task.isCompleted) revert TaskNotCompleted();
+        if (cancelledTasks[taskId]) revert TaskCancelled();
         if (task.isRewarded) revert TaskAlreadyRewarded();
-
+        if (!task.isCompleted) revert TaskNotCompleted();
         uint256 vaultId = task.vaultId;
-        if (!isVaultGuardian[vaultId][_msgSender()] && _msgSender() != familyAdmin) {
-            revert NotVaultGuardian();
-        }
-
+        if (!isVaultGuardian[vaultId][_msgSender()]) revert NotVaultGuardian();
+        task.assignee = _resolveWallet(vaultId, task.assignee);
+        if (_msgSender() == task.assignee) revert AssigneeMismatch();
+        uint256 epoch = membershipEpoch[vaultId];
+        if (taskApprovals[taskId][epoch][_msgSender()]) revert AlreadyApproved();
+        taskApprovals[taskId][epoch][_msgSender()] = true;
+        uint256 count = ++taskApprovalCount[taskId][epoch];
+        emit ChoreApproved(taskId, _msgSender(), count);
+        if (count < vaults[vaultId].requiredApprovals) return;
         task.isRewarded = true;
-
-        // Giải ngân thông qua hàm lõi hợp nhất
+        reservedRewards[vaultId] -= task.rewardAmount;
         _executeWithdrawal(vaultId, task.assignee, task.rewardAmount);
         emit ChoreRewarded(taskId, vaultId, task.assignee, task.rewardAmount);
+    }
+
+    /// @notice Hủy nhiệm vụ chưa chi chỉ giải phóng reservation, không chi tiền.
+    function cancelChore(uint256 taskId) external whenNotPaused onlyAllowed {
+        Task storage task = _tasks[taskId];
+        if (task.taskId == 0) revert TaskNotFound();
+        if (!isVaultGuardian[task.vaultId][_msgSender()]) revert NotVaultGuardian();
+        if (task.isRewarded) revert TaskAlreadyRewarded();
+        if (cancelledTasks[taskId]) revert TaskCancelled();
+        cancelledTasks[taskId] = true;
+        reservedRewards[task.vaultId] -= task.rewardAmount;
+        emit ChoreCancelled(taskId);
     }
 
     // --- POLICY D: GÓP VỐN XOAY VÒNG HỌ HỤI (ÁP DỤNG CHO ROSCA VAULTS) ---
@@ -1023,84 +967,42 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     /**
      * @notice Thành viên đóng hụi theo kỳ cho Hũ ROSCA
      */
-    function contributeRoscaRound(uint256 vaultId) external payable nonReentrant whenNotPaused {
+    function contributeRoscaRound(
+        uint256 vaultId
+    ) external payable nonReentrant whenNotPaused onlyAllowed onlyVaultBeneficiary(vaultId) {
         DynamicVault storage vault = vaults[vaultId];
         if (!vault.isActive) revert VaultInactive();
         if (vault.ruleType != RuleTemplate.ROSCA) revert InvalidRuleAction();
-        if (!isVaultBeneficiary[vaultId][_msgSender()] && _msgSender() != vault.creator) {
-            revert NotVaultBeneficiary();
-        }
-
-        uint256 currentRound = vault.roscaCurrentRound;
-        if (hasContributedRosca[vaultId][currentRound][_msgSender()]) {
-            revert RoscaAlreadyContributed();
-        }
-
-        if (vault.roscaRoundContribution > 0 && msg.value != vault.roscaRoundContribution) {
+        uint256 round = vault.roscaCurrentRound;
+        if (round >= vault.beneficiaries.length) revert RoscaCycleEnded();
+        if (hasContributedRosca[vaultId][round][_msgSender()]) revert RoscaAlreadyContributed();
+        if (msg.value != vault.roscaRoundContribution)
             revert RoscaContributionMismatch(msg.value, vault.roscaRoundContribution);
-        }
-
-        hasContributedRosca[vaultId][currentRound][_msgSender()] = true;
-        roscaRoundContributionsCount[vaultId][currentRound]++;
-
-        // Tự động chia đệm L1 và vốn gửi C-Chain theo bufferRatioBps
-        uint256 toBridge = (msg.value * (10000 - vault.bufferRatioBps)) / 10000;
-        uint256 toBuffer = msg.value - toBridge;
-
-        vault.l1BufferBalance += toBuffer;
-        vault.cChainPrincipal += toBridge;
-        vault.totalBalance += msg.value;
-
-        if (address(vaultCashflow) != address(0)) {
-            vaultCashflow.deposit{value: msg.value}(vaultId, _msgSender());
-        }
-
-        emit RoscaRoundContributed(vaultId, currentRound, _msgSender(), msg.value);
-        emit FundsDeposited(vaultId, _msgSender(), msg.value, toBuffer, toBridge);
+        hasContributedRosca[vaultId][round][_msgSender()] = true;
+        roscaRoundContributionsCount[vaultId][round]++;
+        _depositLocal(vaultId, _msgSender(), msg.value);
+        emit RoscaRoundContributed(vaultId, round, _msgSender(), msg.value);
     }
 
     /**
      * @notice Giải ngân quỹ kỳ cho thành viên đến lượt của Hũ ROSCA
      */
-    function payoutRoscaRound(uint256 vaultId) external nonReentrant whenNotPaused {
+    function payoutRoscaRound(uint256 vaultId) external nonReentrant whenNotPaused onlyAllowed {
         DynamicVault storage vault = vaults[vaultId];
         if (!vault.isActive) revert VaultInactive();
         if (vault.ruleType != RuleTemplate.ROSCA) revert InvalidRuleAction();
-
-        // Kiểm tra thời gian đã tới kỳ giải ngân
-        if (vault.roscaRoundDuration > 0) {
-            uint256 nextRoundTime = vault.roscaLastRoundTimestamp + vault.roscaRoundDuration;
-            if (block.timestamp < nextRoundTime) {
-                revert RoscaRoundNotReady(nextRoundTime - block.timestamp);
-            }
-        }
-
-        if (vault.beneficiaries.length == 0) revert ZeroAmount();
-
-        // Xác định người thụ hưởng của kỳ này theo thứ tự xoay vòng
-        uint256 turnIndex = vault.roscaCurrentRound % vault.beneficiaries.length;
-        address roundRecipient = vault.beneficiaries[turnIndex];
-
-        // Số tiền giải ngân của kỳ (mặc định lấy mức đóng * số thành viên, hoặc số dư khả dụng)
-        uint256 currentTotal = _getVaultTotal(vaultId);
-        uint256 payoutAmount = vault.roscaRoundContribution > 0
-            ? vault.roscaRoundContribution * vault.beneficiaries.length
-            : currentTotal;
-
-        if (payoutAmount > currentTotal) {
-            payoutAmount = currentTotal;
-        }
-
-        if (payoutAmount == 0) revert ZeroAmount();
-
-        // Cập nhật vòng quay
-        uint256 currentRound = vault.roscaCurrentRound;
+        uint256 round = vault.roscaCurrentRound;
+        if (round >= vault.beneficiaries.length) revert RoscaCycleEnded();
+        uint256 next = vault.roscaLastRoundTimestamp + vault.roscaRoundDuration;
+        if (block.timestamp < next) revert RoscaRoundNotReady(next - block.timestamp);
+        if (roscaRoundContributionsCount[vaultId][round] != vault.beneficiaries.length)
+            revert IncompleteRoscaRound();
+        address recipient = vault.beneficiaries[round];
+        uint256 payout = vault.roscaRoundContribution * vault.beneficiaries.length;
         vault.roscaCurrentRound++;
         vault.roscaLastRoundTimestamp = block.timestamp;
-
-        // Giải ngân qua hàm lõi
-        _executeWithdrawal(vaultId, roundRecipient, payoutAmount);
-        emit RoscaRoundPaid(vaultId, currentRound, roundRecipient, payoutAmount);
+        _executeWithdrawal(vaultId, recipient, payout);
+        emit RoscaRoundPaid(vaultId, round, recipient, payout);
     }
 
     // -------------------------------------------------------------
@@ -1110,37 +1012,15 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     /**
      * @notice Nạp token ERC-20 (như USDC) vào Hũ tiền thông qua VaultCashflow
      */
-    function depositTokenToVault(
-        uint256 vaultId,
-        address token,
-        uint256 amount
-    ) external nonReentrant whenNotPaused {
-        if (token == address(0)) revert ZeroAddress();
-        if (amount == 0) revert ZeroAmount();
-        if (address(vaultCashflow) == address(0)) revert ZeroAddress();
-
-        // Chuyển token từ người gửi vào VaultCashflow
-        IERC20(token).transferFrom(_msgSender(), address(this), amount);
-        IERC20(token).approve(address(vaultCashflow), amount);
-        vaultCashflow.depositToken(vaultId, token, amount, _msgSender());
-
-        emit TokenDepositedToVault(vaultId, token, _msgSender(), amount);
+    function depositTokenToVault(uint256, address, uint256) external pure {
+        revert FeatureDisabled();
     }
 
     /**
      * @notice Rút nhanh token ERC-20 (áp dụng cho Beneficiary)
      */
-    function fastWithdrawToken(
-        uint256 vaultId,
-        address token,
-        uint256 amount
-    ) external nonReentrant whenNotPaused onlyVaultBeneficiary(vaultId) {
-        if (token == address(0)) revert ZeroAddress();
-        if (amount == 0) revert ZeroAmount();
-        if (address(vaultCashflow) == address(0)) revert ZeroAddress();
-
-        vaultCashflow.executeTokenWithdrawal(vaultId, token, _msgSender(), amount);
-        emit TokenFastWithdrawn(vaultId, token, _msgSender(), amount);
+    function fastWithdrawToken(uint256, address, uint256) external pure {
+        revert FeatureDisabled();
     }
 
     // -------------------------------------------------------------
@@ -1154,76 +1034,114 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         uint256 vaultId,
         address oldWallet,
         address newWallet
-    ) external onlyVaultGuardian(vaultId) {
-        if (oldWallet == address(0) || newWallet == address(0)) revert ZeroAddress();
+    ) external whenNotPaused onlyAllowed onlyVaultGuardian(vaultId) {
         DynamicVault storage vault = vaults[vaultId];
         if (!vault.isActive) revert VaultInactive();
-
-        bytes32 reqHash = keccak256(abi.encodePacked(vaultId, oldWallet, newWallet));
-        RecoveryRequest storage req = recoveryRequests[reqHash];
-
-        if (req.executed) revert RecoveryAlreadyExecuted();
-
+        if (newWallet == address(0) || oldWallet == address(0)) revert ZeroAddress();
+        if (recoveredWallets[vaultId][newWallet] != address(0)) revert InvalidRecovery();
+        if (
+            oldWallet == newWallet ||
+            isVaultGuardian[vaultId][newWallet] ||
+            isVaultBeneficiary[vaultId][newWallet] ||
+            vault.creator == newWallet
+        ) revert InvalidRecovery();
+        if (
+            !isVaultGuardian[vaultId][oldWallet] &&
+            !isVaultBeneficiary[vaultId][oldWallet] &&
+            vault.creator != oldWallet
+        ) revert InvalidRecovery();
+        uint256 epoch = membershipEpoch[vaultId];
+        bytes32 key = keccak256(abi.encode(vaultId, oldWallet, newWallet, epoch));
+        RecoveryRequest storage req = recoveryRequests[key];
+        if (hasApprovedRecovery[key][_msgSender()]) revert AlreadyApproved();
         if (req.vaultId == 0) {
             req.vaultId = vaultId;
             req.oldWallet = oldWallet;
             req.newWallet = newWallet;
         }
-
-        if (hasApprovedRecovery[reqHash][_msgSender()]) revert AlreadyApproved();
-        hasApprovedRecovery[reqHash][_msgSender()] = true;
-        req.approvalsCount++;
-
-        // Khi đủ số lượng Guardians của Hũ xác nhận
-        if (req.approvalsCount >= vault.requiredApprovals) {
-            req.executed = true;
-
-            // 1. Chuyển giao vai trò Creator nếu ví bị mất là người tạo Hũ
-            if (vault.creator == oldWallet) {
-                vault.creator = newWallet;
-            }
-
-            // 2. Chuyển quyền Beneficiary nếu có
-            if (isVaultBeneficiary[vaultId][oldWallet]) {
-                isVaultBeneficiary[vaultId][oldWallet] = false;
-                isVaultBeneficiary[vaultId][newWallet] = true;
-                _registerUserVault(newWallet, vaultId);
-            }
-
-            // 3. Chuyển quyền Guardian nếu có
-            if (isVaultGuardian[vaultId][oldWallet]) {
-                isVaultGuardian[vaultId][oldWallet] = false;
-                isVaultGuardian[vaultId][newWallet] = true;
-                _registerUserVault(newWallet, vaultId);
-            }
-
-            isAllowlisted[newWallet] = true;
-            emit MemberWalletRecovered(vaultId, oldWallet, newWallet);
+        hasApprovedRecovery[key][_msgSender()] = true;
+        if (++req.approvalsCount < vault.requiredApprovals) return;
+        req.executed = true;
+        if (vault.creator == oldWallet) vault.creator = newWallet;
+        if (isVaultGuardian[vaultId][oldWallet]) {
+            isVaultGuardian[vaultId][oldWallet] = false;
+            isVaultGuardian[vaultId][newWallet] = true;
+            for (uint256 i; i < vault.guardians.length; i++)
+                if (vault.guardians[i] == oldWallet) vault.guardians[i] = newWallet;
         }
+        if (isVaultBeneficiary[vaultId][oldWallet]) {
+            isVaultBeneficiary[vaultId][oldWallet] = false;
+            isVaultBeneficiary[vaultId][newWallet] = true;
+            for (uint256 i; i < vault.beneficiaries.length; i++)
+                if (vault.beneficiaries[i] == oldWallet) vault.beneficiaries[i] = newWallet;
+            uint256 round = vault.roscaCurrentRound;
+            if (hasContributedRosca[vaultId][round][oldWallet]) {
+                hasContributedRosca[vaultId][round][oldWallet] = false;
+                hasContributedRosca[vaultId][round][newWallet] = true;
+            }
+        }
+        // Tránh vòng lặp task không giới hạn: resolve ví assignee khi đọc/claim/chi qua mapping.
+        recoveredWallets[vaultId][oldWallet] = newWallet;
+        isAllowlisted[newWallet] = true;
+        _registerUserVault(newWallet, vaultId);
+        membershipEpoch[vaultId]++;
+        emit MembershipEpochChanged(vaultId, membershipEpoch[vaultId]);
+        emit MemberWalletRecovered(vaultId, oldWallet, newWallet);
     }
 
     // -------------------------------------------------------------
     // 7. CALLBACK TELEPORTER (TIẾP NHẬN PHẢN HỒI TỪ C-CHAIN)
     // -------------------------------------------------------------
 
-    function receiveTeleporterMessage(
-        bytes32 /* originChainID */,
-        address /* originSenderAddress */,
-        bytes calldata /* message */
-    ) external view override {
-        if (address(teleporterMessenger) != address(0)) {
-            if (msg.sender != address(teleporterMessenger)) revert OnlyTeleporterMessenger();
-        }
+    function receiveTeleporterMessage(bytes32, address, bytes calldata) external pure override {
+        revert FeatureDisabled();
+    }
+
+    /// @dev Chuỗi recovery hữu hạn; ví đã thu hồi không được dùng lại làm ví đích.
+    function _resolveWallet(uint256 vaultId, address wallet) internal view returns (address) {
+        while (recoveredWallets[vaultId][wallet] != address(0))
+            wallet = recoveredWallets[vaultId][wallet];
+        return wallet;
     }
 
     // -------------------------------------------------------------
     // 8. GETTER VIEW FUNCTIONS CHO DAPP
     // -------------------------------------------------------------
 
+    /// @notice Getter giữ định dạng ABI cũ nhưng luôn trả assignee sau recovery.
+    function tasks(
+        uint256 taskId
+    )
+        external
+        view
+        returns (
+            uint256 id,
+            uint256 vaultId,
+            string memory title,
+            uint256 rewardAmount,
+            address assignee,
+            bool isCompleted,
+            bool isRewarded
+        )
+    {
+        Task storage task = _tasks[taskId];
+        return (
+            task.taskId,
+            task.vaultId,
+            task.title,
+            task.rewardAmount,
+            _resolveWallet(task.vaultId, task.assignee),
+            task.isCompleted,
+            task.isRewarded
+        );
+    }
+
     function getVault(uint256 vaultId) external view returns (DynamicVault memory) {
         DynamicVault memory vault = vaults[vaultId];
         if (address(vaultCashflow) != address(0)) {
-            (uint256 total, uint256 l1Buf, uint256 cPrin, ) = vaultCashflow.getVaultBalances(vaultId);
+            (uint256 total, uint256 l1Buf, uint256 cPrin, ) = vaultCashflow.getVaultBalances(
+                vaultId
+            );
             vault.totalBalance = total;
             vault.l1BufferBalance = l1Buf;
             vault.cChainPrincipal = cPrin;
@@ -1232,7 +1150,21 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     }
 
     function getUserVaultIds(address user) external view returns (uint256[] memory) {
-        return _userVaults[user];
+        uint256[] storage stored = _userVaults[user];
+        uint256[] memory result = new uint256[](stored.length);
+        uint256 count;
+        for (uint256 i; i < stored.length; i++) {
+            uint256 id = stored[i];
+            if (
+                vaults[id].creator == user ||
+                isVaultGuardian[id][user] ||
+                isVaultBeneficiary[id][user]
+            ) result[count++] = id;
+        }
+        assembly ("memory-safe") {
+            mstore(result, count)
+        }
+        return result;
     }
 
     function getVaultGuardians(uint256 vaultId) external view returns (address[] memory) {
@@ -1248,12 +1180,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     )
         external
         view
-        returns (
-            uint256 total,
-            uint256 l1Buffer,
-            uint256 cChainPrincipal,
-            uint256 bufferRatioBps
-        )
+        returns (uint256 total, uint256 l1Buffer, uint256 cChainPrincipal, uint256 bufferRatioBps)
     {
         if (address(vaultCashflow) != address(0)) {
             return vaultCashflow.getVaultBalances(vaultId);

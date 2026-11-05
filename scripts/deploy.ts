@@ -1,204 +1,176 @@
-import { ethers, network } from "hardhat";
-import * as dotenv from "dotenv";
+import { artifacts, network } from "hardhat";
+import { ethers } from "ethers";
+import {
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  renameSync,
+} from "node:fs";
+import { resolve } from "node:path";
+import { createHash } from "node:crypto";
+import {
+  DeploymentContract,
+  DeploymentManifest,
+  validateDeployment,
+} from "../shared/deploymentManifest";
 
-dotenv.config();
-
+/** Deploy mới T1 có journal từng transaction; không chạm DB, không tạo hũ seed. */
 async function main() {
-  const [deployer] = await ethers.getSigners();
-  console.log("====================================================");
-  console.log("🚀 KINETIX SMART CONTRACT DEPLOYMENT SCRIPT");
-  console.log("====================================================");
-  console.log(`👤 Deployer Address: ${deployer.address}`);
-  const balance = await ethers.provider.getBalance(deployer.address);
-  console.log(`💰 Deployer Balance: ${ethers.formatEther(balance)} AVAX`);
-  console.log(`🌐 Target Network:   ${network.name} (ChainID: ${(await ethers.provider.getNetwork()).chainId})`);
-  console.log("----------------------------------------------------\n");
-
-  const FUJI_TELEPORTER_MESSENGER = process.env.TELEPORTER_MESSENGER_FUJI || "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf";
-
-  if (network.name === "fuji") {
-    // -----------------------------------------------------------------
-    // 1. TRIỂN KHAI TRÊN AVALANCHE FUJI C-CHAIN
-    // -----------------------------------------------------------------
-    console.log("📦 [1/2] Đang triển khai FamilyYieldVault trên Fuji C-Chain...");
-
-    const familyL1IdBytes32 = ethers.keccak256(
-      ethers.toUtf8Bytes(process.env.FAMILY_L1_CHAIN_ID || "FamilyL1")
-    );
-    const existingHubAddress = process.env.FAMILY_HUB_ADDRESS || ethers.ZeroAddress;
-
-    const YieldVaultFactory = await ethers.getContractFactory("FamilyYieldVault");
-    const yieldVault = await YieldVaultFactory.deploy(
-      FUJI_TELEPORTER_MESSENGER,
-      familyL1IdBytes32,
-      existingHubAddress
-    );
-    await yieldVault.waitForDeployment();
-    const vaultAddress = await yieldVault.getAddress();
-
-    console.log(`✅ FamilyYieldVault đã triển khai thành công tại: ${vaultAddress}`);
-    console.log(`👉 Hãy cập nhật vào .env: FAMILY_YIELD_VAULT_ADDRESS=${vaultAddress}\n`);
-
-  } else if (network.name === "familyL1") {
-    // -----------------------------------------------------------------
-    // 2. TRIỂN KHAI TRÊN AVALANCHE FAMILY L1 (GASLESS SUBNET)
-    // -----------------------------------------------------------------
-    console.log("📦 [2/2] Đang triển khai FamilyHub trên Family L1 (Gas = 0)...");
-
-    const existingVaultAddress = process.env.FAMILY_YIELD_VAULT_ADDRESS || ethers.ZeroAddress;
-    const cChainBlockchainId = ethers.keccak256(ethers.toUtf8Bytes("Fuji-C-Chain-43113"));
-
-    const FamilyHubFactory = await ethers.getContractFactory("FamilyHub");
-    const familyHub = await FamilyHubFactory.deploy(
-      deployer.address,
-      FUJI_TELEPORTER_MESSENGER,
-      cChainBlockchainId,
-      existingVaultAddress
-    );
-    await familyHub.waitForDeployment();
-    const hubAddress = await familyHub.getAddress();
-
-    console.log(`✅ FamilyHub đã triển khai thành công tại: ${hubAddress}`);
-
-    // Triển khai VaultCashflow
-    const VaultCashflowFactory = await ethers.getContractFactory("VaultCashflow");
-    const vaultCashflow = await VaultCashflowFactory.deploy(
-      deployer.address,
-      hubAddress,
-      FUJI_TELEPORTER_MESSENGER,
-      cChainBlockchainId,
-      existingVaultAddress
-    );
-    await vaultCashflow.waitForDeployment();
-    const cashflowAddress = await vaultCashflow.getAddress();
-    console.log(`✅ VaultCashflow đã triển khai thành công tại: ${cashflowAddress}`);
-
-    await familyHub.setVaultCashflow(cashflowAddress);
-    console.log(`🔗 Đã kết nối FamilyHub <-> VaultCashflow`);
-    console.log(`👉 Cập nhật vào .env: FAMILY_HUB_ADDRESS=${hubAddress}`);
-    console.log(`👉 Cập nhật vào .env: VAULT_CASHFLOW_ADDRESS=${cashflowAddress}\n`);
-
-  } else {
-    // -----------------------------------------------------------------
-    // 3. MÔI TRƯỜNG LOCAL / HARDHAT NETWORK (DEMO TỔNG THỂ)
-    // -----------------------------------------------------------------
-    console.log("🛠️ Triển khai toàn bộ hệ thống trên Hardhat Local Network...");
-
-    const MockTeleporterFactory = await ethers.getContractFactory("MockTeleporterMessenger");
-    const mockTeleporter = await MockTeleporterFactory.deploy();
-    await mockTeleporter.waitForDeployment();
-    const mockTeleporterAddress = await mockTeleporter.getAddress();
-    console.log(`📍 MockTeleporter:  ${mockTeleporterAddress}`);
-
-    const YieldVaultFactory = await ethers.getContractFactory("FamilyYieldVault");
-    const yieldVault = await YieldVaultFactory.deploy(
-      mockTeleporterAddress,
-      ethers.ZeroHash,
-      ethers.ZeroAddress
-    );
-    await yieldVault.waitForDeployment();
-    const yieldVaultAddress = await yieldVault.getAddress();
-    console.log(`📍 FamilyYieldVault: ${yieldVaultAddress}`);
-
-    const cChainBlockchainId = ethers.keccak256(ethers.toUtf8Bytes("Fuji-C-Chain-43113"));
-    const FamilyHubFactory = await ethers.getContractFactory("FamilyHub");
-    const familyHub = await FamilyHubFactory.deploy(
-      deployer.address,
-      mockTeleporterAddress,
-      cChainBlockchainId,
-      yieldVaultAddress
-    );
-    await familyHub.waitForDeployment();
-    const familyHubAddress = await familyHub.getAddress();
-    console.log(`📍 FamilyHub:        ${familyHubAddress}`);
-
-    const VaultCashflowFactory = await ethers.getContractFactory("VaultCashflow");
-    const vaultCashflow = await VaultCashflowFactory.deploy(
-      deployer.address,
-      familyHubAddress,
-      mockTeleporterAddress,
-      cChainBlockchainId,
-      yieldVaultAddress
-    );
-    await vaultCashflow.waitForDeployment();
-    const vaultCashflowAddress = await vaultCashflow.getAddress();
-    console.log(`📍 VaultCashflow:     ${vaultCashflowAddress}`);
-
-    await familyHub.setVaultCashflow(vaultCashflowAddress);
-    console.log(`🔗 Đã liên kết FamilyHub <-> VaultCashflow`);
-
-    // Cập nhật cấu hình liên chuỗi cho YieldVault
-    await yieldVault.updateTeleporterConfig(
-      mockTeleporterAddress,
-      ethers.keccak256(ethers.toUtf8Bytes("Family-L1")),
-      familyHubAddress
-    );
-
-    // Khởi tạo 4 Hũ tiền mẫu đại diện cho 4 cách sử dụng
-    console.log("\n📦 Khởi tạo 4 Hũ mẫu với kiến trúc Hũ Dòng Tiền Hợp Nhất...");
-    const signers = await ethers.getSigners();
-    const guardian1 = signers[1] || deployer;
-    const guardian2 = signers[2] || deployer;
-    const beneficiary1 = signers[3] || deployer;
-
-    // Hũ 1: SHIELD (Bảo vệ & Hưu trí)
-    await familyHub.createCustomVault(
-      "Hũ Báo Hiếu Ông Bà",
-      0, // SHIELD
-      1000, // 10% L1 buffer
-      ethers.parseEther("50"),
-      2,
-      [deployer.address, guardian1.address, guardian2.address],
-      [beneficiary1.address]
-    );
-
-    // Hũ 2: MILESTONE (Việc nhà & Cột mốc)
-    await familyHub.createCustomVault(
-      "Hũ Lì Xì & Việc Nhà Bé Na",
-      1, // MILESTONE
-      1000,
-      0,
-      1,
-      [deployer.address],
-      [beneficiary1.address]
-    );
-
-    // Hũ 3: ROSCA (Họ Hụi Góp Vốn Xoay Vòng)
-    await familyHub.createAdvancedVault(
-      "Quỹ Góp Vốn Họ Hụi Anh Em",
-      2, // ROSCA
-      0, // 100% C-Chain sinh lời
-      0,
-      2,
-      [deployer.address, guardian1.address],
-      [deployer.address, guardian1.address, beneficiary1.address],
-      0,
-      0,
-      7 * 24 * 3600, // 7 ngày/kỳ
-      ethers.parseEther("10") // 10 AVAX mỗi kỳ
-    );
-
-    // Hũ 4: SHARED_GOAL (Mục tiêu chung)
-    await familyHub.createAdvancedVault(
-      "Quỹ Du Lịch Đà Lạt Cả Nhà",
-      3, // SHARED_GOAL
-      2000, // 20% L1 buffer
-      0,
-      2,
-      [deployer.address, guardian1.address],
-      [deployer.address, guardian1.address, beneficiary1.address],
-      ethers.parseEther("200"), // Mục tiêu 200 AVAX
-      Math.floor(Date.now() / 1000) + 90 * 24 * 3600, // Hạn chót 90 ngày
-      0,
-      0
-    );
-
-    console.log("✅ Đã khởi tạo 4 Hũ tiền mẫu thành công (SHIELD, MILESTONE, ROSCA, SHARED_GOAL)!");
-    console.log("\n🎉 Triển khai thử nghiệm toàn diện thành công!");
+  const provider = new ethers.JsonRpcProvider(process.env.FUJI_RPC_URL || "https://api.avax-test.network/ext/bc/C/rpc");
+  if (
+    network.name === "familyL1" ||
+    (await provider.getNetwork()).chainId !== 43113n
+  )
+    throw new Error("FUJI_43113_REQUIRED");
+  const key = process.env.DEPLOYER_PRIVATE_KEY || process.env.CORE_WALLET_PRIVATE_KEY;
+  if (!key) throw new Error("DEPLOYMENT_SIGNER_MISSING");
+  const deployer = new ethers.Wallet(key.startsWith("0x") ? key : `0x${key}`, provider);
+  if (deployer.address.toLowerCase() === "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266") throw new Error("PUBLIC_DEVELOPMENT_SIGNER_FORBIDDEN");
+  const feeCeiling = ethers.parseUnits(
+    process.env.DEPLOY_MAX_FEE_GWEI || "50",
+    "gwei",
+  );
+  const estimatedFees = await provider.getFeeData();
+  const recommended = (estimatedFees.maxFeePerGas || estimatedFees.gasPrice || feeCeiling) * 2n;
+  const maxFee = recommended < feeCeiling ? recommended : feeCeiling;
+  const balance = await provider.getBalance(deployer.address);
+  if (balance < maxFee * 8000000n)
+    throw new Error("INSUFFICIENT_DEPLOYMENT_GAS_BUDGET");
+  const sourceHash = `0x${createHash("sha256")
+    .update(
+      JSON.stringify(
+        await artifacts.getBuildInfo("contracts/FamilyHub.sol:FamilyHub"),
+      ),
+    )
+    .digest("hex")}`;
+  const directory = resolve("deployments", "fuji", sourceHash.slice(2, 18));
+  mkdirSync(directory, { recursive: true });
+  const journalPath = resolve(directory, "journal.json");
+  const journal: any = existsSync(journalPath)
+    ? JSON.parse(readFileSync(journalPath, "utf8"))
+    : {
+        chainId: 43113,
+        deployer: deployer.address,
+        sourceHash,
+        transactions: {},
+        contracts: {},
+      };
+  if (
+    journal.deployer.toLowerCase() !== deployer.address.toLowerCase() ||
+    journal.sourceHash !== sourceHash
+  )
+    throw new Error("JOURNAL_IDENTITY_MISMATCH");
+  const save = () =>
+    writeFileSync(journalPath, JSON.stringify(journal, null, 2) + "\n");
+  const overrides = {
+    maxFeePerGas: maxFee,
+    maxPriorityFeePerGas: estimatedFees.maxPriorityFeePerGas && estimatedFees.maxPriorityFeePerGas < maxFee ? estimatedFees.maxPriorityFeePerGas : maxFee,
+  };
+  const deploy = async (name: string, key: string, args: unknown[]) => {
+    const artifact = await artifacts.readArtifact(name);
+    const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, deployer);
+    let hash = journal.transactions[key];
+    if (!hash) {
+      const contract = await factory.deploy(...args, overrides);
+      hash = contract.deploymentTransaction()!.hash;
+      journal.transactions[key] = hash;
+      save();
+    }
+    const receipt = await provider.waitForTransaction(hash, 1, 180000);
+    if (!receipt || receipt.status !== 1 || !receipt.contractAddress)
+      throw new Error(`DEPLOYMENT_RECEIPT_FAILED:${key}:${hash}`);
+    const address = receipt.contractAddress;
+    const code = await provider.getCode(address);
+    if (code === "0x") throw new Error(`DEPLOYMENT_CODE_MISSING:${key}`);
+    journal.contracts[key] = {
+      address: address as `0x${string}`,
+      transactionHash: hash as `0x${string}`,
+      blockNumber: String(receipt.blockNumber),
+      runtimeCodeHash: ethers.keccak256(code) as `0x${string}`,
+    } satisfies DeploymentContract;
+    save();
+    return factory.attach(address) as any;
+  };
+  const hub = await deploy("FamilyHub", "hub", [
+    deployer.address,
+    ethers.ZeroAddress,
+    ethers.ZeroHash,
+    ethers.ZeroAddress,
+  ]);
+  const cashflow = await deploy("VaultCashflow", "cashflow", [
+    deployer.address,
+    hub.target,
+    ethers.ZeroAddress,
+    ethers.ZeroHash,
+    ethers.ZeroAddress,
+  ]);
+  const forwarder = await deploy("KinetixForwarder", "forwarder", []);
+  for (const [key, method, address] of [
+    ["cashflowWiring", "setVaultCashflow", cashflow.target],
+    ["forwarderWiring", "setTrustedForwarder", forwarder.target],
+  ]) {
+    let hash = journal.transactions[key];
+    if (!hash) {
+      const transaction = await hub[method](address, overrides);
+      hash = transaction.hash;
+      journal.transactions[key] = hash;
+      save();
+    }
+    const receipt = await provider.waitForTransaction(hash, 1, 180000);
+    if (!receipt || receipt.status !== 1)
+      throw new Error(`WIRING_FAILED:${key}:${hash}`);
   }
+  if (
+    (await hub.vaultCashflow()).toLowerCase() !==
+      String(cashflow.target).toLowerCase() ||
+    (await hub.trustedForwarder()).toLowerCase() !==
+      String(forwarder.target).toLowerCase() ||
+    (await cashflow.controller()).toLowerCase() !==
+      String(hub.target).toLowerCase() ||
+    (await hub.crossChainEnabled()) ||
+    (await hub.yieldEnabled()) ||
+    (await hub.deploymentVersion()) !== "2.0.0-t1"
+  )
+    throw new Error("WIRING_VERIFICATION_FAILED");
+  const manifest: DeploymentManifest = validateDeployment({
+    ...JSON.parse(readFileSync(resolve("shared/deployment.json"), "utf8")),
+    enabled: true,
+    status: "verified",
+    chainId: 43113,
+    mode: "single-chain",
+    version: "2.0.0-t1",
+    deploymentBlock: journal.contracts.hub.blockNumber,
+    compiler: "0.8.26",
+    evmVersion: "cancun",
+    sourceHash,
+    admin: deployer.address,
+    contracts: { ...journal.contracts, yieldVault: null },
+    wiring: [
+      journal.transactions.cashflowWiring,
+      journal.transactions.forwarderWiring,
+    ],
+  });
+  writeFileSync(
+    resolve(directory, "manifest.json"),
+    JSON.stringify(manifest, null, 2) + "\n",
+  );
+  // Candidate stays separate until an explicit activation verifies finalized receipts.
+  console.log(
+    JSON.stringify({
+      status: "CANDIDATE_DEPLOYED",
+      manifest: resolve(directory, "manifest.json"),
+      hub: hub.target,
+      chainId: 43113,
+    }),
+  );
+  provider.destroy();
 }
 
 main().catch((error) => {
-  console.error("❌ Lỗi khi triển khai hợp đồng:", error);
+  console.error(
+    "Deployment stopped:",
+    error?.shortMessage || error?.code || error?.message || "UNKNOWN",
+  );
   process.exitCode = 1;
 });

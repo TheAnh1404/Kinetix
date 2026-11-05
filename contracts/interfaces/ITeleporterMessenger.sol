@@ -41,7 +41,7 @@ interface ITeleporterMessenger {
      */
     function sendCrossChainMessage(
         TeleporterMessageInput calldata messageInput
-    ) external returns (uint256);
+    ) external returns (bytes32 messageID);
 }
 
 /**

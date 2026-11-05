@@ -2,6 +2,8 @@ export interface VaultMapping {
   onchainVaultId: number;
   onchainChainId?: number | null;
   onchainHub?: string | null;
+  onchainCreationTx?: string | null;
+  onchainCreationLogIndex?: number | null;
 }
 export function vaultMappingIssue(
   vault: VaultMapping,
@@ -33,6 +35,16 @@ export function vaultMappingIssue(
       code: "VAULT_HUB_MISMATCH",
       message:
         "Hợp đồng đã xác minh của hũ khác hợp đồng trong workspace. Cần đối soát lại trước khi nạp tiền.",
+    };
+  if (
+    !/^0x[0-9a-f]{64}$/i.test(vault.onchainCreationTx || "") ||
+    !Number.isInteger(vault.onchainCreationLogIndex) ||
+    (vault.onchainCreationLogIndex ?? -1) < 0
+  )
+    return {
+      code: "VAULT_EVIDENCE_MISSING",
+      message:
+        "Hũ chưa có receipt tạo hũ để đối soát. Đăng ký bằng giao dịch thật trước khi nạp/rút.",
     };
   return null;
 }
