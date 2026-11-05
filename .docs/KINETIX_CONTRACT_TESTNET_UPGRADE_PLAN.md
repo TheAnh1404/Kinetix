@@ -1,9 +1,10 @@
 # KINETIX — Kế hoạch nâng cấp contract và hoàn thiện testnet
 
 - Ngày lập: 04/11/2026.
-- Trạng thái: kế hoạch triển khai; các hạng mục chưa đánh dấu chưa được thực hiện.
+- Trạng thái cập nhật 05/11/2026: đã triển khai mã nâng cấp trong phạm vi T1 do người dùng chọn; chưa nghiệm thu deployment/E2E Fuji. Xem [hồ sơ bàn giao T1](T1_HANDOVER.md) và [quyết định chính sách](T1_IMPLEMENTATION.md). Các checkbox dưới đây vẫn là cổng nghiệm thu toàn bộ kế hoạch, gồm T2.
 - Căn cứ: [báo cáo rà soát và kiểm thử](../CONTRACT_TESTNET_REVIEW.md).
 - Phạm vi: Solidity, relayer, cấu hình mạng, database mapping, event worker, API và giao diện ký giao dịch.
+- Điều phối tiếp theo: [workflow toàn bộ chức năng](KINETIX_FUNCTIONAL_WORKFLOWS.md) và [roadmap nâng cấp V2](KINETIX_UPGRADE_ROADMAP_V2.md). Hai tài liệu này hệ thống hóa phần tích hợp còn thiếu sau hardening T1; các cổng nghiệm thu contract/T2 dưới đây vẫn được giữ để truy vết.
 - Mục tiêu: nạp/rút đúng hũ, đúng mạng, đúng quyền; bảo toàn tài sản; có bằng chứng giao dịch và quy trình phục hồi.
 
 ## 1. Kết luận hiện trạng

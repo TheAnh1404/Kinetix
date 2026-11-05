@@ -4,6 +4,8 @@ node_modules/
 # Hardhat / Solidity artifacts
 artifacts/
 cache/
+.cache/
+.private/
 typechain-types/
 
 # Environment files
@@ -15,6 +17,7 @@ typechain-types/
 dist/
 build/
 .next/
+.next-t1-check/
 .next-auth/
 out/
 

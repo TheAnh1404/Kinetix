@@ -3,6 +3,10 @@
 Ngày kiểm tra: 04/11/2026. Phạm vi: mã hiện tại trong working tree, RPC cấu hình,
 Fuji chain 43113 và workspace `ea1f9bdc-44b8-454d-a4d6-e2a171b6fd6d`.
 Đây là rà soát kỹ thuật có kiểm thử tái hiện, chưa phải kiểm toán độc lập.
+
+Cập nhật 05/11/2026: mã nâng cấp trong phạm vi T1 đã được triển khai và kiểm thử
+cục bộ. Xem [bàn giao T1](.docs/T1_HANDOVER.md). Chưa có receipt deployment/E2E Fuji;
+các phát hiện bên dưới mô tả phiên bản trước nâng cấp và không phải trạng thái triển khai mới.
 Giữ `docs/` trống theo yêu cầu trước đó; kế hoạch hiện tại nằm tại file này.
 
 ## Kết luận và lỗi 409
