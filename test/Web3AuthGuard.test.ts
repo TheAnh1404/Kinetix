@@ -53,6 +53,8 @@ describe("Web3 transaction identity and receipt boundary", function () {
     };
     globalThis.fetch = (async (path: any) => {
       state.fetches++;
+      if (String(path) === "/api/vaults" && state.syncFailure)
+        return new Response(JSON.stringify({ code: state.syncFailure, error: "Awaiting finality" }), { status: 409 });
       if (
         String(path).includes("/transaction-context") &&
         state.forbiddenResource
@@ -77,6 +79,9 @@ describe("Web3 transaction identity and receipt boundary", function () {
         );
       return new Response(
         JSON.stringify({
+          deploymentVersion: "2.0.0-t1",
+          chainId: 99999,
+          hub,
           workspace: { l1HubAddress: hub },
           hubChainId: 99999,
           networkAllowlistRequired: !!state.requireNetworkAllowlist,
@@ -130,7 +135,9 @@ describe("Web3 transaction identity and receipt boundary", function () {
     const module = { exports: {} };
     new Function("require", "module", "exports", compiled)(
       (name: string) =>
-        name === "viem"
+        name.includes("transactionErrors")
+          ? require("../shared/transactionErrors")
+          : name === "viem"
           ? mockViem
           : name === "@/contracts/abis"
             ? { FAMILY_HUB_ABI: [] }
@@ -141,6 +148,7 @@ describe("Web3 transaction identity and receipt boundary", function () {
                 }
               : {
                   avalancheFamilyL1: chain,
+                  DEPLOYMENT: { version: "2.0.0-t1" },
                   hubChain: chain,
                   avalancheFuji: { ...chain, id: 43113 },
                 },
@@ -296,19 +304,29 @@ describe("Web3 transaction identity and receipt boundary", function () {
   it("blocks a second send for the same resource after broadcast timeout", async () => {
     state.timeout = true;
     const operation = () =>
-      adapter
-        .getWalletClient()
-        .writeContract({
-          address: hub,
-          functionName: "claimChoreCompleted",
-          args: [7n],
-          __kinetixSync: {
-            path: "/api/chores/submit",
-            body: { choreId: "task", attachmentId: "private-file" },
-          },
-        });
+      adapter.getWalletClient().writeContract({
+        address: hub,
+        functionName: "claimChoreCompleted",
+        args: [7n],
+        __kinetixSync: {
+          path: "/api/chores/submit",
+          body: { choreId: "task", attachmentId: "private-file" },
+        },
+      });
     await rejection(operation, txHash);
     await rejection(operation, "Không gửi lại");
+    expect(state.sent).to.equal(1);
+  });
+  it("retries a receipt finality conflict without broadcasting a second transaction", async () => {
+    const hash = await adapter.getWalletClient().writeContract({ address: hub, functionName: "fastWithdraw", args: [7n, 1n], __kinetixSync: { path: "/api/vaults", body: { vaultId: "known-vault", action: "WITHDRAW" }, method: "PATCH" } });
+    state.syncFailure = "RECEIPT_NOT_FINALIZED";
+    await rejection(() => adapter.queueTransactionSync("member", hash, "/api/vaults", { vaultId: "known-vault", action: "WITHDRAW", txHash: hash }, "PATCH"), hash);
+    expect(adapter.pendingTransactions("member")[0].sync.status).to.equal("PENDING");
+    await adapter.reconcileTransactions("member");
+    expect(adapter.pendingTransactions("member")[0].sync.status).to.equal("PENDING");
+    state.syncFailure = null;
+    await adapter.reconcileTransactions("member");
+    expect(adapter.pendingTransactions("member")[0].sync.status).to.equal("DONE");
     expect(state.sent).to.equal(1);
   });
   it("serializes double-click writes before any asynchronous identity request", async () => {

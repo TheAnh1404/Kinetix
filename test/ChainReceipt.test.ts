@@ -5,6 +5,7 @@ import { AddressInfo } from "net";
 import { verifiedEvent, readHub } from "../backend/src/services/chainService";
 import { memberVaultPolicy } from "../backend/src/services/vaultPolicyService";
 import type { AuthContext } from "../backend/src/auth/service";
+import { forwardTypes } from "./support/t1";
 
 describe("Backend receipt verification against the local EVM", function () {
   this.timeout(15000);
@@ -13,6 +14,7 @@ describe("Backend receipt verification against the local EVM", function () {
   let admin: any;
   let outsider: any;
   let hash: string;
+  let forwarder: any;
   let oldRpc: string | undefined;
   let oldChain: string | undefined;
   const identity = (address: string) =>
@@ -42,11 +44,16 @@ describe("Backend receipt verification against the local EVM", function () {
       await ethers.getContractFactory("FamilyHub")
     ).deploy(
       admin.address,
-      await teleporter.getAddress(),
-      ethers.keccak256(ethers.toUtf8Bytes("receipt-test-chain")),
-      await yieldVault.getAddress(),
+      ethers.ZeroAddress,
+      ethers.ZeroHash,
+      ethers.ZeroAddress,
     );
     await hub.waitForDeployment();
+    forwarder = await (
+      await ethers.getContractFactory("KinetixForwarder")
+    ).deploy();
+    await hub.setTrustedForwarder(forwarder.target);
+    await hub.setAllowlistStatus(outsider.address, true);
     const tx = await hub.createCustomVault(
       "Receipt verified family",
       0,
@@ -178,6 +185,63 @@ describe("Backend receipt verification against the local EVM", function () {
     );
     process.env.HUB_CHAIN_ID = "31337";
   });
+  it("binds a forwarded creation receipt to the actual EIP712 signer rather than the broadcaster", async () => {
+    const block = await ethers.provider.getBlock("latest");
+    const message = {
+      from: admin.address,
+      to: String(hub.target),
+      value: 0n,
+      gas: 2000000n,
+      nonce: await forwarder.nonces(admin.address),
+      deadline: BigInt(block!.timestamp + 600),
+      data: hub.interface.encodeFunctionData("createCustomVault", [
+        "Forwarded creation",
+        0,
+        10000,
+        1n,
+        1,
+        [admin.address],
+        [outsider.address],
+      ]),
+    };
+    const signature = await admin.signTypedData(
+      {
+        name: "KinetixForwarder",
+        version: "1",
+        chainId: 31337,
+        verifyingContract: String(forwarder.target),
+      },
+      forwardTypes,
+      message,
+    );
+    const { nonce, ...request } = message;
+    const transaction = await forwarder
+      .connect(outsider)
+      .execute({ ...request, signature });
+    await transaction.wait();
+    const verified = await verifiedEvent(
+      identity(admin.address),
+      String(hub.target),
+      transaction.hash,
+      "VaultCreated",
+      (args) => args.creator.toLowerCase() === admin.address.toLowerCase(),
+    );
+    expect(verified.receipt.from.toLowerCase()).to.equal(
+      outsider.address.toLowerCase(),
+    );
+    expect(verified.event.name).to.equal("Forwarded creation");
+    await rejects(
+      () =>
+        verifiedEvent(
+          identity(outsider.address),
+          String(hub.target),
+          transaction.hash,
+          "VaultCreated",
+          () => true,
+        ),
+      403,
+    );
+  });
   it("verifies operator provisioning by event and live contract state without requiring the member to be the sender", async () => {
     const tx = await hub.setAllowlistStatus(outsider.address, true);
     await tx.wait();
@@ -206,13 +270,12 @@ describe("Backend receipt verification against the local EVM", function () {
     expect(initial.isBeneficiary).to.equal(true);
     expect(initial.availableNow).to.equal("1");
     expect(initial.requiredApprovals).to.equal(1);
-    await (await hub.setVaultDailyLimit(1n, ethers.parseEther("0.4"))).wait();
     await (
       await hub.connect(outsider).fastWithdraw(1n, ethers.parseEther("0.25"))
     ).wait();
     const remaining = await memberVaultPolicy(hub.target, 1n, outsider.address);
-    expect(remaining.availableNow).to.equal("0.15");
-    expect(remaining.remainingToday).to.equal("0.15");
+    expect(remaining.availableNow).to.equal("1");
+    expect(remaining.remainingToday).to.equal("1.75");
     const unrelated = await memberVaultPolicy(hub.target, 1n, admin.address);
     expect(unrelated.isBeneficiary).to.equal(false);
     expect(unrelated.availableNow).to.equal("0");

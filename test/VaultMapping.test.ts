@@ -3,7 +3,13 @@ import { vaultMappingIssue } from "../shared/vaultMapping";
 
 describe("Financial vault mapping guard", () => {
   const hub = `0x${"a".repeat(40)}`;
-  const vault = { onchainVaultId: 1, onchainChainId: 43113, onchainHub: hub };
+  const vault = {
+    onchainVaultId: 1,
+    onchainChainId: 43113,
+    onchainHub: hub,
+    onchainCreationTx: `0x${"1".repeat(64)}`,
+    onchainCreationLogIndex: 0,
+  };
   it("keeps seeded/unverified vaults and ID zero blocked before signing", () => {
     expect(
       vaultMappingIssue(
