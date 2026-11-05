@@ -11,8 +11,9 @@ import {
   pgEnum,
   uniqueIndex,
   index,
+  jsonb,
 } from "drizzle-orm/pg-core";
-import { relations, InferSelectModel, InferInsertModel } from "drizzle-orm";
+import { relations, InferSelectModel, InferInsertModel, sql } from "drizzle-orm";
 
 // =================================================================
 // 1. ENUMS
@@ -62,6 +63,7 @@ export const choreStatusEnum = pgEnum("chore_status", [
   "SUBMITTED", // Con đã nộp báo cáo kèm ảnh minh chứng
   "VERIFIED", // Bố mẹ đã duyệt hoàn thành
   "REWARDED", // Đã chuyển tiền thưởng từ hũ MILESTONE về ví con
+  "CANCELLED", // Hủy nhiệm vụ, đã giải phóng khoản giữ chỗ
 ]);
 
 // =================================================================
@@ -152,6 +154,8 @@ export const vaults = pgTable(
     onchainVaultId: integer("onchain_vault_id").notNull(),
     onchainHub: varchar("onchain_hub", { length: 42 }),
     onchainChainId: integer("onchain_chain_id"),
+    onchainCreationTx: varchar("onchain_creation_tx", { length: 66 }),
+    onchainCreationLogIndex: integer("onchain_creation_log_index"),
     name: text("name").notNull(),
     description: text("description"),
     ruleTemplate: ruleTemplateEnum("rule_template").notNull(),
@@ -198,6 +202,9 @@ export const vaults = pgTable(
       withTimezone: true,
     }),
     isActive: boolean("is_active").default(true).notNull(),
+    asOfBlock: bigint("as_of_block", { mode: "bigint" }),
+    asOfBlockHash: varchar("as_of_block_hash", { length: 66 }),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -207,6 +214,12 @@ export const vaults = pgTable(
       table.onchainChainId,
       table.onchainHub,
       table.onchainVaultId,
+    ),
+    creationEventUnique: uniqueIndex("vault_creation_event_unique").on(
+      table.onchainChainId,
+      table.onchainHub,
+      table.onchainCreationTx,
+      table.onchainCreationLogIndex,
     ),
   }),
 );
@@ -537,6 +550,8 @@ export const authChallenges = pgTable("auth_challenges", {
   message: text("message").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  signatureHash: varchar("signature_hash", { length: 64 }),
+  signatureVerifiedAt: timestamp("signature_verified_at", { withTimezone: true }),
 });
 export const guardianMemberLinks = pgTable(
   "guardian_member_links",
@@ -606,6 +621,8 @@ export const provisioningRequests = pgTable(
       .notNull(),
     chainId: integer("chain_id").notNull(),
     status: text("status").default("PENDING").notNull(),
+    hub: varchar("hub", { length: 42 }),
+    deploymentRef: text("deployment_ref").default("legacy").notNull(),
     txHash: varchar("tx_hash", { length: 66 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -616,6 +633,7 @@ export const provisioningRequests = pgTable(
       table.userId,
       table.workspaceId,
       table.chainId,
+      table.deploymentRef,
     ),
   }),
 );
@@ -696,3 +714,269 @@ export const activityCursors = pgTable("activity_cursors", {
   id: text("id").primaryKey(),
   nextBlock: bigint("next_block", { mode: "bigint" }).notNull(),
 });
+
+// Nhật ký bền vững: payload từ RPC, không dùng status/amount client làm bằng chứng chi tiền.
+export const financialOperations = pgTable("financial_operations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id).notNull(),
+  deploymentRef: text("deployment_ref").notNull(),
+  chainId: integer("chain_id").notNull(),
+  hub: varchar("hub", { length: 42 }).notNull(),
+  txHash: varchar("tx_hash", { length: 66 }).notNull(),
+  sender: varchar("sender", { length: 42 }).notNull(),
+  nonce: text("nonce").notNull(),
+  functionName: text("function_name").notNull(),
+  calldata: text("calldata").notNull(),
+  amountWei: text("amount_wei").notNull(),
+  asset: text("asset").default("AVAX").notNull(),
+  recipient: varchar("recipient", { length: 42 }),
+  resourceType: text("resource_type"),
+  resourceId: text("resource_id"),
+  status: text("status").default("BROADCAST").notNull(),
+  blockNumber: bigint("block_number", { mode: "bigint" }),
+  blockHash: varchar("block_hash", { length: 66 }),
+  syncIntent: jsonb("sync_intent").$type<{ path: string; method: string; body: Record<string, unknown> }>(),
+  lastErrorCode: text("last_error_code"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({ chainTransaction: uniqueIndex("financial_operation_chain_tx_unique").on(table.chainId, table.hub, table.txHash), personal: index("financial_operation_personal").on(table.userId, table.workspaceId, table.createdAt) }));
+
+export const chainEvents = pgTable("chain_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  chainId: integer("chain_id").notNull(),
+  hub: varchar("hub", { length: 42 }).notNull(),
+  txHash: varchar("tx_hash", { length: 66 }).notNull(),
+  logIndex: integer("log_index").notNull(),
+  blockNumber: bigint("block_number", { mode: "bigint" }).notNull(),
+  blockHash: varchar("block_hash", { length: 66 }).notNull(),
+  eventName: text("event_name").notNull(),
+  payload: jsonb("payload").notNull(),
+  indexedAt: timestamp("indexed_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({ eventUnique: uniqueIndex("chain_event_identity_unique").on(table.chainId, table.hub, table.txHash, table.logIndex) }));
+
+export const walletRecoveries = pgTable("wallet_recoveries", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  oldWallet: varchar("old_wallet", { length: 42 }).notNull(),
+  newWallet: varchar("new_wallet", { length: 42 }).notNull().unique(),
+  deploymentRef: text("deployment_ref").notNull(),
+  proofChallengeId: uuid("proof_challenge_id").references(() => authChallenges.id).notNull().unique(),
+  status: text("status").default("PROVEN").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+}, (table) => ({ activeUser: uniqueIndex("recovery_one_active_per_user").on(table.userId).where(sql`${table.completedAt} is null`) }));
+export const recoverySteps = pgTable("recovery_steps", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  recoveryId: uuid("recovery_id").references(() => walletRecoveries.id).notNull(),
+  vaultId: uuid("vault_id").references(() => vaults.id).notNull(),
+  epoch: text("epoch").notNull(),
+  requiredApprovals: integer("required_approvals").notNull(),
+  status: text("status").default("PENDING").notNull(),
+  txHash: varchar("tx_hash", { length: 66 }),
+  appliedEpoch: text("applied_epoch"),
+}, (table) => ({ recoveryVault: uniqueIndex("recovery_step_vault_unique").on(table.recoveryId, table.vaultId) }));
+export const walletHistory = pgTable("wallet_history", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  address: varchar("address", { length: 42 }).notNull().unique(),
+  recoveryId: uuid("recovery_id").references(() => walletRecoveries.id).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// =================================================================
+// 5. PHÂN HỆ CÀI ĐẶT & QUẢN LÝ (HYBRID WEB2 + WEB3 SETTINGS)
+// =================================================================
+
+/**
+ * @notice Cài đặt cá nhân & Chế độ hiển thị (Lite Mode vs Pro Mode)
+ */
+export const userPreferences = pgTable("user_preferences", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull()
+    .unique(),
+  uiMode: varchar("ui_mode", { length: 10 }).default("LITE").notNull(), // 'LITE' | 'PRO'
+  defaultCurrency: varchar("default_currency", { length: 10 })
+    .default("VND")
+    .notNull(), // 'VND' | 'USD' | 'AVAX'
+  preferredNetwork: varchar("preferred_network", { length: 20 })
+    .default("TESTNET")
+    .notNull(), // 'MAINNET' | 'TESTNET'
+  gasPreference: varchar("gas_preference", { length: 20 })
+    .default("SPONSORED")
+    .notNull(), // 'SPONSORED' | 'STABLECOIN' | 'NATIVE'
+  privacyHideBalance: boolean("privacy_hide_balance").default(false).notNull(),
+  notificationConfig: jsonb("notification_config").default({}).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+/**
+ * @notice Quản lý Danh sách Ví Lai (Embedded MPC, Core Wallet, MetaMask)
+ */
+export const linkedWallets = pgTable(
+  "linked_wallets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    walletAddress: varchar("wallet_address", { length: 42 }).notNull(),
+    walletType: varchar("wallet_type", { length: 30 })
+      .default("EXTERNAL_CORE")
+      .notNull(), // 'EMBEDDED_MPC' | 'EXTERNAL_CORE' | 'EXTERNAL_METAMASK'
+    isPrimaryReceiving: boolean("is_primary_receiving").default(false).notNull(),
+    chainId: integer("chain_id").default(43113).notNull(),
+    label: text("label"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    userPrimaryIdx: index("linked_wallets_user_primary").on(
+      table.userId,
+      table.isPrimaryReceiving,
+    ),
+    userAddressUnique: uniqueIndex("linked_wallets_user_address").on(
+      table.userId,
+      table.walletAddress,
+    ),
+  }),
+);
+
+/**
+ * @notice Phân quyền & Hạn mức Chi tiêu Quỹ Chung (Programmable Allowances)
+ */
+export const memberAllowancePolicies = pgTable(
+  "member_allowance_policies",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .references(() => workspaces.id, { onDelete: "cascade" })
+      .notNull(),
+    memberUserId: uuid("member_user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    walletAddress: varchar("wallet_address", { length: 42 }),
+    role: varchar("role", { length: 20 }).default("SPENDER").notNull(), // 'ADMIN' | 'SPENDER' | 'DEPENDENT' | 'AI_AGENT'
+    dailyLimitAmount: decimal("daily_limit_amount", {
+      precision: 38,
+      scale: 18,
+    })
+      .default("50")
+      .notNull(),
+    autoApproveThreshold: decimal("auto_approve_threshold", {
+      precision: 38,
+      scale: 18,
+    })
+      .default("10")
+      .notNull(),
+    allowedCategories: jsonb("allowed_categories")
+      .default(["FOOD", "EDUCATION", "HEALTHCARE"])
+      .notNull(),
+    isFrozen: boolean("is_frozen").default(false).notNull(), // Khóa khẩn cấp Emergency Freeze
+    onchainSyncStatus: varchar("onchain_sync_status", { length: 30 })
+      .default("SYNCED")
+      .notNull(), // 'SYNCED' | 'PENDING_SIGNATURE' | 'OUT_OF_SYNC'
+    lastTxHash: varchar("last_tx_hash", { length: 66 }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    wsMemberUnique: uniqueIndex("member_allowance_ws_member").on(
+      table.workspaceId,
+      table.memberUserId,
+    ),
+  }),
+);
+
+/**
+ * @notice Quản lý Phiên Ký Tự Động & Session Keys (Cấp cho AI Agent / Lịch định kỳ)
+ */
+export const sessionKeysAndApprovals = pgTable(
+  "session_keys_and_approvals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    workspaceId: uuid("workspace_id")
+      .references(() => workspaces.id, { onDelete: "cascade" })
+      .notNull(),
+    sessionKeyAddress: varchar("session_key_address", { length: 42 }).notNull(),
+    label: text("label").default("AI Agent Automation Key").notNull(),
+    permissionsScope: jsonb("permissions_scope").default({}).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    isRevoked: boolean("is_revoked").default(false).notNull(),
+    revokeTxHash: varchar("revoke_tx_hash", { length: 66 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    userWsIdx: index("session_keys_user_ws").on(
+      table.userId,
+      table.workspaceId,
+    ),
+  }),
+);
+
+/**
+ * @notice Nhật Ký Hoạt Động Kép (Dual Audit Logs: Web2 DB + On-chain Smart Contract)
+ */
+export const settingsAuditLogs = pgTable(
+  "settings_audit_logs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    actorId: uuid("actor_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    workspaceId: uuid("workspace_id")
+      .references(() => workspaces.id, { onDelete: "cascade" })
+      .notNull(),
+    actionType: varchar("action_type", { length: 50 }).notNull(), // 'UPDATE_ALLOWANCE' | 'FREEZE_MEMBER' | 'REVOKE_SESSION' | 'SWITCH_PRIMARY_WALLET' | 'UPDATE_PREFERENCES'
+    layer: varchar("layer", { length: 20 }).default("OFF_CHAIN").notNull(), // 'OFF_CHAIN' | 'ON_CHAIN' | 'HYBRID_DUAL'
+    metadataDiff: jsonb("metadata_diff").default({}).notNull(),
+    txHash: varchar("tx_hash", { length: 66 }),
+    status: varchar("status", { length: 30 }).default("COMPLETED").notNull(), // 'COMPLETED' | 'PENDING_CONFIRMATION' | 'FAILED'
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    wsCreatedIdx: index("settings_audit_ws_created").on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+    actorCreatedIdx: index("settings_audit_actor_created").on(
+      table.actorId,
+      table.createdAt,
+    ),
+  }),
+);
+
+// Type inferences cho phân hệ Settings & Management
+export type UserPreference = InferSelectModel<typeof userPreferences>;
+export type NewUserPreference = InferInsertModel<typeof userPreferences>;
+
+export type LinkedWallet = InferSelectModel<typeof linkedWallets>;
+export type NewLinkedWallet = InferInsertModel<typeof linkedWallets>;
+
+export type MemberAllowancePolicy = InferSelectModel<typeof memberAllowancePolicies>;
+export type NewMemberAllowancePolicy = InferInsertModel<typeof memberAllowancePolicies>;
+
+export type SessionKeyAndApproval = InferSelectModel<typeof sessionKeysAndApprovals>;
+export type NewSessionKeyAndApproval = InferInsertModel<typeof sessionKeysAndApprovals>;
+
+export type SettingsAuditLog = InferSelectModel<typeof settingsAuditLogs>;
+export type NewSettingsAuditLog = InferInsertModel<typeof settingsAuditLogs>;

@@ -22,6 +22,48 @@
       "when": 1793790000000,
       "tag": "0002_member_experience",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793836800000,
+      "tag": "0003_t1_vault_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793840400000,
+      "tag": "0004_v2_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793900000000,
+      "tag": "0004_settings_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793900100000,
+      "tag": "0005_chain_projection",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793900200000,
+      "tag": "0006_wallet_recovery",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793900300000,
+      "tag": "0007_operation_metadata",
+      "breakpoints": true
     }
   ]
 }
