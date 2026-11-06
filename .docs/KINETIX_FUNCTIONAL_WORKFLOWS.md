@@ -2,7 +2,7 @@
 
 Ngày đối chiếu: 05/11/2026. Phạm vi: working tree hiện tại, gồm nâng cấp T1 chưa deploy.
 Tài liệu này mô tả hành vi trong mã và luồng cần hoàn thiện; không xác nhận đã chạy E2E Fuji.
-Kế hoạch thực thi: [Roadmap nâng cấp V2](KINETIX_UPGRADE_ROADMAP_V2.md).
+Kế hoạch thực thi hiện hành: [lần đầu sử dụng](../docs/FIRST_USE_PLAN.md).
 
 ## 1. Phạm vi sản phẩm và trạng thái
 

@@ -224,4 +224,4 @@ Luồng chuẩn: `simulate → ký → broadcast → receipt thành công → de
 
 Các bất biến cần được test: chi đúng policy; tổng nghĩa vụ được bảo chứng bằng tài sản hợp lệ; mỗi request trả đúng một lần; dự trữ không âm; một event chỉ tác động một lần; tenant không truy cập chéo; signer khôi phục không giữ quyền của địa chỉ cũ.
 
-Kế hoạch có thứ tự, phụ thuộc và tiêu chí nghiệm thu nằm trong [KINETIX_UPGRADE_PLAN.md](KINETIX_UPGRADE_PLAN.md).
+Các kế hoạch phiên cũ đã được gộp. Kế hoạch hiện hành và phạm vi tiếp tục nằm trong [FIRST_USE_PLAN.md](FIRST_USE_PLAN.md); báo cáo này giữ làm bằng chứng rà soát lịch sử.

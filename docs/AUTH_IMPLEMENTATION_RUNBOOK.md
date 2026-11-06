@@ -1,6 +1,6 @@
 # AUTH implementation and cutover runbook
 
-Updated: 2026-11-04. Implements `KINETIX_AUTH_PLAN.md`.
+Updated: 2026-11-05. Current scope and first-use delivery: [FIRST_USE_PLAN.md](FIRST_USE_PLAN.md).
 
 ## Delivery status
 
@@ -8,11 +8,11 @@ Application code, migration, HTTP acceptance tests, transaction adapter and UI a
 
 Verified here: native Argon2id, exact usernames, opaque secrets, SIWE binding, HTTP guards, BFF and transaction adapter tests; contract suites and backend receipt verification against the local Hardhat EVM; backend/frontend TypeScript and Next production compilation.
 
-Latest local result: **25 auth/BFF/Web3 tests + 43 contract/receipt tests passed**. Backend/frontend typecheck and production build passed. A production HTTP render of `/login` returned 200 with the username form and Core option. **13 PostgreSQL acceptance cases remain pending**; real browser/Core QA is still required.
+Historical auth delivery checks passed locally. For current test counts, first-use behavior and pending acceptance, see [FIRST_USE_PLAN.md](FIRST_USE_PLAN.md). Real browser/Core QA is still required.
 
 Not verified here:
 
-- PostgreSQL migration/acceptance: no isolated `TEST_DATABASE_URL` was provided. The application database was not modified.
+- Hosted/staging PostgreSQL acceptance remains separate. Local isolated PostgreSQL acceptance now passes via `npm run test:auth:local` (96 cases); PostgreSQL + local EVM verification passes via `npm run test:v2:local` (10 checks). See the current plan for reproducible setup. Application migrations 0006–0008 were applied separately after a data snapshot to fix missing registration tables.
 - Browser screenshots, responsive QA and real Core-extension interaction: browser access host was unavailable.
 - Live L1 genesis/precompile configuration, deployed ownership and production RPC/network addresses.
 

@@ -3,6 +3,24 @@
 ## Trải nghiệm thành viên hiện tại — 04/11/2026
 
 **Trạng thái contract/testnet:** xem [báo cáo và kế hoạch nâng cấp](CONTRACT_TESTNET_REVIEW.md).
+Kế hoạch hiện hành: [hoàn thiện lần đầu sử dụng cho tài khoản mới](docs/FIRST_USE_PLAN.md).
+Đã triển khai [thiết kế lại tạo hũ và tích hợp nghiệp vụ–contract](docs/VAULT_CREATION_PLAN.md):
+wizard bốn bước dùng chung cho `/start` và dashboard, lưu/mở lại bản nháp, kiểm tra
+thành viên/quy tắc/phí trước ký, theo dõi receipt và khôi phục đồng bộ theo hash cũ.
+Migration `0010_vault_creation_drafts` bổ sung bảng bản nháp riêng, không sửa ledger.
+Tạo hũ và nạp tiền là hai giao dịch; ROSCA giữ đúng thứ tự nhận, MILESTONE chỉ giao
+việc cho người thụ hưởng khác Guardian. Manifest chưa enable vẫn cho lưu nháp;
+ký Fuji/Core thực cần deployment đã xác minh. Kết quả kiểm thử nằm trong tài liệu trên.
+Màn Bắt đầu riêng tại `/start` xuất hiện trước dashboard cho tài khoản mới; có lưu
+tiến độ, thiết lập sau và mở lại từ dashboard. Migration `0009_workspace_onboarding`
+giữ người dùng cũ ở trạng thái LEGACY, không ép xem lại. Có lối nhận lời mời riêng tại
+`/login?mode=invite`. Backend phân biệt kích hoạt tài khoản với quyền giao dịch;
+deployment chưa xác minh vẫn cho dùng tài khoản và quản lý gia đình. Hướng dẫn chạy
+kiểm thử PostgreSQL cô lập và kết quả bàn giao nằm trong kế hoạch trên.
+Sau cập nhật mã, chạy `npm run db:check` để kiểm tra bảng/cột còn thiếu và
+`npm run db:migrate` để áp dụng migration. Migration `0008` bổ sung bảng lời mời
+cho database legacy từng nâng cấp auth không đầy đủ; không chạy lại migration auth cũ
+hoặc reset database để xử lý lỗi đăng ký `DATABASE_SCHEMA_OUTDATED`.
 Rà soát đã xác nhận cấu hình/mapping hũ hiện tại chưa sẵn sàng nạp testnet và
 các lỗi chính sách/dòng tiền cần sửa trước deployment. Có thể kiểm tra chỉ đọc
 bằng `npm run check:testnet -- --workspace <UUID>`; lệnh không tự sửa mapping.
