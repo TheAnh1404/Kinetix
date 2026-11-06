@@ -980,3 +980,34 @@ export type NewSessionKeyAndApproval = InferInsertModel<typeof sessionKeysAndApp
 
 export type SettingsAuditLog = InferSelectModel<typeof settingsAuditLogs>;
 export type NewSettingsAuditLog = InferInsertModel<typeof settingsAuditLogs>;
+
+// Presentation progress only: never used as financial authorization.
+export const workspaceOnboarding = pgTable("workspace_onboarding", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }).notNull(),
+  membershipId: uuid("membership_id").references(() => workspaceMembers.id, { onDelete: "cascade" }).notNull(),
+  flowVersion: integer("flow_version").notNull(),
+  status: text("status").notNull(),
+  lastStep: text("last_step").notNull(),
+  revision: integer("revision").default(0).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  deferredAt: timestamp("deferred_at", { withTimezone: true }),
+}, (table) => ({ userWorkspaceVersion: uniqueIndex("workspace_onboarding_user_ws_version").on(table.userId, table.workspaceId, table.flowVersion) }));
+
+export const vaultCreationDrafts = pgTable("vault_creation_drafts", {
+  id: uuid("id").primaryKey(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }).notNull(),
+  config: jsonb("config").$type<import("../../../shared/vaultCreation").VaultForm>().notNull(),
+  step: integer("step").default(1).notNull(),
+  revision: integer("revision").default(0).notNull(),
+  preflight: jsonb("preflight").$type<import("../services/vaultCreationService").CreationPreflight>(),
+  sendAttemptId: uuid("send_attempt_id"),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  txHash: varchar("tx_hash", { length: 66 }),
+  vaultId: uuid("vault_id").references(() => vaults.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({ actorWorkspace: index("vault_creation_actor_workspace").on(table.userId, table.workspaceId, table.updatedAt), transaction: uniqueIndex("vault_creation_transaction").on(table.txHash) }));
