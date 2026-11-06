@@ -15,6 +15,13 @@ mocha.addFile("test/MemberExperience.test.ts");
 mocha.addFile("test/MemberRender.test.ts");
 mocha.addFile("test/MemberRecovery.test.ts");
 mocha.addFile("test/VaultMapping.test.ts");
+mocha.addFile("test/V2Policy.test.ts");
+mocha.addFile("test/FirstUse.test.ts");
+mocha.addFile("test/FirstUseService.test.ts");
+mocha.addFile("test/StartFlow.test.ts");
+mocha.addFile("test/StartRouting.test.ts");
+mocha.addFile("test/VaultCreation.test.ts");
+mocha.addFile("test/VaultCreationRender.test.ts");
 mocha.run((failures) => {
   process.exitCode = failures ? 1 : 0;
 });

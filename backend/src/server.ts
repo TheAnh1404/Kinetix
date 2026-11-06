@@ -10,6 +10,9 @@ import { apiRouter } from "./routes/apiRoutes";
 import { memberRouter } from "./routes/memberRoutes";
 import { operationRouter } from "./routes/operationRoutes";
 import { settingsRouter } from "./routes/settingsRoutes";
+import { firstUseRouter } from "./routes/firstUseRoutes";
+import { START_FLOW_VERSION } from "../../shared/startFlow";
+import { vaultCreationRouter } from "./routes/vaultCreationRoutes";
 import * as dotenv from "dotenv";
 
 dotenv.config();
@@ -26,11 +29,11 @@ app.use((_req, res, next) => {
 });
 app.use("/api", originGuard, express.json({ limit: "1mb" }));
 app.get("/api/health", (_req, res) =>
-  res.json({ success: true, status: "ok" }),
+  res.json({ success: true, status: "ok", startFlowVersion: START_FLOW_VERSION }),
 );
 app.use("/api/auth", authRouter);
 app.use("/api/settings", authenticated, fullSession, settingsRouter);
-app.use("/api", authenticated, fullSession, operationRouter, memberRouter, apiRouter);
+app.use("/api", authenticated, fullSession, vaultCreationRouter, firstUseRouter, operationRouter, memberRouter, apiRouter);
 app.get("/health", (_req, res) =>
   res.json({ status: "ok", service: "Kinetix API" }),
 );

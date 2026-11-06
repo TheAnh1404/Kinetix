@@ -51,8 +51,28 @@ describe("Web3 transaction identity and receipt boundary", function () {
       },
       dispatchEvent: () => {},
     };
-    globalThis.fetch = (async (path: any) => {
+    globalThis.fetch = (async (path: any, options: any) => {
       state.fetches++;
+      if (String(path).endsWith("/claim")) {
+        state.claims = (state.claims || 0) + 1;
+        if (state.claimConflict) return Response.json({ error: "Another tab claimed this draft" }, { status: 409 });
+        return Response.json({ intent: { data: state.changedClaim ? "0x9999" : "0x1234" } });
+      }
+      if (String(path).endsWith("/rejected")) { state.releases = (state.releases || 0) + 1; return Response.json({ success: true }); }
+      if (String(path).startsWith("/api/operations?") && state.operations)
+        return Response.json({ operations: state.operations });
+      if (String(path) === "/api/operations" && state.operation) {
+        state.operationWrites = (state.operationWrites || 0) + 1;
+        return Response.json({ operation: state.operation });
+      }
+      if (String(path).endsWith("/reconcile") && state.operation)
+        return Response.json({ operation: state.operation });
+      if (String(path).endsWith("/complete") && state.operation) {
+        state.completions = (state.completions || 0) + 1;
+        if (state.completionFailure) return Response.json({ code: "RPC_UNAVAILABLE" }, { status: 503 });
+        return Response.json({ operation: { ...state.operation, status: "COMPLETED" } });
+      }
+      if (String(path) === "/api/vaults") state.businessSyncs = (state.businessSyncs || 0) + 1;
       if (String(path) === "/api/vaults" && state.syncFailure)
         return new Response(JSON.stringify({ code: state.syncFailure, error: "Awaiting finality" }), { status: 409 });
       if (
@@ -71,8 +91,8 @@ describe("Web3 transaction identity and receipt boundary", function () {
               : {
                   onboarding: "READY",
                   linkedWallet: { address },
-                  user: { id: "member" },
-                  workspaces: [{ id: "workspace", role: "CHILD" }],
+                  user: { id: state.userId || "member" },
+                  workspaces: [{ id: "workspace", role: state.creating ? "ADMIN" : "CHILD" }],
                 },
           ),
           { status: state.revoked ? 401 : 200 },
@@ -80,6 +100,7 @@ describe("Web3 transaction identity and receipt boundary", function () {
       return new Response(
         JSON.stringify({
           deploymentVersion: "2.0.0-t1",
+          creationIntent: { data: state.changedIntent ? "0x9999" : "0x1234" },
           chainId: 99999,
           hub,
           workspace: { l1HubAddress: hub },
@@ -92,10 +113,12 @@ describe("Web3 transaction identity and receipt boundary", function () {
       );
     }) as typeof fetch;
     const mockViem = {
+      encodeFunctionData: () => "0x1234",
       http: () => ({}),
       custom: () => ({}),
       createWalletClient: () => ({
         writeContract: async () => {
+          if (state.signError) throw state.signError;
           state.sent++;
           return txHash;
         },
@@ -169,6 +192,10 @@ describe("Web3 transaction identity and receipt boundary", function () {
       functionName: "fastWithdraw",
       args: [7n, 1n],
     });
+  const create = (onProgress?: (phase: any) => void) => {
+    state.creating = true;
+    return adapter.getWalletClient().writeContract({ address: hub, functionName: "createCustomVault", args: ["Family fund"], __kinetixSync: { path: "/api/vaults", body: { workspaceId: "workspace", draftId: "00000000-0000-4000-8000-000000000001" } }, __kinetixProgress: onProgress });
+  };
   const rejection = async (
     operation: () => Promise<unknown>,
     contains: string,
@@ -181,6 +208,35 @@ describe("Web3 transaction identity and receipt boundary", function () {
     }
     expect(error?.message).to.include(contains);
   };
+  it("binds creation calldata before prompting and claims a draft once before broadcast", async () => {
+    const phases: string[] = [];
+    await create((value) => phases.push(value.status));
+    expect(state.claims).to.equal(1);
+    expect(state.sent).to.equal(1);
+    expect(phases).to.deep.equal(["PRECHECK", "AWAITING_SIGNATURE", "BROADCAST", "CONFIRMED"]);
+    expect(adapter.pendingTransactions("member")[0].sync.body.draftId).to.equal("00000000-0000-4000-8000-000000000001");
+  });
+  it("blocks creation after another tab claims the draft or its intent changes", async () => {
+    state.claimConflict = true;
+    await rejection(create, "Another tab");
+    expect(state.sent).to.equal(0);
+    state.claimConflict = false; state.changedIntent = true;
+    await rejection(create, "Cấu hình");
+    expect(state.sent).to.equal(0);
+    state.changedIntent = false; state.changedClaim = true;
+    await rejection(create, "Cấu hình");
+    expect(state.sent).to.equal(0);
+    expect(state.releases).to.equal(1);
+  });
+  it("releases a rejected signature but retains an uncertain wallet attempt for recovery", async () => {
+    state.signError = { message: "Wallet rejected", cause: { code: 4001 } };
+    await rejection(create, "Wallet rejected");
+    expect(state.releases).to.equal(1);
+    state.signError = new Error("Connection lost");
+    await rejection(create, "Connection lost");
+    expect(state.releases).to.equal(1);
+    expect(state.sent).to.equal(0);
+  });
   it("blocks a connected account different from the persisted linked wallet", async () => {
     state.address = `0x${"d".repeat(40)}`;
     await rejection(write, "không khớp");
@@ -334,6 +390,60 @@ describe("Web3 transaction identity and receipt boundary", function () {
     await rejection(write, "đang chờ xác nhận");
     await first;
     expect(state.sent).to.equal(1);
+  });
+  it("retries server journal completion after business sync without repeating the write or sync", async () => {
+    state.operation = { id: "operation", status: "SYNC_PENDING" };
+    state.completionFailure = true;
+    const hash = await write();
+    await adapter.queueTransactionSync("member", hash, "/api/vaults", { txHash: hash }, "PATCH");
+    expect(state.completions).to.equal(1);
+    expect(adapter.pendingTransactions("member")[0].sync.status).to.equal("DONE");
+    state.completionFailure = false;
+    await adapter.reconcileTransactions("member");
+    expect(state.completions).to.equal(2);
+    expect(state.businessSyncs).to.equal(1);
+    expect(state.sent).to.equal(1);
+    expect(adapter.pendingTransactions("member")[0].operationStatus).to.equal("COMPLETED");
+    await adapter.reconcileTransactions("member");
+    expect(state.completions).to.equal(2);
+  });
+  it("restores a confirmed operation from the server after loss of local storage and completes it without Core", async () => {
+    state.operation = {
+      id: "operation", hash: txHash, chainId: 99999, workspaceId: "workspace",
+      submittedAt: new Date().toISOString(), status: "SYNC_PENDING",
+      sync: { path: "/api/vaults", method: "PATCH", body: { txHash } },
+    };
+    state.operations = [state.operation];
+    (globalThis as any).window.avalanche = null;
+    await adapter.restoreOperations("member", "workspace");
+    await adapter.reconcileTransactions("member");
+    expect(adapter.pendingTransactions("member")[0].operationStatus).to.equal("COMPLETED");
+    expect(state.businessSyncs).to.equal(1);
+    expect(state.sent).to.equal(0);
+  });
+  it("uses a server-reported revert without attempting business synchronization", async () => {
+    state.operation = { id: "operation", status: "REVERTED" };
+    state.timeout = true;
+    await rejection(write, txHash);
+    await adapter.reconcileTransactions("member");
+    expect(adapter.pendingTransactions("member")[0].status).to.equal("REVERTED");
+    expect(state.businessSyncs || 0).to.equal(0);
+    expect(state.sent).to.equal(1);
+  });
+  it("does not restore or reconcile an old account's records with a different session", async () => {
+    state.timeout = true;
+    await rejection(write, txHash);
+    state.userId = "another-user";
+    const requests: string[] = [];
+    const underlying = globalThis.fetch;
+    globalThis.fetch = (async (path: any, init: any) => {
+      requests.push(String(path));
+      return underlying(path, init);
+    }) as typeof fetch;
+    await adapter.restoreOperations("member", "workspace");
+    await adapter.reconcileTransactions("member");
+    expect(requests).to.deep.equal(["/api/auth/me", "/api/auth/me"]);
+    expect(adapter.pendingTransactions("member")[0].status).to.equal("PENDING");
   });
   it("does not expose another account's queue and expires stale private records", () => {
     saved["kinetix-pending:member"] = JSON.stringify([

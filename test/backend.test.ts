@@ -78,6 +78,11 @@ describe("HTTP guards without a database", () => {
       "/vaults?workspaceId=anything",
       "/notifications/another-user",
       "/auth/me",
+      "/workspaces/00000000-0000-4000-8000-000000000001/first-use",
+      "/workspaces/00000000-0000-4000-8000-000000000001/vault-candidates",
+      "/workspaces/00000000-0000-4000-8000-000000000001/start",
+      "/workspaces/00000000-0000-4000-8000-000000000001/vault-creation",
+      "/workspaces/00000000-0000-4000-8000-000000000001/vault-drafts",
     ])
       expect((await browser.request(path, undefined, "GET")).status).to.equal(
         401,
@@ -86,6 +91,7 @@ describe("HTTP guards without a database", () => {
     expect(
       (await browser.request("/workspaces", undefined, "GET")).status,
     ).to.equal(401);
+    expect((await browser.request("/workspaces/00000000-0000-4000-8000-000000000001/first-use/connect", {})).status).to.equal(401);
   });
   it("retires PIN, family/role fallbacks and address-only wallet sync", async () => {
     for (const path of [
@@ -103,6 +109,13 @@ describe("HTTP guards without a database", () => {
       });
       expect(response.status).to.equal(410);
       expect(response.data).not.to.have.property("user");
+    }
+  });
+  it("rejects malformed invitation previews before any database lookup", async () => {
+    for (const token of ["", "short", "!".repeat(43)]) {
+      const response = await new Browser().request("/auth/invitations/preview", { token });
+      expect(response.status).to.equal(400);
+      expect(response.data.code).to.equal("INVITATION_INVALID");
     }
   });
   it("rejects cross-origin, absent Origin and form posts before auth or database work", async () => {
@@ -221,6 +234,114 @@ describe("HTTP guards without a database", () => {
     });
     beforeEach(async () => {
       await db.delete(schema.authRateLimits);
+    });
+    it("saves and restores private vault drafts with deployment disabled, without creating a financial resource", async () => {
+      const path = `/workspaces/${workspaceId}/vault-drafts`;
+      const id = require("crypto").randomUUID();
+      const config = { ...require("../shared/vaultCreation").emptyVaultForm(), description: "Private family metadata" };
+      const before = await db.select().from(schema.vaults);
+      const context = await admin.request(`/workspaces/${workspaceId}/vault-creation`, undefined, "GET");
+      expect(context.status).to.equal(200);
+      expect(context.data.data.availability).to.equal("DISABLED");
+      expect(context.data.data.candidates[0].permission).to.equal("UNKNOWN");
+      const saved = await admin.request(path, { id, config, step: 1 });
+      expect(saved.status).to.equal(200);
+      expect(saved.data.draft.revision).to.equal(0);
+      expect((await admin.request(path, { id, config, step: 1 })).data.draft.id).to.equal(id);
+      expect((await admin.request(path, { id, config: { ...config, name: "Different retry" }, step: 1 })).status).to.equal(409);
+      expect((await otherAdmin.request(`${path}/${id}`, undefined, "GET")).status).to.equal(403);
+      expect((await otherAdmin.request(`/workspaces/${otherWorkspaceId}/vault-drafts/${id}`, undefined, "GET")).status).to.equal(404);
+      const second = new Browser();
+      expect((await second.request("/auth/login", { username: "guardian_a", password })).status).to.equal(200);
+      expect((await second.request(`${path}/${id}`, undefined, "GET")).data.draft.config.description).to.equal(config.description);
+      const racing = await Promise.all([admin.request(`${path}/${id}`, { config: { ...config, name: "Tab A" }, step: 2, revision: 0 }, "PATCH"), second.request(`${path}/${id}`, { config: { ...config, name: "Tab B" }, step: 2, revision: 0 }, "PATCH")]);
+      expect(racing.map((item) => item.status).sort()).to.deep.equal([200, 409]);
+      const latest = (await admin.request(`${path}/${id}`, undefined, "GET")).data.draft;
+      expect((await admin.request(`${path}/${id}/preflight`, { revision: latest.revision })).status).to.equal(503);
+      expect((await admin.request(`${path}/${id}`, { config: { ...config, unexpected: true }, step: 2, revision: 1 }, "PATCH")).status).to.equal(400);
+      expect(await db.select().from(schema.vaults)).to.deep.equal(before);
+    });
+    it("returns scoped first-use guidance for a fresh account and denies other workspaces", async () => {
+      const response = await admin.request(`/workspaces/${workspaceId}/first-use`, undefined, "GET");
+      expect(response.status).to.equal(200);
+      expect(response.data.data.workspaceId).to.equal(workspaceId);
+      expect(response.data.data.steps[0].status).to.equal("DONE");
+      expect((await otherAdmin.request(`/workspaces/${workspaceId}/first-use`, undefined, "GET")).status).to.equal(403);
+      expect((await otherAdmin.request(`/workspaces/${workspaceId}/first-use/connect`, {})).status).to.equal(403);
+    });
+    it("persists start progress across password-only sessions and protects against stale concurrent writes", async () => {
+      const me = await admin.request("/auth/me", undefined, "GET");
+      expect(me.data.startRequired).to.equal(true);
+      expect(me.data.redirectUrl).to.equal(`/start?workspace=${workspaceId}`);
+      const initial = await admin.request(`/workspaces/${workspaceId}/start`, undefined, "GET");
+      expect(initial.data.data.steps).to.deep.equal(["WELCOME", "FAMILY", "READINESS", "FINISH"]);
+      expect((await admin.request(`/workspaces/${workspaceId}/start`, { step: "FINISH", status: ["COMPLETED"], revision: 0 }, "PATCH")).status).to.equal(400);
+      const saved = await admin.request(`/workspaces/${workspaceId}/start`, { step: "FAMILY", status: "IN_PROGRESS", revision: 0 }, "PATCH");
+      expect(saved.status).to.equal(200);
+      expect(saved.data.data.progress.revision).to.equal(1);
+      const second = new Browser();
+      expect((await second.request("/auth/login", { username: "guardian_a", password })).status).to.equal(200);
+      const restored = await second.request(`/workspaces/${workspaceId}/start`, undefined, "GET");
+      expect(restored.data.data.progress.step).to.equal("FAMILY");
+      const racing = await Promise.all([
+        admin.request(`/workspaces/${workspaceId}/start`, { step: "READINESS", status: "IN_PROGRESS", revision: 1 }, "PATCH"),
+        second.request(`/workspaces/${workspaceId}/start`, { step: "FAMILY", status: "DEFERRED", revision: 1 }, "PATCH"),
+      ]);
+      expect(racing.map((response) => response.status).sort()).to.deep.equal([200, 409]);
+      let current = (await admin.request(`/workspaces/${workspaceId}/start`, undefined, "GET")).data.data.progress;
+      const defer = { step: current.step, status: "DEFERRED", revision: current.revision };
+      expect((await admin.request(`/workspaces/${workspaceId}/start`, defer, "PATCH")).status).to.equal(200);
+      const replay = await admin.request(`/workspaces/${workspaceId}/start`, defer, "PATCH");
+      expect(replay.status).to.equal(200);
+      expect((await admin.request("/auth/me", undefined, "GET")).data.startRequired).to.equal(false);
+      current = replay.data.data.progress;
+      const restarted = await admin.request(`/workspaces/${workspaceId}/start`, { step: "WELCOME", status: "IN_PROGRESS", revision: current.revision, restart: true }, "PATCH");
+      expect(restarted.status).to.equal(200);
+      const done = await admin.request(`/workspaces/${workspaceId}/start`, { step: "FINISH", status: "COMPLETED", revision: restarted.data.data.progress.revision }, "PATCH");
+      expect(done.status).to.equal(200);
+      expect(done.data.data.progress.completedAt).to.be.a("string");
+      const finalMe = await admin.request("/auth/me", undefined, "GET");
+      expect(finalMe.data.startRequired).to.equal(false);
+      expect(finalMe.data.redirectUrl).to.equal(`/dashboard/guardian?workspace=${workspaceId}`);
+    });
+    it("keeps presentation scope separate from role, wallet rights and untrusted workspace preferences", async () => {
+      expect((await otherAdmin.request(`/workspaces/${workspaceId}/start`, undefined, "GET")).status).to.equal(403);
+      expect((await otherAdmin.request(`/workspaces/${workspaceId}/start`, { step: "FINISH", status: "COMPLETED", revision: 0 }, "PATCH")).status).to.equal(403);
+      expect((await admin.request(`/workspaces/${workspaceId}/start`, { step: "FINISH", status: "COMPLETED", revision: 0, role: "ADMIN" }, "PATCH")).status).to.equal(400);
+      expect((await admin.request(`/auth/me?workspace=${otherWorkspaceId}`, undefined, "GET")).status).to.equal(403);
+      const before = (await admin.request("/auth/me", undefined, "GET")).data;
+      admin.cookies.set("kinetix_workspace", `${before.user.id}.${otherWorkspaceId}`);
+      expect((await admin.request("/auth/me", undefined, "GET")).data.family.id).to.equal(workspaceId);
+      admin.cookies.delete("kinetix_workspace");
+      const created = await admin.request("/workspaces", { name: "Second start space", type: "FAMILY" });
+      expect(created.status).to.equal(201);
+      admin.cookies.set("kinetix_workspace", `${before.user.id}.${created.data.workspace.id}`);
+      const selected = (await admin.request("/auth/me", undefined, "GET")).data;
+      expect(selected.entryWorkspaceId).to.equal(created.data.workspace.id);
+      expect(selected.startRequired).to.equal(true);
+      expect(selected.linkedWallet.address).to.equal(before.linkedWallet.address);
+      admin.cookies.set("kinetix_workspace", `00000000-0000-4000-8000-000000000099.${created.data.workspace.id}`);
+      expect((await admin.request("/auth/me", undefined, "GET")).data.family.id).to.equal(workspaceId);
+      admin.cookies.delete("kinetix_workspace");
+    });
+    it("backfills existing memberships as LEGACY without rewriting account or wallet data", async () => {
+      const before = (await admin.request("/auth/me", undefined, "GET")).data;
+      const marker = new Error("ROLLBACK_TEST_BACKFILL");
+      try {
+        await db.transaction(async (tx) => {
+          await tx.delete(schema.workspaceOnboarding);
+          const backfill = require("node:fs").readFileSync("backend/drizzle/0009_workspace_onboarding.sql", "utf8").split("--> statement-breakpoint").at(-1);
+          await tx.execute(sql.raw(backfill));
+          const records = await tx.select().from(schema.workspaceOnboarding);
+          expect(records.length).to.be.greaterThan(0);
+          expect(records.every((row) => row.status === "LEGACY")).to.equal(true);
+          throw marker;
+        });
+      } catch (error) { if (error !== marker) throw error; }
+      const after = (await admin.request("/auth/me", undefined, "GET")).data;
+      expect(after.linkedWallet.address).to.equal(before.linkedWallet.address);
+      expect(after.onboarding).to.equal(before.onboarding);
+      expect(after.startRequired).to.equal(before.startRequired);
     });
     it("creates only dependent roles, with an idempotent transaction and one-time credential", async () => {
       const key = require("crypto").randomUUID();
@@ -353,6 +474,10 @@ describe("HTTP guards without a database", () => {
       });
       expect(response.status).to.equal(200);
       expect(response.data.onboarding).to.equal("CHANGE_PASSWORD");
+      expect((await member.request(`/workspaces/${workspaceId}/start`, undefined, "GET")).status).to.equal(403);
+      expect((await member.request(`/workspaces/${workspaceId}/start`, { step: "FINISH", status: "COMPLETED", revision: 0 }, "PATCH")).status).to.equal(403);
+      expect((await member.request(`/workspaces/${workspaceId}/first-use`, undefined, "GET")).status).to.equal(403);
+      expect((await member.request(`/workspaces/${workspaceId}/first-use/connect`, {})).status).to.equal(403);
       expect(
         (
           await member.request(
@@ -475,6 +600,14 @@ describe("HTTP guards without a database", () => {
       });
       expect(response.status).to.equal(200);
       expect(response.data.onboarding).to.equal("READY");
+      expect(response.data.redirectUrl).to.equal(`/start?workspace=${workspaceId}`);
+      const intro = await device.request(`/workspaces/${workspaceId}/start`, undefined, "GET");
+      expect(intro.data.data.steps).to.deep.equal(["WELCOME", "READINESS", "FINISH"]);
+      expect((await device.request(`/workspaces/${workspaceId}/start`, { step: "FAMILY", status: "IN_PROGRESS", revision: 0 }, "PATCH")).status).to.equal(400);
+      expect((await device.request(`/workspaces/${workspaceId}/start`, { step: "WELCOME", status: "COMPLETED", revision: 0 }, "PATCH")).status).to.equal(400);
+      const deferred = await device.request(`/workspaces/${workspaceId}/start`, { step: "WELCOME", status: "DEFERRED", revision: 0 }, "PATCH");
+      expect(deferred.status).to.equal(200);
+      expect((await device.request("/auth/me", undefined, "GET")).data.redirectUrl).to.equal(`/dashboard/elderly?workspace=${workspaceId}`);
       expect(response.data.linkedWallet.address).to.equal(
         memberAccount.address.toLowerCase(),
       );
@@ -650,6 +783,10 @@ describe("HTTP guards without a database", () => {
         { address: invitedAccount.address },
       );
       expect(invite.status).to.equal(201);
+      const preview = await new Browser().request("/auth/invitations/preview", { token: invite.data.invitation.token });
+      expect(preview.status).to.equal(200);
+      expect(preview.data.invitation.expectedWallet).to.equal(invitedAccount.address.toLowerCase());
+      expect(preview.data.invitation).not.to.have.property("tokenHash");
       const thief = new Browser();
       const wrong = await signedChallenge(
         thief,
@@ -683,6 +820,7 @@ describe("HTTP guards without a database", () => {
       expect(result.status).to.equal(200);
       expect(result.data.user.role).to.equal("GUARDIAN");
       expect(result.data.workspaces[0].canManageMembers).to.equal(false);
+      expect((await new Browser().request("/auth/invitations/preview", { token: invite.data.invitation.token })).status).to.equal(404);
       expect(
         (
           await invited.request(

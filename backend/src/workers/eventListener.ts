@@ -14,7 +14,7 @@ import { hubClient, readHub, decimalAmount } from "../services/chainService";
 import { assert } from "../auth/security";
 
 import { recordReceiptActivity } from "../services/activityService";
-import { verifiedDeployment } from "../services/deploymentService";
+import { deploymentManifest, verifiedDeployment } from "../services/deploymentService";
 import { vaultMappingIssue } from "../../../shared/vaultMapping";
 
 // The worker is a service identity with DB access. It never creates users, sessions,
@@ -111,7 +111,34 @@ async function main() {
   process.on("SIGINT", stop);
   console.log("Kinetix worker reconciling verified workspace mappings");
 }
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : "Worker failed");
-  process.exitCode = 1;
-});
+// A fresh installation can serve accounts before a verified Hub is available.
+// Keep the worker idle in that state rather than killing dev:all's API and UI.
+async function startWhenReady() {
+  let starting = false;
+  let started = false;
+  let lastState = "";
+  const attempt = async () => {
+    if (starting || started) return;
+    starting = true;
+    try {
+      if (!deploymentManifest().enabled) {
+        if (lastState !== "WAITING") console.log("Kinetix worker waiting for verified deployment; account services remain available.");
+        lastState = "WAITING";
+        return;
+      }
+      await main();
+      started = true;
+      clearInterval(timer);
+    } catch (error: any) {
+      if (lastState !== "UNAVAILABLE") console.error("Kinetix worker awaiting deployment verification", { category: error?.code || "DEPLOYMENT_UNAVAILABLE" });
+      lastState = "UNAVAILABLE";
+    } finally { starting = false; }
+  };
+  const timer = setInterval(() => void attempt(), 15000);
+  const stopWaiting = () => clearInterval(timer);
+  process.once("SIGTERM", stopWaiting);
+  process.once("SIGINT", stopWaiting);
+  await attempt();
+}
+
+void startWhenReady();

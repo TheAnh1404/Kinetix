@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import ts from "typescript";
+import { firstUseSteps } from "../shared/firstUse";
 
 // Smoke test render cây React thật, thay các biên session/RPC; không giả kết quả E2E trình duyệt.
 describe("Member page rendering and personal-data boundaries", () => {
@@ -45,6 +46,7 @@ describe("Member page rendering and personal-data boundaries", () => {
         return {
           useAuth: () => ({
             user,
+            workspaces: [],
             linkedWallet: { address: `0x${"1".repeat(40)}` },
           }),
         };
@@ -94,6 +96,34 @@ describe("Member page rendering and personal-data boundaries", () => {
     expect(html).to.include("Con chưa có việc mới");
     expect(html).not.to.include("unsplash");
     expect(html).not.to.include("0.08");
+  });
+  it("renders a separate start shell with three dependent steps and no dashboard navigation", () => {
+    const { StartShell } = load("frontend/src/components/auth/StartShell.tsx");
+    const html = renderToStaticMarkup(React.createElement(StartShell, { name: user.fullName, familyName: "Family fixture", role: "CHILD", step: "WELCOME", steps: ["WELCOME", "READINESS", "FINISH"], busy: false, onLogout() {} }, "Private first-use content"));
+    expect((html.match(/<main/g) || []).length).to.equal(1);
+    expect((html.match(/aria-current="step"/g) || []).length).to.equal(1);
+    expect(html).to.include("Private first-use content");
+    expect(html).to.include("Family fixture");
+    expect(html).not.to.include("/dashboard/");
+    expect(html).not.to.include("sidebar");
+    expect(html).not.to.include("Gia đình của bạn</span>");
+  });
+  it("keeps only a small reopen link inside the dashboard", () => {
+    const { StartReminder } = load("frontend/src/components/auth/StartReminder.tsx");
+    const html = renderToStaticMarkup(React.createElement(StartReminder));
+    expect(html).to.include("/start?workspace=space");
+    expect(html).to.include("Xem hướng dẫn");
+    expect(html).not.to.include("Số tiền có thể sử dụng");
+    expect(html).not.to.include("Kết nối không gian</button>");
+  });
+  it("renders the real first-use checklist with scoped help and no financial-admin CTA for a child", () => {
+    const { FirstUseChecklist } = load("frontend/src/components/auth/FirstUseChecklist.tsx");
+    const steps = firstUseSteps({ role: "CHILD", canManageMembers: false, otherMembers: 0, deployment: "DISABLED", workspace: "MISSING", allowlisted: null, vaults: 0, fundedVaults: 0, tasks: 0 });
+    const html = renderToStaticMarkup(React.createElement(FirstUseChecklist, { steps, busy: false, onAction() {} }));
+    expect(html).to.include("Liên hệ người bảo hộ");
+    expect(html).to.include("Hũ nhiệm vụ dành cho con");
+    expect(html).not.to.include("Quản lý thành viên");
+    expect(html).not.to.include("Kết nối không gian</button>");
   });
   it("filters the UI by assignee and totals only paid rewards with exact units", () => {
     family.chores = [

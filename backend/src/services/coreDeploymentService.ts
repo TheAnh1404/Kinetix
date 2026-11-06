@@ -37,7 +37,7 @@ async function context(auth: AuthContext, workspaceId: string) {
   const file = resolve(directory, "journal.json");
   const journal: any = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : { chainId: 43113, deployer: auth.wallet!.address, workspaceId: ws.id, sourceHash, transactions: {}, contracts: {} };
   assert(journal.deployer === auth.wallet!.address && journal.workspaceId === ws.id && journal.sourceHash === sourceHash, 409, "Journal khác danh tính/source đang chọn.");
-  const client = createPublicClient({ transport: http(manifest.rpcUrl) });
+  const client = createPublicClient({ transport: http(process.env.HUB_RPC_URL || manifest.rpcUrl, { timeout: 8000, retryCount: 0 }) });
   assert(await client.getChainId() === 43113, 503, "RPC phải là Fuji 43113.", "RPC_CHAIN_MISMATCH");
   return { manifest, journal, directory, file, client, ws, sourceHash, admin: auth.wallet!.address };
 }

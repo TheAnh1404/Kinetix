@@ -12,6 +12,7 @@ import {
   chores,
   notifications,
   provisioningRequests,
+  vaultCreationDrafts,
 } from "../db/schema";
 import {
   endpoint,
@@ -29,6 +30,7 @@ import {
 } from "../services/chainService";
 import { relayForwardRequest } from "../services/relayerService";
 import { FAMILY_HUB_ABI } from "../../../shared/abis";
+import { creationIntent, validateCreationRegistration } from "../services/vaultCreationService";
 import { vaultState } from "../services/vaultStateService";
 import {
   deploymentManifest,
@@ -90,6 +92,8 @@ apiRouter.get(
       "FEATURE_DISABLED_T1",
     );
     const { manifest } = await verifiedDeployment(ws.l1HubAddress);
+    const intent = ["createCustomVault", "createAdvancedVault"].includes(action)
+      ? await creationIntent(req.auth!, ws.id, uuidInput(String(req.query.draftId || "")), uuidInput(String(req.query.attemptId || ""))) : null;
     if (
       [
         "createCustomVault",
@@ -191,6 +195,7 @@ apiRouter.get(
       chainId: manifest.chainId,
       hub: manifest.contracts.hub!.address,
       features: manifest.features,
+      creationIntent: intent,
     });
   }),
 );
@@ -410,7 +415,7 @@ apiRouter.post(
       "Chỉ người bảo hộ được tạo hũ.",
     );
     assert(ws.l1HubAddress, 503, "Không gian chưa có hợp đồng.");
-    await verifiedDeployment(ws.l1HubAddress);
+    const deployment = await verifiedDeployment(ws.l1HubAddress);
     const { event, chainId, logIndex, receipt } = await verifiedEvent(
       auth,
       ws.l1HubAddress,
@@ -420,9 +425,8 @@ apiRouter.post(
     );
     const vaultId = Number(event.vaultId);
     assert(Number.isSafeInteger(vaultId), 400, "Mã hũ vượt giới hạn hỗ trợ.");
-    const chainVault: any = await readHub(ws.l1HubAddress, "getVault", [
-      BigInt(vaultId),
-    ]);
+    const chainVault: any = await deployment.client.readContract({ address: ws.l1HubAddress as `0x${string}`, abi: FAMILY_HUB_ABI, functionName: "getVault", args: [BigInt(vaultId)], blockNumber: receipt.blockNumber } as any);
+    const transaction = await deployment.client.getTransaction({ hash: receipt.transactionHash });
     assert(
       chainVault.isActive &&
         chainVault.creator.toLowerCase() === auth.wallet!.address &&
@@ -440,7 +444,17 @@ apiRouter.post(
         .from(workspaces)
         .where(eq(workspaces.id, ws.id))
         .for("update");
-      await membership(tx, req.auth!, ws.id);
+      const currentMember = await membership(tx, req.auth!, ws.id);
+      assert(["ADMIN", "GUARDIAN"].includes(currentMember.role), 403, "Quyền đăng ký hũ đã thay đổi.");
+      const draft = await validateCreationRegistration(tx, auth, ws.id, chainVault, receipt.transactionHash, ws.l1HubAddress!, transaction.input, req.body.draftId);
+      const finish = async (vault: typeof vaults.$inferSelect) => {
+        if (draft) {
+          await tx.update(vaultCreationDrafts).set({ vaultId: vault.id, txHash: receipt.transactionHash.toLowerCase(), step: 5, updatedAt: new Date() }).where(eq(vaultCreationDrafts.id, draft.id));
+          const [updated] = await tx.update(vaults).set({ description: draft.config.description || null }).where(eq(vaults.id, vault.id)).returning();
+          return updated;
+        }
+        return vault;
+      };
       const [existing] = await tx
         .select()
         .from(vaults)
@@ -467,7 +481,7 @@ apiRouter.post(
           "VAULT_POLICY_MISMATCH",
         );
         if (!existing.onchainCreationTx) {
-          return (
+          return finish((
             await tx
               .update(vaults)
               .set({
@@ -476,7 +490,7 @@ apiRouter.post(
               })
               .where(eq(vaults.id, existing.id))
               .returning()
-          )[0];
+          )[0]);
         }
         assert(
           existing.onchainCreationTx ===
@@ -486,7 +500,7 @@ apiRouter.post(
           "Bằng chứng tạo hũ đã được gắn bằng receipt khác.",
           "VAULT_EVIDENCE_CONFLICT",
         );
-        return existing;
+        return finish(existing);
       }
       const [vault] = await tx
         .insert(vaults)
@@ -498,6 +512,7 @@ apiRouter.post(
           onchainCreationTx: receipt.transactionHash.toLowerCase(),
           onchainCreationLogIndex: logIndex,
           name: chainVault.name,
+          description: draft?.config.description || null,
           ruleTemplate: ["SHIELD", "MILESTONE", "ROSCA", "SHARED_GOAL"][
             Number(chainVault.ruleType)
           ] as "SHIELD",
@@ -568,7 +583,7 @@ apiRouter.post(
               });
         }
       }
-      return vault;
+      return finish(vault);
     });
     return res.status(201).json({ success: true, vault: created });
   }),

@@ -9,11 +9,16 @@ import { workspace, vaultAccess } from "./workspaceAccess";
 import { verifiedDeployment } from "./deploymentService";
 import { projectReceipt, projectVault } from "./projectionService";
 import { operationMetadata } from "./operationMetadataService";
+import { vaultCreationDrafts } from "../db/schema";
+import { linkCreationTransaction } from "./vaultCreationService";
 
 /** Canonical sync được xây lại từ calldata của transaction thật và tài nguyên có scope. */
 async function syncTarget(auth: AuthContext, workspaceId: string, hub: string, chainId: number, name: string, args: readonly unknown[], hash: string, attachmentId?: unknown) {
   const body: Record<string, unknown> = { txHash: hash };
-  if (["createCustomVault", "createAdvancedVault"].includes(name)) return { path: "/api/vaults", method: "POST", body: { ...body, workspaceId } };
+  if (["createCustomVault", "createAdvancedVault"].includes(name)) {
+    const [draft] = await db.select({ id: vaultCreationDrafts.id }).from(vaultCreationDrafts).where(and(eq(vaultCreationDrafts.userId, auth.user.id), eq(vaultCreationDrafts.workspaceId, workspaceId), eq(vaultCreationDrafts.txHash, hash)));
+    return { path: "/api/vaults", method: "POST", body: { ...body, workspaceId, ...(draft ? { draftId: draft.id } : {}) } };
+  }
   // Operator controls have no browser reconciliation endpoint, but still retain their real hash.
   if (["setAllowlistStatus", "setTrustedForwarder", "setVaultCashflow", "pause", "unpause"].includes(name)) return null;
   const resource = Number(args[0]);
@@ -56,7 +61,7 @@ export function publicOperation(row: typeof financialOperations.$inferSelect) {
   return { id: row.id, hash: row.txHash, chainId: row.chainId, hub: row.hub, workspaceId: row.workspaceId, deploymentRef: row.deploymentRef, functionName: row.functionName, amountWei: row.amountWei, asset: row.asset, recipient: row.recipient, resourceType: row.resourceType, resourceId: row.resourceId, sender: row.sender, nonce: row.nonce, status: row.status, blockNumber: row.blockNumber?.toString() || null, blockHash: row.blockHash, lastErrorCode: row.lastErrorCode, submittedAt: row.createdAt.toISOString(), sync: row.syncIntent };
 }
 
-export async function recordOperation(auth: AuthContext, workspaceId: string, hash: unknown, attachmentId?: unknown) {
+export async function recordOperation(auth: AuthContext, workspaceId: string, hash: unknown, attachmentId?: unknown, draftId?: unknown) {
   assert(auth.wallet, 403, "Chưa liên kết ví.");
   assert(typeof hash === "string" && /^0x[0-9a-f]{64}$/i.test(hash), 400, "Mã giao dịch không hợp lệ.");
   const { ws, member } = await workspace(auth, workspaceId);
@@ -66,6 +71,10 @@ export async function recordOperation(auth: AuthContext, workspaceId: string, ha
   assert(transaction.from.toLowerCase() === auth.wallet.address.toLowerCase() && transaction.to?.toLowerCase() === hub, 403, "Transaction không thuộc ví và Hub đang chọn.", "OPERATION_ACTOR_MISMATCH");
   const decoded = decodeFunctionData({ abi: FAMILY_HUB_ABI, data: transaction.input });
   if (["createCustomVault", "createAdvancedVault"].includes(decoded.functionName)) assert(["ADMIN", "GUARDIAN"].includes(member.role), 403, "Không có quyền đăng ký hũ.");
+  if (draftId) {
+    assert(["createCustomVault", "createAdvancedVault"].includes(decoded.functionName), 400, "Bản nháp chỉ dùng cho giao dịch tạo hũ.");
+    await linkCreationTransaction(auth, ws.id, uuidInput(String(draftId)), hash.toLowerCase(), transaction.input, hub);
+  }
   let intent = null;
   let lastErrorCode = null;
   try { intent = await syncTarget(auth, ws.id, hub, chainId, decoded.functionName, decoded.args || [], hash.toLowerCase(), attachmentId); }
@@ -74,6 +83,10 @@ export async function recordOperation(auth: AuthContext, workspaceId: string, ha
   const [created] = await db.insert(financialOperations).values({ userId: auth.user.id, workspaceId: ws.id, deploymentRef: `${manifest.version}:${hub}`, chainId, hub, txHash: hash.toLowerCase(), sender: transaction.from.toLowerCase(), nonce: String(transaction.nonce), functionName: decoded.functionName, calldata: transaction.input, ...metadata, syncIntent: intent, lastErrorCode }).onConflictDoNothing().returning();
   const row = created || (await db.select().from(financialOperations).where(and(eq(financialOperations.chainId, chainId), eq(financialOperations.hub, hub), eq(financialOperations.txHash, hash.toLowerCase()))))[0];
   assert(row?.userId === auth.user.id && row.workspaceId === ws.id, 409, "Transaction đã thuộc scope khác.", "OPERATION_SCOPE_CONFLICT");
+  if (!created && draftId && intent) {
+    const [updated] = await db.update(financialOperations).set({ syncIntent: intent, updatedAt: new Date() }).where(eq(financialOperations.id, row.id)).returning();
+    return updated;
+  }
   return row;
 }
 

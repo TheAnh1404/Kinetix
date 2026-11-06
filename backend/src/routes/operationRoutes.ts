@@ -22,7 +22,7 @@ operationRouter.get("/deployment/core-plan", endpoint(async (req, res) => res.js
 operationRouter.post("/deployment/core-receipt", endpoint(async (req, res) => res.json({ success: true, result: await recordCoreDeployment(req.auth!, uuidInput(req.body.workspaceId || ""), req.body.key, req.body.txHash) })));
 operationRouter.get("/operations", endpoint(async (req, res) => res.json({ success: true, operations: await listOperations(req.auth!, uuidInput(String(req.query.workspaceId || ""))) })));
 operationRouter.post("/operations", endpoint(async (req, res) => {
-  const row = await recordOperation(req.auth!, uuidInput(req.body.workspaceId || ""), req.body.txHash, req.body.attachmentId);
+  const row = await recordOperation(req.auth!, uuidInput(req.body.workspaceId || ""), req.body.txHash, req.body.attachmentId, req.body.draftId);
   return res.json({ success: true, operation: publicOperation(row) });
 }));
 operationRouter.post("/operations/:id/reconcile", endpoint(async (req, res) => res.json({ success: true, operation: await reconcileOperation(req.auth!, req.params.id) })));

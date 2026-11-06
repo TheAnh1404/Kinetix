@@ -7,7 +7,13 @@ import { and, eq, sql } from "drizzle-orm";
 
 /** Real PostgreSQL + local EVM regression. Never uses the application database or calls this Fuji acceptance. */
 async function main() {
-  require("./auth-test-safety.cjs").assertIsolatedDatabase(process.env.TEST_DATABASE_URL, process.env.DATABASE_URL, process.env.AUTH_TEST_ALLOW_RESET);
+  try {
+    require("./auth-test-safety.cjs").assertIsolatedDatabase(process.env.TEST_DATABASE_URL, process.env.DATABASE_URL, process.env.AUTH_TEST_ALLOW_RESET);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "Invalid isolated test database configuration.");
+    process.exitCode = 1;
+    return;
+  }
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
   process.env.NODE_ENV = "test";
   process.env.APP_ORIGIN = "http://localhost:3000";
@@ -92,6 +98,21 @@ async function main() {
       assert(vault); registered.push(vault);
     }
     const [shield, milestone, rosca] = registered;
+    const firstUseBefore = (await child.browser.request(`/workspaces/${owner.workspaceId}/first-use`, undefined, "GET")).data;
+    assert.equal(firstUseBefore.role, "CHILD");
+    assert.equal(firstUseBefore.facts.vaults, 1);
+    assert.equal(firstUseBefore.facts.fundedVaults, 0);
+    assert.equal(firstUseBefore.facts.tasks, 0);
+    const candidates = (await owner.browser.request(`/workspaces/${owner.workspaceId}/vault-candidates`, undefined, "GET")).data;
+    assert(candidates.candidates.some((candidate: any) => candidate.id === child.userId && candidate.allowed));
+    await guard.browser.request(`/workspaces/${owner.workspaceId}/first-use/connect`, {}, "POST", 403);
+    await db.update(schema.workspaces).set({ l1HubAddress: null }).where(eq(schema.workspaces.id, owner.workspaceId));
+    const disconnected = (await owner.browser.request(`/workspaces/${owner.workspaceId}/first-use`, undefined, "GET")).data;
+    assert.equal(disconnected.facts.workspace, "MISSING");
+    await owner.browser.request(`/workspaces/${owner.workspaceId}/first-use/connect`, {});
+    await owner.browser.request(`/workspaces/${owner.workspaceId}/first-use/connect`, {});
+    assert.equal((await db.select().from(vaults).where(eq(vaults.id, shield.id)))[0].onchainVaultId, shield.onchainVaultId);
+    check("first-use reads actual member roles and Hub rights; only Admin connects a missing workspace without remapping vaults");
     await db.insert(vaultMembers).values({ vaultId: shield.id, userId: outsider.userId, vaultRole: "CREATOR" });
     const denied = await outsider.browser.request(`/vaults/${shield.id}/state`, undefined, "GET");
     assert.equal(denied.data.capabilities.approveWithdrawal.allowed, false);
@@ -123,6 +144,9 @@ async function main() {
     const created = await hub.createChore(2n, "Isolated chore", hre.ethers.parseEther("0.3"), member.address); await created.wait();
     await project.projectReceipt(await client.getTransactionReceipt({ hash: created.hash }), milestone);
     const [task] = await db.select().from(chores).where(eq(chores.vaultId, milestone.id)); assert(task);
+    const firstTask = (await child.browser.request(`/workspaces/${owner.workspaceId}/first-use`, undefined, "GET")).data;
+    assert.equal(firstTask.facts.tasks, 1);
+    assert.equal(firstTask.facts.fundedVaults, 1);
     await (await hub.connect(member).claimChoreCompleted(1n)).wait();
     await (await hub.verifyAndRewardChore(1n)).wait();
     state = (await owner.browser.request(`/vaults/${milestone.id}/state`, undefined, "GET")).data;
@@ -184,6 +208,90 @@ async function main() {
     assert.equal(completed.completed, true);
     assert.equal(require("node:fs").readFileSync("shared/deployment.json", "utf8"), manifestBefore);
     check("Core deployment verifies all five exact transactions, retains receipts and keeps activation separate");
+    const { emptyVaultForm, buildVaultCall } = require("../shared/vaultCreation") as typeof import("../shared/vaultCreation");
+    const draftBase = `/workspaces/${owner.workspaceId}/vault-drafts`;
+    const creationContext = (await owner.browser.request(`/workspaces/${owner.workspaceId}/vault-creation`, undefined, "GET")).data;
+    assert.equal(creationContext.availability, "READY");
+    assert(creationContext.candidates.every((row: any) => row.permission !== "UNKNOWN"));
+    for (const ruleTemplate of ["SHIELD", "MILESTONE", "ROSCA", "SHARED_GOAL"] as const) {
+      const id = require("node:crypto").randomUUID();
+      const block = await client.getBlock({ blockTag: "finalized" });
+      const config = { ...emptyVaultForm(), ruleTemplate, name: `Wizard ${ruleTemplate}`, description: `Private metadata ${ruleTemplate}`, guardianIds: [owner.userId, guard.userId], beneficiaryIds: [outsider.userId], requiredApprovals: 2, targetDeadline: new Date(Number(block.timestamp + 86400n) * 1000).toISOString(), policyAccepted: true };
+      const draft = (await owner.browser.request(draftBase, { id, config, step: 4 })).draft;
+      await guard.browser.request(`${draftBase}/${id}`, undefined, "GET", 404);
+      const quote = (await owner.browser.request(`${draftBase}/${id}/preflight`, { revision: draft.revision })).draft.preflight;
+      assert.equal(quote.data, buildVaultCall(quote.contractConfig).data);
+      assert(BigInt(quote.estimatedFeeWei) > 0n);
+      const attemptId = require("node:crypto").randomUUID();
+      const call = buildVaultCall(quote.contractConfig);
+      const context = await owner.browser.request(`/workspaces/${owner.workspaceId}/transaction-context?functionName=${call.functionName}&draftId=${id}&attemptId=${attemptId}`, undefined, "GET");
+      assert.equal(context.creationIntent.data, quote.data);
+      await owner.browser.request(`${draftBase}/${id}/claim`, { attemptId });
+      await owner.browser.request(`${draftBase}/${id}/claim`, { attemptId });
+      await owner.browser.request(`${draftBase}/${id}/claim`, { attemptId: require("node:crypto").randomUUID() }, "POST", 409);
+      await owner.browser.request(`${draftBase}/${id}`, { config, revision: draft.revision, step: 4 }, "PATCH", 409);
+      await owner.browser.request(`${draftBase}/${id}/rejected`, { attemptId });
+      assert.equal((await owner.browser.request(`${draftBase}/${id}`, undefined, "GET")).draft.signaturePending, false);
+      await owner.browser.request(`${draftBase}/${id}/claim`, { attemptId });
+      const transaction = await admin.sendTransaction({ to: hub.target, data: quote.data, value: 0n });
+      await transaction.wait();
+      const operation = (await owner.browser.request("/operations", { workspaceId: owner.workspaceId, txHash: transaction.hash, draftId: id })).operation;
+      assert.equal(operation.sync.body.draftId, id);
+      assert.equal((await owner.browser.request(`${draftBase}/${id}`, undefined, "GET")).draft.txHash, transaction.hash);
+      await owner.browser.request(`${draftBase}/${id}/claim`, { attemptId }, "POST", 409);
+      const result = await owner.browser.request("/vaults", operation.sync.body, "POST", 201);
+      const replay = await owner.browser.request("/vaults", operation.sync.body, "POST", 201);
+      assert.equal(replay.vault.id, result.vault.id);
+      assert.equal(result.vault.description, config.description);
+      assert.equal(result.vault.ruleTemplate, ruleTemplate);
+      assert.equal((await owner.browser.request(`${draftBase}/${id}`, undefined, "GET")).draft.vaultId, result.vault.id);
+      await owner.browser.request(`/operations/${operation.id}/complete`, {});
+      const live = (await owner.browser.request(`/vaults/${result.vault.id}/state`, undefined, "GET")).data;
+      assert.equal(live.balance.totalWei, "0");
+      assert.equal(live.state.requiredApprovals, "2");
+      const reconcile = async (browser: Browser, hash: string) => {
+        const { operation } = await browser.request("/operations", { workspaceId: owner.workspaceId, txHash: hash });
+        await browser.request(operation.sync.path.slice(4), operation.sync.body, operation.sync.method, ["/api/chores/create", "/api/withdrawals/create"].includes(operation.sync.path) ? 201 : 200);
+        await browser.request(`/operations/${operation.id}/complete`, {});
+      };
+      const chainVaultId = BigInt(result.vault.onchainVaultId);
+      if (ruleTemplate === "ROSCA") {
+        const contribution = await hub.connect(observer).contributeRoscaRound(chainVaultId, { value: hre.ethers.parseEther(config.roscaRoundContribution) }); await contribution.wait();
+        await reconcile(outsider.browser, contribution.hash);
+        const next = (await outsider.browser.request(`/vaults/${result.vault.id}/state`, undefined, "GET")).data;
+        assert(next.rosca.contributions.every((row: any) => row.contributed));
+        assert.equal(next.rosca.recipient.toLowerCase(), observer.address.toLowerCase());
+      } else {
+        const deposit = await hub.depositToVault(chainVaultId, { value: hre.ethers.parseEther(ruleTemplate === "SHARED_GOAL" ? "1" : "0.1") }); await deposit.wait();
+        await reconcile(owner.browser, deposit.hash);
+        if (ruleTemplate === "MILESTONE") {
+          const chore = await hub.createChore(chainVaultId, "New vault task", hre.ethers.parseEther("0.01"), observer.address); await chore.wait();
+          await reconcile(owner.browser, chore.hash);
+          const next = (await owner.browser.request(`/vaults/${result.vault.id}/state`, undefined, "GET")).data;
+          assert.equal(next.balance.reservedWei, hre.ethers.parseEther("0.01").toString());
+          assert(next.tasks.some((task: any) => task.title === "New vault task"));
+        } else if (ruleTemplate === "SHIELD") {
+          const withdrawal = await hub.connect(observer).fastWithdraw(chainVaultId, hre.ethers.parseEther("0.001")); await withdrawal.wait();
+          await reconcile(outsider.browser, withdrawal.hash);
+        } else {
+          const request = await hub.connect(observer).requestLargeWithdrawal(chainVaultId, hre.ethers.parseEther("0.01"), "Goal reached"); await request.wait();
+          await reconcile(outsider.browser, request.hash);
+        }
+      }
+      check(`wizard ${ruleTemplate}: scoped draft, preflight, claim/reject, exact calldata, receipt, metadata and idempotent sync`);
+    }
+    const invalidId = require("node:crypto").randomUUID();
+    const invalidConfig = { ...emptyVaultForm(), name: "Invalid overlap", ruleTemplate: "MILESTONE", guardianIds: [owner.userId], beneficiaryIds: [owner.userId], policyAccepted: true };
+    await owner.browser.request(draftBase, { id: invalidId, config: invalidConfig, step: 4 });
+    const invalid = await owner.browser.request(`${draftBase}/${invalidId}/preflight`, { revision: 0 }, "POST", 400);
+    assert.equal(invalid.code, "VAULT_CONFIG_INVALID");
+    const unknown = (await hre.ethers.getSigners())[8];
+    await (await hub.setAllowlistStatus(unknown.address, true)).wait();
+    const uncovered = await hub.createCustomVault("Uncovered wallet", 0, 10000, 0n, 1, [admin.address], [unknown.address]); await uncovered.wait();
+    const denial = await owner.browser.request("/vaults", { workspaceId: owner.workspaceId, txHash: uncovered.hash }, "POST", 409);
+    assert.equal(denial.code, "VAULT_MEMBER_COVERAGE_REQUIRED");
+    assert.equal((await db.select().from(vaults).where(eq(vaults.onchainCreationTx, uncovered.hash))).length, 0);
+    check("wizard rejects unusable milestone overlap and never silently drops unrecognized chain members");
     console.log(JSON.stringify({ status: "PASSED", environment: "ISOLATED_POSTGRESQL_AND_LOCAL_EVM", checks: passed, productionDatabaseTouched: false, fujiAcceptance: false }));
   } finally {
     if (api) await new Promise<void>((resolve) => api!.close(() => resolve()));
