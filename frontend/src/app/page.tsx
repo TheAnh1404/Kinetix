@@ -33,7 +33,7 @@ export default function LandingPage() {
         }}
       />
 
-      <main className="w-full pt-20 flex-1">
+      <main className="w-full pt-16 sm:pt-20 flex-1">
         <HomeView />
       </main>
 

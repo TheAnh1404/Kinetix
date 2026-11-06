@@ -4,6 +4,10 @@ import { createHmac } from "node:crypto";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+/**
+ * BFF Proxy chuyển tiếp mọi yêu cầu từ Next.js Client sang Express Backend.
+ * Kèm chữ ký HMAC bảo vệ nếu BFF_SHARED_SECRET được cấu hình.
+ */
 async function proxy(
   req: NextRequest,
   context: { params: { path: string[] } },
@@ -19,17 +23,20 @@ async function proxy(
       { status: 403 },
     );
   }
+
   const base = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:4000";
   const url = new URL(
     `/api/${context.params.path.map(encodeURIComponent).join("/")}`,
     base,
   );
   url.search = req.nextUrl.search;
+
   const headers = new Headers();
   for (const name of ["cookie", "content-type", "origin", "idempotency-key"]) {
     const value = req.headers.get(name);
     if (value) headers.set(name, value);
   }
+
   const secret = process.env.BFF_SHARED_SECRET;
   const clientIp =
     req.ip ||
@@ -49,14 +56,15 @@ async function proxy(
         .digest("hex"),
     );
   }
-  // No client-controlled user ID, role or forwarding headers are treated as identity.
+
   try {
     const body = ["GET", "HEAD"].includes(method)
       ? undefined
       : await req.text();
     if (body && new TextEncoder().encode(body).length > 1048576)
       return NextResponse.json({ error: "Yêu cầu quá lớn." }, { status: 413 });
-    const upstream = await fetch(url, {
+
+    const upstream = await fetch(url.toString(), {
       method,
       headers,
       body,
@@ -64,6 +72,7 @@ async function proxy(
       redirect: "manual",
       signal: AbortSignal.timeout(15000),
     });
+
     const response = new NextResponse(upstream.body, {
       status: upstream.status,
       headers: {
@@ -72,12 +81,19 @@ async function proxy(
         "Cache-Control": "no-store",
       },
     });
-    const cookies = (
-      upstream.headers as Headers & { getSetCookie(): string[] }
-    ).getSetCookie();
-    for (const cookie of cookies) response.headers.append("Set-Cookie", cookie);
+
+    const getSetCookieFn = (upstream.headers as any).getSetCookie;
+    const cookies: string[] =
+      typeof getSetCookieFn === "function"
+        ? getSetCookieFn.call(upstream.headers)
+        : [];
+    for (const cookie of cookies) {
+      response.headers.append("Set-Cookie", cookie);
+    }
+
     return response;
-  } catch {
+  } catch (err: any) {
+    console.error(`[BFF Proxy Error -> ${url.toString()}]:`, err);
     return NextResponse.json(
       {
         success: false,
@@ -87,6 +103,7 @@ async function proxy(
     );
   }
 }
+
 export const GET = proxy;
 export const POST = proxy;
 export const PUT = proxy;

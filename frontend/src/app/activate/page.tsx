@@ -202,9 +202,9 @@ export default function ActivatePage() {
           </p>
           <button
             className="auth-primary"
-            onClick={() => window.location.assign("/dashboard")}
+            onClick={() => window.location.assign(auth.redirectUrl)}
           >
-            Vào không gian của bạn <ArrowRight size={20} />
+            Tiếp tục thiết lập <ArrowRight size={20} />
           </button>
         </div>
       )}
