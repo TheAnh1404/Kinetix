@@ -4,6 +4,7 @@ import { db } from "../db";
 import { sessions, workspaceMembers } from "../db/schema";
 import * as service from "../auth/service";
 import { databaseErrorCode } from "../db/errors";
+import { VaultConfigError } from "../../../shared/vaultCreation";
 import { syncRetryPolicy } from "../../../shared/transactionErrors";
 import {
   BaseError,
@@ -58,6 +59,7 @@ export function authErrorHandler(
   res: Response,
   _next: NextFunction,
 ) {
+  if (error instanceof VaultConfigError) return res.status(400).json({ success: false, code: "VAULT_CONFIG_INVALID", error: error.message, fields: error.fields });
   if (error instanceof AuthError)
     return res
       .status(error.status)
@@ -183,7 +185,7 @@ async function resultSession(
   result: { token: string },
 ) {
   setCookie(res, service.SESSION_COOKIE, result.token, service.SESSION_SECONDS);
-  return res.json(await service.me(await service.authenticate(result.token)));
+  return res.json(await service.me(await service.authenticate(result.token), { workspacePreference: cookie(req, "kinetix_workspace") }));
 }
 const requireBrowser = (req: Request) => {
   const value = cookie(req, service.BROWSER_COOKIE);
@@ -237,6 +239,11 @@ authRouter.post(
     });
   }),
 );
+authRouter.post("/invitations/preview", endpoint(async (req, res) => {
+  assert(typeof req.body.token === "string" && /^[A-Za-z0-9_-]{43}$/.test(req.body.token), 400, "Mã mời không hợp lệ.", "INVITATION_INVALID");
+  await service.rateLimit(`invitation-preview:${requestIp(req)}`, 20);
+  return res.json({ success: true, invitation: await service.previewGuardianInvitation(req.body.token) });
+}));
 authRouter.post(
   "/register-family",
   endpoint(async (req, res) => {
@@ -298,7 +305,7 @@ authRouter.post(
 authRouter.use(authenticated);
 authRouter.get(
   "/me",
-  endpoint(async (req, res) => res.json(await service.me(req.auth!))),
+  endpoint(async (req, res) => res.json(await service.me(req.auth!, { workspacePreference: cookie(req, "kinetix_workspace"), workspaceId: typeof req.query.workspace === "string" ? req.query.workspace : undefined }))),
 );
 authRouter.post(
   "/change-password",

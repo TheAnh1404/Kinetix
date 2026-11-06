@@ -19,7 +19,9 @@ import {
   workspaceInvitations,
   walletHistory,
   walletRecoveries,
+  workspaceOnboarding,
 } from "../db/schema";
+import { START_FLOW_VERSION, entryRoute, needsStart } from "../../../shared/startFlow";
 import {
   assert,
   digest,
@@ -32,6 +34,7 @@ import {
   siweMessage,
   allowedChains,
   ChallengePurpose,
+  uuidInput,
 } from "./security";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -254,7 +257,7 @@ export async function managedAccess(
   }
   return target;
 }
-export async function me(auth: AuthContext) {
+export async function me(auth: AuthContext, options: { workspaceId?: string; workspacePreference?: string } = {}) {
   const memberships = await db
     .select({ workspace: workspaces, membership: workspaceMembers })
     .from(workspaceMembers)
@@ -265,10 +268,20 @@ export async function me(auth: AuthContext) {
         isNull(workspaceMembers.accessDisabledAt),
       ),
     );
-  const family =
+  const preference = options.workspacePreference?.split(".");
+  const requestedWorkspace = options.workspaceId ? uuidInput(options.workspaceId) : undefined;
+  const selected = requestedWorkspace
+    ? memberships.find((m) => m.workspace.id === requestedWorkspace)
+    : preference?.[0] === auth.user.id ? memberships.find((m) => m.workspace.id === preference[1]) : undefined;
+  assert(!options.workspaceId || selected, 403, "Bạn không có quyền truy cập không gian này.");
+  const family = selected ||
     memberships.find((m) => m.workspace.id === auth.user.familyId) ||
     memberships[0];
   const state = onboarding(auth);
+  const startEnabled = process.env.START_SCREEN_ENABLED !== "false";
+  const progress = state === "READY" && startEnabled ? await db.select().from(workspaceOnboarding).where(and(eq(workspaceOnboarding.userId, auth.user.id), eq(workspaceOnboarding.flowVersion, START_FLOW_VERSION))) : [];
+  const presentation = progress.find((row) => row.workspaceId === family?.workspace.id);
+  const startRequired = state === "READY" && startEnabled && !!family && needsStart(presentation?.status);
   const requests = await db
     .select()
     .from(provisioningRequests)
@@ -291,6 +304,8 @@ export async function me(auth: AuthContext) {
       ...workspace,
       role: member.role,
       canManageMembers: member.role === "ADMIN" || member.canManageMembers,
+      startRequired: state === "READY" && startEnabled && needsStart(progress.find((row) => row.workspaceId === workspace.id)?.status),
+      startStatus: progress.find((row) => row.workspaceId === workspace.id)?.status || null,
     })),
     onboarding: state,
     linkedWallet: auth.wallet
@@ -312,7 +327,9 @@ export async function me(auth: AuthContext) {
         deploymentRef,
         kind: "ALLOWLIST",
       })),
-    redirectUrl: state === "READY" ? "/dashboard" : "/activate",
+    entryWorkspaceId: family?.workspace.id || null,
+    startRequired,
+    redirectUrl: entryRoute(state, family?.workspace.id, family?.membership.role || auth.user.role, presentation?.status, startEnabled),
   };
 }
 export async function login(usernameInput: unknown, password: unknown) {
@@ -794,6 +811,15 @@ function requireRecent(auth: AuthContext) {
     "REAUTH_REQUIRED",
   );
 }
+export async function previewGuardianInvitation(token: unknown) {
+  assert(typeof token === "string" && /^[A-Za-z0-9_-]{43}$/.test(token), 400, "Mã mời không hợp lệ.", "INVITATION_INVALID");
+  const [row] = await db.select({ workspaceName: workspaces.name, expectedWallet: workspaceInvitations.expectedWallet, expiresAt: workspaceInvitations.expiresAt })
+    .from(workspaceInvitations).innerJoin(workspaces, eq(workspaces.id, workspaceInvitations.workspaceId))
+    .where(and(eq(workspaceInvitations.tokenHash, digest(token)), isNull(workspaceInvitations.acceptedAt), isNull(workspaceInvitations.revokedAt), gt(workspaceInvitations.expiresAt, now())));
+  assert(row, 404, "Lời mời đã hết hạn, được sử dụng hoặc không còn hợp lệ.", "INVITATION_UNAVAILABLE");
+  return row;
+}
+
 export async function registerGuardian(
   input: Record<string, unknown>,
   browserToken: string,
