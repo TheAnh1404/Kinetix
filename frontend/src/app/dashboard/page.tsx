@@ -9,6 +9,7 @@ import { RoscaView } from "@/components/views/RoscaView";
 import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { AccountStatus } from "@/components/auth/AccountStatus";
+import { StartReminder } from "@/components/auth/StartReminder";
 import { MemberResponsiveShell } from "@/components/layout/MemberResponsiveShell";
 import { ElderlyPortal } from "@/components/member/ElderlyPortal";
 import { KidsPortal } from "@/components/member/KidsPortal";
@@ -47,6 +48,10 @@ function DashboardContent() {
       return;
     }
     if (!role) return;
+    if (membership?.startRequired) {
+      router.replace(`/start?workspace=${encodeURIComponent(family.currentWorkspace!.id)}`);
+      return;
+    }
     const switched =
       previousWorkspace.current &&
       previousWorkspace.current !== family.currentWorkspace?.id;
@@ -80,6 +85,7 @@ function DashboardContent() {
     auth.onboarding,
     auth.sessionError,
     role,
+    membership?.startRequired,
     admin,
     group,
     pathname,
@@ -119,11 +125,13 @@ function DashboardContent() {
       </div>
     );
   // Membership của workspace quyết định quyền, không dùng vai trò toàn cục hoặc nút preview.
+  if (membership?.startRequired) return <Loading />;
   if (!group || (!admin && group !== "rosca" && group !== (role === "ELDERLY" ? "elderly" : "kids")))
     return <Loading />;
   const notices = (
     <>
       <AccountStatus />
+      <StartReminder />
       {family.dataErrors.length > 0 && (
         <div className="member-error" role="alert">
           <p>Một số dữ liệu chưa cập nhật. Kiểm tra lại trước khi giao dịch.</p>

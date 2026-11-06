@@ -4,12 +4,13 @@ import { LanguageProvider } from "@/context/LanguageContext";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { FamilyProvider } from "@/context/FamilyContext";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { VaultCreationProvider } from "./VaultCreationContext";
 
 function SessionFamily({ children }: { children: ReactNode }) {
   const { user, onboarding } = useAuth();
   return (
     <FamilyProvider key={`${user?.id || "guest"}:${onboarding || "loading"}`}>
-      {children}
+      <VaultCreationProvider>{children}</VaultCreationProvider>
     </FamilyProvider>
   );
 }

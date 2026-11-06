@@ -493,3 +493,12 @@
 .auth-label input {
   font-size: 16px;
 }
+
+/* Ẩn thanh cuộn cho các dải chip ngang trên điện thoại di động */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

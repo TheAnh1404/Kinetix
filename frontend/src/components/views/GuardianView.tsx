@@ -6,7 +6,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { FamilyStatsCards } from "@/components/dashboard/FamilyStatsCards";
 import { MemberManagementModal } from "@/components/dashboard/MemberManagementModal";
 import { CreateChoreModal } from "@/components/dashboard/CreateChoreModal";
-import { CreateVaultModal } from "@/components/vaults/CreateVaultModal";
+import { useVaultCreation } from "@/context/VaultCreationContext";
 import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
 import { ChoreProofModal } from "@/components/dashboard/ChoreProofModal";
 import { DynamicVaultItem } from "@/types";
@@ -18,6 +18,7 @@ import { useVaultStates } from "@/hooks/useVaultStates";
 import { CoreDeploymentConsole } from "@/components/dashboard/CoreDeploymentConsole";
 import { ProvisioningPanel } from "@/components/dashboard/ProvisioningPanel";
 import { requestStatus } from "@/lib/member";
+import { DEPLOYMENT } from "@/contracts/config";
 
 export const GuardianView: React.FC = () => {
   const {
@@ -44,10 +45,11 @@ export const GuardianView: React.FC = () => {
   const [isSigning, setIsSigning] = useState(false);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [isChoreModalOpen, setIsChoreModalOpen] = useState(false);
-  const [isCreateVaultOpen, setIsCreateVaultOpen] = useState(false);
+  const vaultCreation = useVaultCreation();
   const [depositModalVault, setDepositModalVault] =
     useState<DynamicVaultItem | null>(null);
   const [inspectingChore, setInspectingChore] = useState<any | null>(null);
+  const [showOperator, setShowOperator] = useState(false);
 
   // Yêu cầu rút tiền đang chờ duyệt (Pending Multisig Request)
   const pendingRequests = withdrawalRequests.filter(
@@ -108,14 +110,36 @@ export const GuardianView: React.FC = () => {
 
       {/* 2. KHỐI TỔNG QUAN TÀI SẢN (3 CHỈ SỐ LỚN CHO LAPTOP) */}
       <FamilyStatsCards />
-      <CoreDeploymentConsole />
-      <ProvisioningPanel />
+      {!DEPLOYMENT.enabled && currentWorkspace?.role === "ADMIN" && (
+        <div className="text-sm text-slate-600">
+          <button
+            type="button"
+            className="underline min-h-12"
+            onClick={() => setShowOperator((value) => !value)}
+          >
+            {showOperator ? "Ẩn" : "Mở"} công cụ triển khai dành cho người vận
+            hành
+          </button>
+          {showOperator && (
+            <>
+              <p>
+                Đây là thao tác thiết lập hạ tầng, không phải bước bắt buộc cho
+                mọi gia đình. Cần ví và ngân sách testnet của người vận hành.
+              </p>
+              <CoreDeploymentConsole />
+            </>
+          )}
+        </div>
+      )}
+      {canManageMembers && (
+        <ProvisioningPanel />
+      )}
       <VaultWorkflowPanel />
 
       {/* 3. BỐ CỤC 2 CỘT CHÍNH CHO CHỦ GIA ĐÌNH TRÊN LAPTOP */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* CỘT TRÁI (7 CỘT): DANH MỤC HŨ ĐỘNG (DYNAMIC VAULTS PORTFOLIO) */}
-        <div className="lg:col-span-7 flex flex-col gap-4">
+        <div id="family-vaults" className="lg:col-span-7 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-xl bg-red-100 text-red-600 flex items-center justify-center font-bold text-sm">
@@ -145,7 +169,8 @@ export const GuardianView: React.FC = () => {
               </button>
 
               <button
-                onClick={() => setIsCreateVaultOpen(true)}
+                onClick={() => vaultCreation.open()}
+                title="Chuẩn bị và lưu bản nháp; quyền ký được kiểm tra trước giao dịch"
                 type="button"
                 className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-xs"
               >
@@ -159,6 +184,18 @@ export const GuardianView: React.FC = () => {
 
           {/* Lưới các Hũ tiền */}
           <div className="space-y-3">
+            {dynamicVaults.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-700">
+                <h3 className="font-bold text-slate-950">
+                  Gia đình chưa có hũ tiền
+                </h3>
+                <p className="mt-2">
+                  Bắt đầu bằng việc thêm người thân, để mỗi người kích hoạt tài
+                  khoản và liên kết Core. Có thể chọn Tạo Hũ Mới để chuẩn bị bản
+                  nháp ngay; chỉ ký khi quyền giao dịch sẵn sàng. Số dư ban đầu là 0 AVAX.
+                </p>
+              </div>
+            )}
             {dynamicVaults.map((vault) => {
               const issue = vaultMappingIssue(
                 vault,
@@ -357,7 +394,10 @@ export const GuardianView: React.FC = () => {
                 </div>
               </div>
 
-              {activeRequest.status === "PENDING" && liveStates[activeRequest.vaultId || ""]?.requests.some((item: any) => item.id === activeRequest.id && item.canApprove) ? (
+              {activeRequest.status === "PENDING" &&
+              liveStates[activeRequest.vaultId || ""]?.requests.some(
+                (item: any) => item.id === activeRequest.id && item.canApprove,
+              ) ? (
                 <button
                   onClick={() => handleApprove(activeRequest.id)}
                   disabled={isSigning}
@@ -375,7 +415,9 @@ export const GuardianView: React.FC = () => {
                 </button>
               ) : (
                 <div className="w-full py-2.5 rounded-xl bg-emerald-50 text-emerald-800 text-center font-bold text-xs">
-                  {activeRequest.status === "EXECUTED" ? "Đã giải ngân về ví người thụ hưởng" : "Xem trạng thái và quyền ký trong chi tiết hũ"}
+                  {activeRequest.status === "EXECUTED"
+                    ? "Đã giải ngân về ví người thụ hưởng"
+                    : "Xem trạng thái và quyền ký trong chi tiết hũ"}
                 </div>
               )}
             </div>
@@ -435,7 +477,12 @@ export const GuardianView: React.FC = () => {
                           <span>Xem Ảnh</span>
                         </button>
                         <button
-                          disabled={!liveStates[chore.vaultId]?.tasks.some((task: any) => task.id === chore.id && task.canApprove)}
+                          disabled={
+                            !liveStates[chore.vaultId]?.tasks.some(
+                              (task: any) =>
+                                task.id === chore.id && task.canApprove,
+                            )
+                          }
                           onClick={() =>
                             handleVerifyChore(chore.id, chore.rewardAmount)
                           }
@@ -454,10 +501,6 @@ export const GuardianView: React.FC = () => {
       </div>
 
       {/* 4. MODALS QUẢN TRỊ TRUNG TÂM */}
-      <CreateVaultModal
-        isOpen={isCreateVaultOpen}
-        onClose={() => setIsCreateVaultOpen(false)}
-      />
 
       <DepositVaultModal
         isOpen={Boolean(depositModalVault)}

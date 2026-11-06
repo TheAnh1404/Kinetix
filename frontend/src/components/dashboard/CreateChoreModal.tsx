@@ -5,39 +5,64 @@ import { useFamily } from "@/context/FamilyContext";
 import { AccessibleDialog } from "@/components/member/MemberPrimitives";
 import { amountLabel, parseAmount } from "@/lib/member";
 import { hubChain } from "@/contracts/config";
+import { useVaultStates } from "@/hooks/useVaultStates";
+import { formatEther } from "viem";
 
 export function CreateChoreModal({
   isOpen,
   onClose,
+  defaultVaultId,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  defaultVaultId?: string;
 }) {
   const family = useFamily();
   if (!isOpen) return null;
   return (
-    <CreateChoreForm key={family.currentWorkspace?.id} onClose={onClose} />
+    <CreateChoreForm
+      key={`${family.currentWorkspace?.id}:${defaultVaultId}`}
+      onClose={onClose}
+      defaultVaultId={defaultVaultId}
+    />
   );
 }
-function CreateChoreForm({ onClose }: { onClose: () => void }) {
+function CreateChoreForm({
+  onClose,
+  defaultVaultId,
+}: {
+  onClose: () => void;
+  defaultVaultId?: string;
+}) {
   const { createChore, members, dynamicVaults } = useFamily();
-  const children = members.filter(
-    (member) => member.role === "CHILD" && member.walletAddress,
-  );
+  const { states, errors } = useVaultStates();
   const vaults = dynamicVaults.filter(
     (vault) => vault.ruleTemplate === "MILESTONE" && vault.isActive,
   );
   const [title, setTitle] = useState("");
   const [reward, setReward] = useState("");
   const [childId, setChildId] = useState("");
-  const [vaultId, setVaultId] = useState("");
+  const [vaultId, setVaultId] = useState(defaultVaultId || "");
+  const live = states[vaultId];
+  const children = members.filter(
+    (member) =>
+      !!member.walletAddress &&
+      live?.state.beneficiaries.some(
+        (address: string) =>
+          address.toLowerCase() === member.walletAddress.toLowerCase(),
+      ) &&
+      !live?.state.guardians.some(
+        (address: string) =>
+          address.toLowerCase() === member.walletAddress.toLowerCase(),
+      ),
+  );
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const lock = useRef(false);
   return (
     <AccessibleDialog
-      title="Giao việc cho con"
+      title="Giao nhiệm vụ có thưởng"
       onClose={() => {
         if (!busy) onClose();
       }}
@@ -62,7 +87,18 @@ function CreateChoreForm({ onClose }: { onClose: () => void }) {
               event.preventDefault();
               if (lock.current) return;
               try {
-                parseAmount(reward);
+                const amount = parseAmount(reward);
+                if (
+                  !live?.capabilities.createChore.allowed ||
+                  !children.some((member) => member.id === childId)
+                )
+                  throw new Error(
+                    "Chưa có quyền giao việc cho người nhận trong hũ này.",
+                  );
+                if (amount > BigInt(live.balance.availableWei))
+                  throw new Error(
+                    "Nạp thêm tiền hoặc giảm phần thưởng cho phù hợp số dư khả dụng.",
+                  );
                 if (!title.trim() || !childId || !vaultId)
                   throw new Error(
                     "Chọn hũ, người nhận và điền đầy đủ thông tin.",
@@ -99,7 +135,10 @@ function CreateChoreForm({ onClose }: { onClose: () => void }) {
               <select
                 required
                 value={vaultId}
-                onChange={(event) => setVaultId(event.target.value)}
+                onChange={(event) => {
+                  setVaultId(event.target.value);
+                  setChildId("");
+                }}
                 disabled={busy}
               >
                 <option value="">Chọn hũ nhiệm vụ</option>
@@ -118,7 +157,7 @@ function CreateChoreForm({ onClose }: { onClose: () => void }) {
                 onChange={(event) => setChildId(event.target.value)}
                 disabled={busy}
               >
-                <option value="">Chọn trẻ đã liên kết ví</option>
+                <option value="">Chọn người thụ hưởng của hũ</option>
                 {children.map((child) => (
                   <option value={child.id} key={child.id}>
                     {child.name}
@@ -150,7 +189,7 @@ function CreateChoreForm({ onClose }: { onClose: () => void }) {
             <p className="member-notice">
               Tên việc, địa chỉ ví và phần thưởng được ghi công khai trên
               blockchain. Dùng mô tả ngắn, không chứa thông tin riêng tư của
-              trẻ.
+              người nhận.
             </p>
             {error && (
               <p role="alert" className="member-error">
@@ -159,13 +198,29 @@ function CreateChoreForm({ onClose }: { onClose: () => void }) {
             )}
             {(!vaults.length || !children.length) && (
               <p className="member-error">
-                Cần có hũ MILESTONE đang hoạt động và trẻ đã liên kết ví được
-                cấp quyền trên hũ.
+                Chọn hũ MILESTONE và người thụ hưởng khác Guardian của hũ.
+              </p>
+            )}
+            {errors[vaultId] && (
+              <p role="alert" className="member-error">
+                {errors[vaultId]}
+              </p>
+            )}
+            {live && (
+              <p className="member-notice">
+                Khả dụng để giao việc:{" "}
+                {formatEther(BigInt(live.balance.availableWei))} AVAX. Phần
+                thưởng phải nằm trong số dư này.
               </p>
             )}
             <button
               className="member-primary"
-              disabled={busy || !vaults.length || !children.length}
+              disabled={
+                busy ||
+                !vaults.length ||
+                !children.length ||
+                !live?.capabilities.createChore.allowed
+              }
               type="submit"
             >
               {busy ? "Đang chờ Core xác nhận…" : "Mở Core để giao việc"}

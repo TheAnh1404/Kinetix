@@ -11,7 +11,7 @@ import {
   EyeOff,
   LoaderCircle,
 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, authRequest } from "@/hooks/useAuth";
 
 export function AuthFrame({
   children,
@@ -117,19 +117,25 @@ export function PasswordField({
 }
 export function LoginView() {
   const auth = useAuth();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "invite">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [familyName, setFamilyName] = useState("");
   const [invitationToken, setInvitationToken] = useState("");
+  const [invitationPreview, setInvitationPreview] = useState<{
+    workspaceName: string;
+    expectedWallet: string;
+    expiresAt: string;
+  } | null>(null);
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("mode") === "register")
-      setMode("register");
+    const requested = new URLSearchParams(window.location.search).get("mode");
+    if (requested === "register" || requested === "invite") setMode(requested);
   }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const run = async (action: () => Promise<unknown>) => {
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
@@ -149,14 +155,31 @@ export function LoginView() {
       <div className="auth-form-heading">
         <span className="auth-kicker">KHÔNG GIAN CỦA BẠN</span>
         <h2>
-          {mode === "login" ? "Đăng nhập Kinetix" : "Khởi đầu cho gia đình"}
+          {mode === "login"
+            ? "Đăng nhập Kinetix"
+            : mode === "invite"
+              ? "Tham gia gia đình được mời"
+              : "Khởi đầu cho gia đình"}
         </h2>
         <p>
           {mode === "login"
             ? "Một tài khoản riêng. Kết nối cả gia đình."
-            : "Tạo tài khoản người bảo hộ và không gian đầu tiên bằng ví Core của bạn."}
+            : mode === "invite"
+              ? "Tạo tài khoản người bảo hộ trong không gian của người mời. Bạn cần dùng đúng ví Core được chỉ định."
+              : "Tạo tài khoản người bảo hộ và không gian đầu tiên bằng ví Core của bạn."}
         </p>
       </div>
+      <button
+        type="button"
+        className="auth-link min-h-12 mb-3"
+        aria-pressed={mode === "invite"}
+        onClick={() => {
+          setMode("invite");
+          setError("");
+        }}
+      >
+        Tôi nhận được lời mời làm người bảo hộ
+      </button>
       <div className="auth-tabs">
         <button
           type="button"
@@ -190,13 +213,14 @@ export function LoginView() {
                   password,
                   adminName: fullName,
                   familyName,
-                  invitationToken: invitationToken || undefined,
+                  invitationToken:
+                    mode === "invite" ? invitationToken : undefined,
                 }),
           );
         }}
         className="auth-form"
       >
-        {mode === "register" && (
+        {mode !== "login" && (
           <>
             <label className="auth-label" htmlFor="full-name">
               Họ và tên người bảo hộ
@@ -209,38 +233,75 @@ export function LoginView() {
                 onChange={(e) => setFullName(e.target.value)}
               />
             </label>
-            <label className="auth-label" htmlFor="family-name">
-              {invitationToken
-                ? "Tên gia đình · dùng không gian trong lời mời"
-                : "Tên không gian gia đình"}
-              <input
-                id="family-name"
-                required={!invitationToken}
-                disabled={!!invitationToken}
-                maxLength={100}
-                placeholder="Gia đình của chúng mình"
-                value={familyName}
-                onChange={(e) => setFamilyName(e.target.value)}
-              />
-            </label>
-            <details className="auth-help">
-              <summary className="cursor-pointer">
-                Bạn nhận được lời mời làm người bảo hộ?
-              </summary>
-              <label className="auth-label mt-3">
-                Mã mời riêng từ Admin
+            {mode === "register" && (
+              <label className="auth-label" htmlFor="family-name">
+                Tên không gian gia đình
                 <input
-                  autoComplete="off"
-                  value={invitationToken}
-                  maxLength={43}
-                  onChange={(e) => setInvitationToken(e.target.value.trim())}
+                  id="family-name"
+                  required
+                  maxLength={100}
+                  placeholder="Gia đình của chúng mình"
+                  value={familyName}
+                  onChange={(e) => setFamilyName(e.target.value)}
                 />
               </label>
-              <p className="mt-2">
-                Dùng đúng địa chỉ Core được mời. Mã gia đình công khai không cấp
-                quyền Guardian.
-              </p>
-            </details>
+            )}
+            {mode === "invite" && (
+              <div className="auth-help">
+                <label className="auth-label mt-3">
+                  Mã mời riêng từ Admin
+                  <input
+                    autoComplete="off"
+                    disabled={busy}
+                    required
+                    minLength={43}
+                    value={invitationToken}
+                    maxLength={43}
+                    onChange={(e) => {
+                      setInvitationToken(e.target.value.trim());
+                      setInvitationPreview(null);
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={busy || invitationToken.length !== 43}
+                  className="auth-link min-h-12"
+                  onClick={() =>
+                    void run(async () => {
+                      const data = await authRequest(
+                        "/api/auth/invitations/preview",
+                        { token: invitationToken },
+                      );
+                      setInvitationPreview(data.invitation);
+                    })
+                  }
+                >
+                  Kiểm tra lời mời trước khi ký
+                </button>
+                {invitationPreview && (
+                  <div
+                    className="rounded-xl bg-slate-50 p-3 text-sm break-words"
+                    role="status"
+                  >
+                    <strong>Tham gia {invitationPreview.workspaceName}</strong>
+                    <p className="break-all mt-2">
+                      Ví cần dùng: {invitationPreview.expectedWallet}
+                    </p>
+                    <p className="mt-2">
+                      Hết hạn:{" "}
+                      {new Date(invitationPreview.expiresAt).toLocaleString(
+                        "vi-VN",
+                      )}
+                    </p>
+                  </div>
+                )}
+                <p className="mt-2">
+                  Dùng đúng địa chỉ Core được mời. Mã gia đình công khai không
+                  cấp quyền Guardian.
+                </p>
+              </div>
+            )}
           </>
         )}
         <label className="auth-label" htmlFor="username">
@@ -263,12 +324,10 @@ export function LoginView() {
           label="Mật khẩu"
           value={password}
           onChange={setPassword}
-          autoComplete={
-            mode === "register" ? "new-password" : "current-password"
-          }
-          minLength={mode === "register" ? 12 : undefined}
+          autoComplete={mode !== "login" ? "new-password" : "current-password"}
+          minLength={mode !== "login" ? 12 : undefined}
         />
-        {mode === "register" && (
+        {mode !== "login" && (
           <p className="auth-help">
             Mật khẩu từ 12–128 ký tự. Bạn sẽ ký thông điệp xác minh ví, không
             gửi giao dịch.
@@ -289,7 +348,11 @@ export function LoginView() {
             <LoaderCircle className="animate-spin" size={20} />
           ) : (
             <>
-              {mode === "login" ? "Đăng nhập" : "Xác minh Core & tạo gia đình"}
+              {mode === "login"
+                ? "Đăng nhập"
+                : mode === "invite"
+                  ? "Xác minh Core & nhận lời mời"
+                  : "Xác minh Core & tạo gia đình"}
               <ArrowRight size={20} />
             </>
           )}

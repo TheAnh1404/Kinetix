@@ -1,593 +1,1309 @@
 "use client";
-
-import React, { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { formatEther, parseEther } from "viem";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ShieldCheck,
+  ListChecks,
+  Users,
+  Flag,
+  X,
+  Save,
+} from "lucide-react";
 import { useFamily } from "@/context/FamilyContext";
-import { isAddress } from "viem";
+import { authRequest, useAuth } from "@/hooks/useAuth";
+import {
+  pendingTransactions,
+  reconcileTransactions,
+  restoreOperations,
+} from "@/lib/web3/client";
+import { SNOWTRACE_TESTNET_URL } from "@/contracts/config";
+import {
+  CreationPhase,
+  emptyVaultForm,
+  ResolvedVaultConfig,
+  validateVaultForm,
+  VaultForm,
+} from "../../../../shared/vaultCreation";
+import styles from "./VaultCreation.module.css";
 
-interface CreateVaultModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface Candidate {
+  id: string;
+  fullName: string;
+  role: string;
+  address: string | null;
+  linked: boolean;
+  permission: string;
+  reason: string;
+  canGuard: boolean;
 }
+interface Context {
+  workspaceName: string;
+  availability: string;
+  reason: string;
+  candidates: Candidate[];
+}
+interface Draft {
+  id: string;
+  config: VaultForm;
+  revision: number;
+  step: number;
+  signaturePending: boolean;
+  txHash: string | null;
+  vaultId: string | null;
+  preflight: null | {
+    contractConfig: ResolvedVaultConfig;
+    estimatedFeeWei: string;
+    checkedAt: string;
+    expiresAt: string;
+    asOfBlock: string;
+    hub: string;
+    actor: string;
+  };
+}
+const rules = [
+  {
+    id: "SHIELD",
+    title: "Chi tiêu an toàn",
+    icon: ShieldCheck,
+    summary: "Khoản nhỏ dùng ngay, khoản lớn cùng duyệt.",
+    policy:
+      "Người thụ hưởng được rút nhanh trong hạn mức mỗi lần. Hạn mức ngày dùng chung cả hũ bằng 2 lần hạn mức nhanh, đặt lại lúc 00:00 UTC. Khoản lớn cần đủ chữ ký Guardian và số dư khả dụng.",
+  },
+  {
+    id: "MILESTONE",
+    title: "Thưởng việc nhà",
+    icon: ListChecks,
+    summary: "Hoàn thành nhiệm vụ, người bảo hộ duyệt thưởng.",
+    policy:
+      "Tiền thưởng được giữ riêng khi giao việc. Chỉ trả khi đủ chữ ký Guardian; hủy việc sẽ giải phóng khoản giữ. Người nhận thưởng phải khác Guardian. Cần nạp tiền trước khi giao việc.",
+  },
+  {
+    id: "ROSCA",
+    title: "Góp xoay vòng",
+    icon: Users,
+    summary: "Mỗi người góp đủ, lần lượt nhận theo thứ tự.",
+    policy:
+      "Mỗi người đóng đúng khoản góp một lần mỗi kỳ. Chỉ chi khi tất cả đã góp và đủ thời gian; kỳ tiếp theo tính từ lần chi trước. Mỗi người nhận một lượt theo thứ tự đã chốt. Hiện chưa có cơ chế hủy hoặc hoàn góp nếu có người bỏ kỳ.",
+  },
+  {
+    id: "SHARED_GOAL",
+    title: "Mục tiêu chung",
+    icon: Flag,
+    summary: "Cùng tích lũy cho một mục tiêu có thời hạn.",
+    policy:
+      "Chỉ được chi khi đạt mục tiêu hoặc hết hạn và đủ chữ ký Guardian. Điều kiện được kiểm tra lại lúc thực chi; rút một phần trước hạn có thể khiến lần chi tiếp theo phải chờ nạp thêm.",
+  },
+] as const;
+const steps = ["Mục đích", "Thành viên", "Quy tắc", "Kiểm tra & ký"];
+const phaseNames: Record<CreationPhase["status"], string> = {
+  PRECHECK: "Đang kiểm tra ví và cấu hình",
+  AWAITING_SIGNATURE: "Chờ bạn xác nhận trong Core",
+  BROADCAST: "Đã gửi, đang chờ xác nhận",
+  CONFIRMED: "Đã có receipt, đang đối soát",
+  SYNC_PENDING: "Đang cập nhật hũ vào gia đình",
+  COMPLETED: "Hũ đã sẵn sàng",
+  REVERTED: "Giao dịch đã bị hoàn tác",
+};
+const localDate = (iso: string) => {
+  if (!iso || !Number.isFinite(Date.parse(iso))) return "";
+  const value = new Date(iso);
+  return new Date(value.getTime() - value.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+};
 
-export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
+export function CreateVaultModal({
   isOpen,
   onClose,
-}) => {
-  const { createCustomVault, members, currentMember } = useFamily();
-
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [ruleTemplate, setRuleTemplate] = useState<
-    "SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL"
-  >("SHIELD");
-  const [vaultName, setVaultName] = useState("");
-  const [vaultDescription, setVaultDescription] = useState("");
-  const [bufferRatioBps, setBufferRatioBps] = useState<number>(10000); // 1000 = 10%
-  const [fastWithdrawLimit, setFastWithdrawLimit] = useState<string>("0.01");
-  const [requiredApprovals, setRequiredApprovals] = useState<number>(1);
-  const [selectedGuardianWallets, setSelectedGuardianWallets] = useState<
-    string[]
-  >([]);
-  const [selectedBeneficiaryWallets, setSelectedBeneficiaryWallets] = useState<
-    string[]
-  >([]);
-  // Thuộc tính chuyên biệt theo quy tắc ROSCA & SHARED_GOAL
-  const [targetGoalAmount, setTargetGoalAmount] = useState<string>("1");
-  const [targetDeadline, setTargetDeadline] = useState<string>(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    return d.toISOString().split("T")[0];
-  });
-  const [roscaRoundDuration, setRoscaRoundDuration] = useState<number>(
-    7 * 24 * 3600,
-  ); // 7 ngày
-  const [roscaRoundContribution, setRoscaRoundContribution] =
-    useState<string>("0.01"); // 10 AVAX
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
+  onNext,
+  onManage,
+  initialDraftId,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onNext?: (vault: any, action: "deposit" | "chore") => void;
+  onManage?: (draftId: string) => void;
+  initialDraftId?: string;
+}) {
+  const family = useFamily();
+  const auth = useAuth();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const lock = useRef(false);
+  const mounted = useRef(true);
+  const newDraftId = useRef<string | null>(null);
+  const [context, setContext] = useState<Context | null>(null);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [form, setForm] = useState<VaultForm>(emptyVaultForm);
+  const [step, setStep] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [saved, setSaved] = useState("");
+  const [error, setError] = useState("");
+  const [fields, setFields] = useState<Record<string, string>>({});
+  const [phase, setPhase] = useState<CreationPhase | null>(null);
+  const [created, setCreated] = useState<any>(null);
+  const [recoveryHash, setRecoveryHash] = useState("");
+  const workspaceId = family.currentWorkspace?.id;
+  const base = `/api/workspaces/${workspaceId}/vault-drafts`;
+  const rule = rules.find((item) => item.id === form.ruleTemplate)!;
+  const resultVault =
+    family.dynamicVaults.find((item) => item.id === created?.id) || created;
+  const immutable =
+    !!draft?.signaturePending || !!draft?.txHash || !!created || !!phase?.hash;
+  const signatureOpen = busy && !phase?.hash;
+  const close = () => {
+    if (signatureOpen) return;
+    if (dirty && !immutable)
+      void run(async () => {
+        await save();
+        onClose();
+      });
+    else onClose();
+  };
   useEffect(() => {
-    if (isOpen) {
-      setSelectedGuardianWallets(
-        isAddress(currentMember.walletAddress)
-          ? [currentMember.walletAddress]
-          : [],
-      );
-      setSelectedBeneficiaryWallets([]);
-    }
-  }, [isOpen, currentMember.id]);
-  if (!isOpen) return null;
-
-  const handleTemplateSelect = (
-    tmpl: "SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL",
-  ) => {
-    setRuleTemplate(tmpl);
-    if (tmpl === "SHIELD") {
-      setBufferRatioBps(10000);
-      setFastWithdrawLimit("0.01");
-      setRequiredApprovals(1);
-      if (!vaultName) setVaultName("Quỹ Bảo Vệ An Sinh");
-    } else if (tmpl === "MILESTONE") {
-      setBufferRatioBps(10000);
-      setFastWithdrawLimit("0");
-      setRequiredApprovals(1);
-      if (!vaultName) setVaultName("Quỹ Khen Thưởng & Cột Mốc");
-    } else if (tmpl === "ROSCA") {
-      setBufferRatioBps(10000);
-      setFastWithdrawLimit("0");
-      setRequiredApprovals(1);
-      if (!vaultName) setVaultName("Hụi Họ Tương Trợ");
-    } else if (tmpl === "SHARED_GOAL") {
-      setBufferRatioBps(10000);
-      setFastWithdrawLimit("0");
-      setRequiredApprovals(1);
-      if (!vaultName) setVaultName("Quỹ Mục Tiêu Chung");
-    }
-    setStep(2);
+    mounted.current = true;
+    const opener = document.activeElement as HTMLElement;
+    const node = dialog.current;
+    if (isOpen) node?.showModal();
+    return () => {
+      mounted.current = false;
+      node?.close();
+      opener?.focus();
+    };
+  }, [isOpen]);
+  useEffect(() => {
+    if (!workspaceId || !isOpen) return;
+    let active = true;
+    void Promise.all([
+      authRequest(
+        `/api/workspaces/${workspaceId}/vault-creation`,
+        undefined,
+        "GET",
+      ),
+      authRequest(base, undefined, "GET"),
+    ])
+      .then(([data, list]) => {
+        if (active) {
+          setContext(data.data);
+          setDrafts(list.drafts);
+          if (initialDraftId) {
+            const row = list.drafts.find(
+              (item: Draft) => item.id === initialDraftId,
+            );
+            if (row) chooseDraft(row);
+          }
+        }
+      })
+      .catch((err) => {
+        if (active) setError(err.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [workspaceId, isOpen, base, initialDraftId]);
+  useEffect(() => {
+    heading.current?.focus();
+  }, [step]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+  const chooseDraft = (row: Draft) => {
+    setDraft(row);
+    setForm(row.config);
+    setStep(Math.min(4, row.step));
+    setDirty(false);
+    setCreated(
+      row.vaultId
+        ? family.dynamicVaults.find((item) => item.id === row.vaultId) || {
+            id: row.vaultId,
+            name: row.config.name,
+          }
+        : null,
+    );
+    setPhase(
+      row.vaultId
+        ? { status: "COMPLETED", hash: row.txHash || undefined }
+        : row.txHash
+          ? { status: "BROADCAST", hash: row.txHash }
+          : null,
+    );
+    setError("");
+    setFields({});
   };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!vaultName.trim()) return;
-
-    setIsSubmitting(true);
-    const guardians = selectedGuardianWallets;
+  useEffect(() => {
     if (
-      guardians.length < requiredApprovals ||
-      selectedBeneficiaryWallets.length === 0
-    ) {
-      setIsSubmitting(false);
+      !draft?.id ||
+      created ||
+      busy ||
+      (!draft.txHash && !phase?.hash && !draft.signaturePending)
+    )
       return;
-    }
-
-    const res = await createCustomVault({
-      name: vaultName.trim(),
-      description: vaultDescription.trim(),
-      ruleTemplate,
-      bufferRatioBps,
-      fastWithdrawLimit: ruleTemplate === "SHIELD" ? fastWithdrawLimit : "0",
-      requiredApprovals,
-      guardianWallets: guardians,
-      beneficiaryWallets: selectedBeneficiaryWallets,
-      targetGoalAmount: ruleTemplate === "SHARED_GOAL" ? targetGoalAmount : "0",
-      targetDeadline:
-        ruleTemplate === "SHARED_GOAL" ? targetDeadline : undefined,
-      roscaRoundDuration: ruleTemplate === "ROSCA" ? roscaRoundDuration : 0,
-      roscaRoundContribution:
-        ruleTemplate === "ROSCA" ? roscaRoundContribution : "0",
-    });
-    setIsSubmitting(false);
-
-    if (res.success) {
-      onClose();
-    } else {
-      alert(res.error || "Lỗi tạo Hũ tiền");
+    let active = true;
+    const update = async () => {
+      try {
+        const fresh = await authRequest(
+          `${base}/${draft.id}`,
+          undefined,
+          "GET",
+        );
+        if (active && fresh.draft.vaultId) {
+          chooseDraft(fresh.draft);
+          await family.refreshBalances();
+        }
+      } catch {
+        /* Manual recovery retains the original hash and error. */
+      }
+    };
+    const timer = setInterval(() => void update(), 8000);
+    window.addEventListener("kinetix-sync-complete", update);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      window.removeEventListener("kinetix-sync-complete", update);
+    };
+  }, [
+    draft?.id,
+    draft?.txHash,
+    draft?.signaturePending,
+    phase?.hash,
+    busy,
+    created,
+    base,
+  ]);
+  const change = <K extends keyof VaultForm>(key: K, value: VaultForm[K]) => {
+    setForm((old) => ({
+      ...old,
+      [key]: value,
+      ...(key === "guardianIds"
+        ? {
+            requiredApprovals: Math.min(
+              old.requiredApprovals,
+              Math.max(1, (value as string[]).length),
+            ),
+          }
+        : {}),
+      ...(key !== "policyAccepted" ? { policyAccepted: false } : {}),
+    }));
+    setDirty(true);
+    setSaved("");
+    setDraft((old) => (old ? { ...old, preflight: null } : null));
+    setFields({});
+  };
+  const run = async (action: () => Promise<void>) => {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+    } catch (err: any) {
+      if (mounted.current) {
+        setError(err.message || "Chưa hoàn tất thao tác.");
+        setFields(err.fields || {});
+      }
+    } finally {
+      lock.current = false;
+      if (mounted.current) setBusy(false);
     }
   };
-
-  const bufferPercent = bufferRatioBps / 100;
-  const yieldPercent = 100 - bufferPercent;
-
+  const save = async (nextStep = step): Promise<Draft> => {
+    if (draft && !dirty && draft.step === nextStep) return draft;
+    if (!draft && !newDraftId.current) newDraftId.current = crypto.randomUUID();
+    const result = await authRequest(
+      draft ? `${base}/${draft.id}` : base,
+      {
+        id: draft?.id || newDraftId.current,
+        config: form,
+        step: nextStep,
+        revision: draft?.revision,
+      },
+      draft ? "PATCH" : "POST",
+    );
+    if (mounted.current) {
+      setDraft(result.draft);
+      setDirty(false);
+      setSaved("Đã lưu bản nháp");
+    }
+    return result.draft;
+  };
+  const advance = () =>
+    void run(async () => {
+      const all = validateVaultForm(
+        form,
+        BigInt(Math.floor(Date.now() / 1000)),
+      );
+      const keys =
+        step === 1
+          ? ["name"]
+          : step === 2
+            ? ["guardianIds", "beneficiaryIds"]
+            : Object.keys(all).filter((key) => key !== "policyAccepted");
+      const errors = Object.fromEntries(
+        Object.entries(all).filter(([key]) => keys.includes(key)),
+      );
+      if (Object.keys(errors).length) {
+        setFields(errors);
+        setError("Kiểm tra các trường bên dưới.");
+        return;
+      }
+      const next = Math.min(4, step + 1);
+      await save(next);
+      setStep(next);
+    });
+  const preflight = () =>
+    void run(async () => {
+      const all = validateVaultForm(
+        form,
+        BigInt(Math.floor(Date.now() / 1000)),
+      );
+      if (Object.keys(all).length) {
+        setFields(all);
+        setError("Hoàn tất cấu hình và xác nhận quy tắc trước khi kiểm tra.");
+        return;
+      }
+      const row = await save(4);
+      const result = await authRequest(`${base}/${row.id}/preflight`, {
+        revision: row.revision,
+      });
+      setDraft(result.draft);
+      setSaved("Đã kiểm tra cấu hình. Đọc lại tổng kết trước khi ký.");
+    });
+  const submit = () =>
+    void run(async () => {
+      if (!draft?.preflight || dirty || immutable) return;
+      if (Date.parse(draft.preflight.expiresAt) <= Date.now())
+        throw new Error(
+          "Lần kiểm tra đã hết hạn. Bấm kiểm tra lại trước khi ký.",
+        );
+      const result = await family.createCustomVault({
+        ...draft.preflight.contractConfig,
+        draftId: draft.id,
+        onProgress: (value) => {
+          if (mounted.current) setPhase(value);
+        },
+      });
+      if (!mounted.current) return;
+      if (result.success) {
+        setCreated(result.vault);
+        setDraft((old) =>
+          old
+            ? {
+                ...old,
+                txHash: result.txHash || null,
+                vaultId: result.vault.id,
+              }
+            : null,
+        );
+      } else {
+        setError(result.error || "Chưa hoàn tất tạo hũ.");
+        const fresh = await authRequest(
+          `${base}/${draft.id}`,
+          undefined,
+          "GET",
+        );
+        setDraft(fresh.draft);
+        if (
+          !fresh.draft.signaturePending &&
+          !fresh.draft.txHash &&
+          !result.txHash
+        )
+          setPhase(null);
+      }
+    });
+  const recover = () =>
+    void run(async () => {
+      if (!draft || !auth.user) return;
+      const local = pendingTransactions(auth.user.id).find(
+        (item) => (item.sync?.body as any)?.draftId === draft.id,
+      );
+      const hash = draft.txHash || local?.hash || recoveryHash.trim();
+      if (hash) {
+        if (!/^0x[0-9a-f]{64}$/i.test(hash))
+          throw new Error("Nhập mã giao dịch đầy đủ từ Core.");
+        await authRequest(`${base}/${draft.id}/transaction`, { txHash: hash });
+        await restoreOperations(auth.user.id, workspaceId!);
+        await reconcileTransactions(auth.user.id);
+      }
+      await family.refreshBalances();
+      const fresh = await authRequest(`${base}/${draft.id}`, undefined, "GET");
+      chooseDraft(fresh.draft);
+      if (!fresh.draft.vaultId)
+        setSaved(
+          "Đã đối soát. Nếu giao dịch chưa finalized, hãy chờ rồi kiểm tra lại; không ký tạo lại.",
+        );
+    });
+  const names = (ids: string[]) =>
+    ids.map(
+      (id) =>
+        context?.candidates.find((item) => item.id === id)?.fullName ||
+        "Thành viên không còn khả dụng",
+    );
+  const amountField = (
+    key: "fastWithdrawLimit" | "targetGoalAmount" | "roscaRoundContribution",
+    label: string,
+  ) => (
+    <label className={styles.field}>
+      {label}
+      <span className={styles.amount}>
+        <input
+          value={form[key]}
+          onChange={(event) => change(key, event.target.value)}
+          inputMode="decimal"
+          aria-invalid={!!fields[key]}
+        />
+        <b>AVAX</b>
+      </span>
+      {fields[key] && <small role="alert">{fields[key]}</small>}
+    </label>
+  );
+  if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface-container-lowest rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl border border-outline-variant/30 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-surface-container/60 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-              <span className="material-symbols-outlined text-[24px]">
-                savings
-              </span>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-on-surface">
-                Tạo Hũ Tiền Mới (Dynamic Vault)
-              </h3>
-              <p className="text-xs text-on-surface-variant">
-                Bước {step}/3 • Cấu hình hũ AVAX trên Fuji
-              </p>
-            </div>
+    <dialog
+      ref={dialog}
+      className={styles.dialog}
+      aria-labelledby="vault-create-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        close();
+      }}
+    >
+      <div className={styles.frame}>
+        <header className={styles.header}>
+          <div>
+            <span className={styles.eyebrow}>KINETIX / HŨ TIỀN MỚI</span>
+            <h1 id="vault-create-title">Một hũ tiền, một mục đích rõ ràng.</h1>
+            <p>
+              {context?.workspaceName || family.currentWorkspace?.name} · AVAX
+              trên Avalanche Fuji
+            </p>
           </div>
           <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant cursor-pointer transition-colors"
-            type="button"
+            className={styles.iconButton}
+            aria-label="Đóng tạo hũ"
+            disabled={signatureOpen}
+            onClick={close}
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <X />
           </button>
-        </div>
-
-        {/* STEP 1: CHỌN RULE TEMPLATE */}
-        {step === 1 && (
-          <div className="space-y-4">
-            <div className="text-xs font-bold uppercase tracking-wider text-on-surface-variant/80">
-              Chọn 1 trong 4 Bộ Quy Tắc Hoạt Động
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Template 0: SHIELD */}
-              <div
-                onClick={() => handleTemplateSelect("SHIELD")}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer hover:border-primary hover:shadow-md ${
-                  ruleTemplate === "SHIELD"
-                    ? "border-primary bg-primary/5"
-                    : "border-outline-variant/20 bg-surface-container-low"
-                }`}
+        </header>
+        <nav aria-label="Các bước tạo hũ">
+          <ol className={styles.steps}>
+            {steps.map((label, index) => (
+              <li
+                key={label}
+                aria-current={step === index + 1 ? "step" : undefined}
+                className={step >= index + 1 ? styles.active : ""}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-9 h-9 rounded-xl bg-error/10 text-error flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[20px]">
-                      shield
-                    </span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container/15 text-secondary-container">
-                    T1 Fuji
-                  </span>
-                </div>
-                <h4 className="text-sm font-bold text-on-surface mb-1">
-                  SHIELD (Bảo Vệ)
-                </h4>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Rút nhanh theo hạn mức đã chọn; mỗi ngày tối đa hai lần hạn
-                  mức. Khoản lớn cần quorum của hũ.
-                </p>
-              </div>
-
-              {/* Template 1: MILESTONE */}
-              <div
-                onClick={() => handleTemplateSelect("MILESTONE")}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer hover:border-primary hover:shadow-md ${
-                  ruleTemplate === "MILESTONE"
-                    ? "border-primary bg-primary/5"
-                    : "border-outline-variant/20 bg-surface-container-low"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[20px]">
-                      military_tech
-                    </span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container/15 text-secondary-container">
-                    T1 Fuji
-                  </span>
-                </div>
-                <h4 className="text-sm font-bold text-on-surface mb-1">
-                  MILESTONE (Cột Mốc)
-                </h4>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Giữ chỗ tiền thưởng; đủ số Guardian đã cấu hình xác nhận mới
-                  chi trả.
-                </p>
-              </div>
-
-              {/* Template 2: ROSCA */}
-              <div
-                onClick={() => handleTemplateSelect("ROSCA")}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer hover:border-primary hover:shadow-md ${
-                  ruleTemplate === "ROSCA"
-                    ? "border-primary bg-primary/5"
-                    : "border-outline-variant/20 bg-surface-container-low"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[20px]">
-                      cached
-                    </span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700">
-                    Góp đủ kỳ
-                  </span>
-                </div>
-                <h4 className="text-sm font-bold text-on-surface mb-1">
-                  ROSCA (Hụi Xoay Vòng)
-                </h4>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Góp vốn định kỳ: tiền giữ trên Fuji; đủ khoản của mọi thành
-                  viên và đến kỳ giải ngân gốc và chia đều lãi.
-                </p>
-              </div>
-
-              {/* Template 3: SHARED_GOAL */}
-              <div
-                onClick={() => handleTemplateSelect("SHARED_GOAL")}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer hover:border-primary hover:shadow-md ${
-                  ruleTemplate === "SHARED_GOAL"
-                    ? "border-primary bg-primary/5"
-                    : "border-outline-variant/20 bg-surface-container-low"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[20px]">
-                      flag
-                    </span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container/15 text-secondary-container">
-                    T1 Fuji
-                  </span>
-                </div>
-                <h4 className="text-sm font-bold text-on-surface mb-1">
-                  SHARED_GOAL (Mục Tiêu)
-                </h4>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Góp tiền du lịch / mua sắm chung: Sinh lãi liên tục đến khi
-                  đạt target và đủ chữ ký giải ngân.
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-xs font-bold text-white shadow-md transition-all cursor-pointer"
-              >
-                Tiếp tục (Bước 2) →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 2: TÙY CHỈNH TỶ LỆ ĐỆM L1 / C-CHAIN */}
-        {step === 2 && (
-          <div className="space-y-6">
-            <div className="p-5 rounded-2xl bg-slate-50 border space-y-3">
-              <h4 className="font-bold">
-                T1 Fuji · 100% tài sản trên cùng chain
-              </h4>
-              <p>
-                Tiền nạp nằm tại kho Cashflow, được chi theo quy tắc của hũ.
-                Core hiển thị phí mạng trước khi ký.
-              </p>
-              <p>
-                Chưa bật bridge, ERC20 hoặc lợi suất. Hạn mức và quorum được
-                khóa lúc tạo.
-              </p>
-              <p>
-                ROSCA kết thúc sau một chu kỳ thành viên. Kỳ thiếu khoản tiếp
-                tục chờ; T1 không có hoàn tiền tự động.
-              </p>
-              <p>
-                SHARED_GOAL hết hạn có thể tạo yêu cầu quyết toán cần đủ
-                Guardian; không tự hoàn tiền theo người góp.
-              </p>
-            </div>
-
-            <div className="flex justify-between pt-2">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="px-5 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-xs font-bold text-on-surface transition-all cursor-pointer"
-              >
-                ← Quay lại
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep(3)}
-                className="px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-xs font-bold text-white shadow-md transition-all cursor-pointer"
-              >
-                Tiếp tục (Bước 3) →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 3: THIẾT LẬP THUỘC TÍNH & BẢO MẬT */}
-        {step === 3 && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-on-surface-variant mb-1">
-                Tên Hũ Tiền
-              </label>
-              <input
-                type="text"
-                value={vaultName}
-                onChange={(e) => setVaultName(e.target.value)}
-                placeholder="Vd: Quỹ Hưu Trí Ông Bà, Quỹ Đi Phượt..."
-                className="w-full px-4 py-2.5 rounded-xl bg-surface-container-low border border-outline-variant/30 text-xs sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-on-surface-variant mb-1">
-                Mô Tả Mục Đích
-              </label>
-              <textarea
-                value={vaultDescription}
-                onChange={(e) => setVaultDescription(e.target.value)}
-                placeholder="Ghi chú mục đích sử dụng và lưu ý cho các thành viên..."
-                rows={2}
-                className="w-full px-4 py-2 rounded-xl bg-surface-container-low border border-outline-variant/30 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1">
-                  Hạn Mức Rút Nhanh (AVAX)
-                </label>
-                <input
-                  type="text"
-                  min="0"
-                  disabled={ruleTemplate !== "SHIELD"}
-                  inputMode="decimal"
-                  step="any"
-                  value={fastWithdrawLimit}
-                  onChange={(e) => setFastWithdrawLimit(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/30 text-xs sm:text-sm font-mono text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-                <span className="text-[10px] text-on-surface-variant">
-                  Chỉ SHIELD. Hạn mức ngày = 2 × hạn mức mỗi lần.
+                <span>
+                  {step > index + 1 ? <Check size={16} /> : index + 1}
                 </span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1">
-                  Chữ Ký Phê Duyệt (Multisig)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="5"
-                  value={requiredApprovals}
-                  onChange={(e) => setRequiredApprovals(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/30 text-xs sm:text-sm font-mono text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-                <span className="text-[10px] text-on-surface-variant">
-                  Số chữ ký cần để rút khoản lớn
-                </span>
-              </div>
-            </div>
-
-            <fieldset className="rounded-2xl border border-outline-variant/30 p-4 space-y-3">
-              <legend className="px-2 text-xs font-bold">
-                Người ký duyệt · ví đã xác minh
-              </legend>
-              {members
-                .filter(
-                  (member) =>
-                    ["ADMIN", "GUARDIAN"].includes(member.role) &&
-                    isAddress(member.walletAddress),
-                )
-                .map((member) => (
-                  <label
-                    key={member.id}
-                    className="flex items-center gap-3 text-xs"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedGuardianWallets.includes(
-                        member.walletAddress,
-                      )}
-                      onChange={(event) =>
-                        setSelectedGuardianWallets((current) =>
-                          event.target.checked
-                            ? [...current, member.walletAddress]
-                            : current.filter(
-                                (address) => address !== member.walletAddress,
-                              ),
-                        )
+                {label}
+              </li>
+            ))}
+          </ol>
+        </nav>
+        <div className={styles.layout}>
+          <main className={styles.main}>
+            {error && (
+              <div role="alert" className={styles.error}>
+                {error}
+                {!busy && (draft?.id || newDraftId.current) && (
+                  <div className={styles.actions}>
+                    <button
+                      className={styles.secondary}
+                      onClick={() =>
+                        void run(async () => {
+                          const fresh = await authRequest(
+                            `${base}/${draft?.id || newDraftId.current}`,
+                            undefined,
+                            "GET",
+                          );
+                          chooseDraft(fresh.draft);
+                        })
                       }
-                    />
-                    {member.name}
-                  </label>
-                ))}
-              {selectedGuardianWallets.length < requiredApprovals && (
-                <p className="text-xs text-red-600">
-                  Chọn ít nhất {requiredApprovals} người ký duyệt hoặc giảm
-                  ngưỡng chữ ký.
-                </p>
-              )}
-            </fieldset>
-            <fieldset className="rounded-2xl border border-outline-variant/30 p-4 space-y-3">
-              <legend className="px-2 text-xs font-bold">
-                Người thụ hưởng · ví đã xác minh
-              </legend>
-              {members
-                .filter((member) => isAddress(member.walletAddress))
-                .map((member) => (
-                  <label
-                    key={member.id}
-                    className="flex items-center gap-3 text-xs"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedBeneficiaryWallets.includes(
-                        member.walletAddress,
-                      )}
-                      onChange={(event) =>
-                        setSelectedBeneficiaryWallets((current) =>
-                          event.target.checked
-                            ? [...current, member.walletAddress]
-                            : current.filter(
-                                (address) => address !== member.walletAddress,
-                              ),
-                        )
-                      }
-                    />
-                    {member.name}
-                  </label>
-                ))}
-              {!selectedBeneficiaryWallets.length && (
-                <p className="text-xs text-amber-700">
-                  Chọn người thụ hưởng. Thành viên chưa liên kết Core cần hoàn
-                  tất kích hoạt trước.
-                </p>
-              )}
-            </fieldset>
-
-            {/* Cấu hình đặc thù cho ROSCA */}
-            {ruleTemplate === "ROSCA" && (
-              <div className="p-3.5 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 space-y-3">
-                <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
-                  <span className="material-symbols-outlined text-[18px]">
-                    cached
-                  </span>
-                  <span>Cấu Hình Kỳ Hụi Xoay Vòng (ROSCA Policy)</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-on-surface-variant mb-1">
-                      Chu Kỳ Mỗi Kỳ
-                    </label>
-                    <select
-                      value={roscaRoundDuration}
-                      onChange={(e) =>
-                        setRoscaRoundDuration(Number(e.target.value))
-                      }
-                      className="w-full px-3 py-2 rounded-xl bg-surface-container-lowest border border-outline-variant/30 text-xs text-on-surface focus:outline-none"
                     >
-                      <option value={7 * 86400}>7 ngày (1 tuần)</option>
-                      <option value={14 * 86400}>14 ngày (2 tuần)</option>
-                      <option value={30 * 86400}>30 ngày (1 tháng)</option>
-                    </select>
+                      Tải lại bản nháp đã lưu
+                    </button>
+                    {dirty && !immutable && (
+                      <button className={styles.secondary} onClick={onClose}>
+                        Đóng, bỏ thay đổi chưa lưu
+                      </button>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-on-surface-variant mb-1">
-                      Đóng Góp Mỗi Kỳ (AVAX)
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={roscaRoundContribution}
-                      onChange={(e) =>
-                        setRoscaRoundContribution(e.target.value)
-                      }
-                      className="w-full px-3 py-2 rounded-xl bg-surface-container-lowest border border-outline-variant/30 text-xs font-mono text-on-surface focus:outline-none"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
             )}
-
-            {/* Cấu hình đặc thù cho SHARED_GOAL */}
-            {ruleTemplate === "SHARED_GOAL" && (
-              <div className="p-3.5 bg-indigo-500/10 rounded-2xl border border-indigo-500/20 space-y-3">
-                <div className="flex items-center gap-2 text-indigo-800 font-bold text-xs">
-                  <span className="material-symbols-outlined text-[18px]">
-                    flag
-                  </span>
-                  <span>Mục Tiêu Quỹ Chung (Shared Goal Policy)</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-on-surface-variant mb-1">
-                      Mục Tiêu Cần Gom (AVAX)
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={targetGoalAmount}
-                      onChange={(e) => setTargetGoalAmount(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-surface-container-lowest border border-outline-variant/30 text-xs font-mono text-on-surface focus:outline-none"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-on-surface-variant mb-1">
-                      Hạn Chót Mục Tiêu
-                    </label>
-                    <input
-                      type="date"
-                      value={targetDeadline}
-                      onChange={(e) => setTargetDeadline(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-surface-container-lowest border border-outline-variant/30 text-xs text-on-surface focus:outline-none"
-                      required
-                    />
-                  </div>
-                </div>
-                <span className="text-[10px] text-on-surface-variant block">
-                  * Hũ sẽ tự động khóa giải ngân cho tới khi gom đủ số tiền mục
-                  tiêu hoặc quá hạn chót.
+            {saved && (
+              <p role="status" className={styles.saved}>
+                {saved}
+              </p>
+            )}
+            {!context && !error && (
+              <p role="status">Đang tải gia đình và bản nháp…</p>
+            )}
+            {context && context.availability !== "READY" && (
+              <div className={styles.notice}>
+                {context.reason}
+                <p>Bản nháp chưa tạo hũ trên blockchain và chưa chuyển tiền.</p>
+                <button
+                  className={styles.secondary}
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      const response = await authRequest(
+                        `/api/workspaces/${workspaceId}/vault-creation`,
+                        undefined,
+                        "GET",
+                      );
+                      setContext(response.data);
+                    })
+                  }
+                >
+                  Kiểm tra khả dụng lại
+                </button>
+              </div>
+            )}
+            {!draft && drafts.length > 0 && (
+              <details className={styles.drafts}>
+                <summary>
+                  Tiếp tục bản nháp / giao dịch trước ({drafts.length})
+                </summary>
+                {drafts.map((row) => (
+                  <button
+                    key={row.id}
+                    disabled={busy}
+                    onClick={() => chooseDraft(row)}
+                  >
+                    {row.config.name || "Hũ chưa đặt tên"}
+                    <span>
+                      {row.vaultId
+                        ? "Đã tạo"
+                        : row.txHash
+                          ? "Chờ đối soát"
+                          : row.signaturePending
+                            ? "Đã mở ký"
+                            : `Bước ${row.step}`}
+                    </span>
+                  </button>
+                ))}
+              </details>
+            )}
+            {created ? (
+              <section className={styles.result} aria-live="polite">
+                <span className={styles.successIcon}>
+                  <Check size={36} />
                 </span>
-              </div>
+                <h2 ref={heading} tabIndex={-1}>
+                  Đã tạo {created.name || form.name}
+                </h2>
+                <p>
+                  Receipt đã xác minh và hũ đã được đăng ký vào gia đình. Số dư
+                  ban đầu là 0 AVAX.
+                </p>
+                <p>{rule.policy}</p>
+                <div className={styles.actions}>
+                  {resultVault.onchainVaultId &&
+                    form.ruleTemplate !== "ROSCA" && (
+                      <button
+                        className={styles.primary}
+                        onClick={() => onNext?.(resultVault, "deposit")}
+                      >
+                        Nạp tiền vào hũ
+                      </button>
+                    )}
+                  {resultVault.onchainVaultId &&
+                    form.ruleTemplate === "MILESTONE" && (
+                      <button
+                        className={styles.secondary}
+                        onClick={() => onNext?.(resultVault, "chore")}
+                      >
+                        Giao việc sau khi nạp
+                      </button>
+                    )}
+                  <button
+                    className={styles.secondary}
+                    onClick={() => {
+                      family.setSelectedVault(
+                        family.dynamicVaults.find(
+                          (item) => item.id === created.id,
+                        ) || null,
+                      );
+                      window.dispatchEvent(
+                        new CustomEvent("kinetix-vault-selected", {
+                          detail: created.id,
+                        }),
+                      );
+                      close();
+                    }}
+                  >
+                    {form.ruleTemplate === "ROSCA"
+                      ? "Xem hũ để góp kỳ đầu"
+                      : "Xem hũ trong gia đình"}
+                  </button>
+                </div>
+              </section>
+            ) : immutable || phase ? (
+              <section className={styles.result} aria-live="polite">
+                <h2 ref={heading} tabIndex={-1}>
+                  {phase
+                    ? phaseNames[phase.status]
+                    : "Đang đối soát lượt ký trước"}
+                </h2>
+                <p>
+                  {draft?.signaturePending && !phase?.hash
+                    ? "Core đã được mở cho bản nháp này. Kiểm tra lịch sử trong Core trước khi tiếp tục. Nếu chưa rõ giao dịch đã gửi hay chưa, không ký lại."
+                    : "Theo dõi cùng một giao dịch đến khi receipt và dữ liệu gia đình được xác minh."}
+                </p>
+                <ol className={styles.timeline}>
+                  {[
+                    "Xác nhận trong Core",
+                    "Gửi lên blockchain",
+                    "Xác nhận receipt",
+                    "Đăng ký hũ vào gia đình",
+                  ].map((text) => (
+                    <li key={text}>{text}</li>
+                  ))}
+                </ol>
+                {(phase?.hash || draft?.txHash) && (
+                  <details>
+                    <summary>Chi tiết giao dịch</summary>
+                    <a
+                      className={styles.hash}
+                      href={`${SNOWTRACE_TESTNET_URL}/tx/${phase?.hash || draft?.txHash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {phase?.hash || draft?.txHash}
+                    </a>
+                  </details>
+                )}
+                {!busy && (
+                  <>
+                    <label className={styles.field}>
+                      Mã giao dịch từ Core (nếu chưa ghi nhận)
+                      <input
+                        value={recoveryHash}
+                        onChange={(event) =>
+                          setRecoveryHash(event.target.value)
+                        }
+                        placeholder="0x…"
+                      />
+                    </label>
+                    <button className={styles.primary} onClick={recover}>
+                      Đối soát giao dịch đã gửi
+                    </button>
+                  </>
+                )}
+                {phase?.hash && (
+                  <p>
+                    Có thể đóng màn hình; giao dịch tiếp tục được theo dõi. Mở
+                    lại trong danh sách bản nháp để đối soát.
+                  </p>
+                )}
+              </section>
+            ) : (
+              <fieldset disabled={busy} className={styles.form}>
+                <h2 ref={heading} tabIndex={-1}>
+                  {steps[step - 1]}
+                </h2>
+                {step === 1 && (
+                  <>
+                    <p>Chọn cách gia đình sẽ sử dụng tiền trong hũ.</p>
+                    <div className={styles.ruleGrid}>
+                      {rules.map((item) => (
+                        <button
+                          type="button"
+                          key={item.id}
+                          className={`${styles.rule} ${form.ruleTemplate === item.id ? styles.selected : ""}`}
+                          aria-pressed={form.ruleTemplate === item.id}
+                          onClick={() => change("ruleTemplate", item.id)}
+                        >
+                          <item.icon size={25} />
+                          <strong>{item.title}</strong>
+                          <span>{item.summary}</span>
+                          {form.ruleTemplate === item.id && <Check size={18} />}
+                        </button>
+                      ))}
+                    </div>
+                    <label className={styles.field}>
+                      Tên hũ
+                      <input
+                        value={form.name}
+                        maxLength={80}
+                        placeholder="Ví dụ: Chuyến đi Đà Lạt của nhà mình"
+                        onChange={(event) => change("name", event.target.value)}
+                        aria-invalid={!!fields.name}
+                      />
+                      {fields.name && <small role="alert">{fields.name}</small>}
+                    </label>
+                    <label className={styles.field}>
+                      Mô tả (không bắt buộc)
+                      <textarea
+                        value={form.description}
+                        maxLength={1000}
+                        rows={3}
+                        onChange={(event) =>
+                          change("description", event.target.value)
+                        }
+                      />
+                      <small>
+                        Mô tả lưu riêng trong ứng dụng, không công bố lên
+                        blockchain.
+                      </small>
+                    </label>
+                  </>
+                )}
+                {step === 2 && (
+                  <>
+                    <p>
+                      Vai trò trong hũ áp dụng riêng cho hũ này. Người tạo chỉ
+                      có quyền ký duyệt nếu được chọn làm Guardian.
+                    </p>
+                    {onManage &&
+                      auth.workspaces?.some(
+                        (item) =>
+                          item.id === workspaceId &&
+                          (item.role === "ADMIN" || item.canManageMembers),
+                      ) && (
+                        <button
+                          className={styles.secondary}
+                          onClick={() =>
+                            void run(async () => {
+                              const row = await save();
+                              onManage(row.id);
+                            })
+                          }
+                        >
+                          Quản lý thành viên rồi quay lại bản nháp
+                        </button>
+                      )}
+                    {(["guardianIds", "beneficiaryIds"] as const).map((key) => (
+                      <section key={key} className={styles.memberSection}>
+                        <h3>
+                          {key === "guardianIds"
+                            ? "Người ký duyệt (Guardian)"
+                            : form.ruleTemplate === "ROSCA"
+                              ? "Người góp & nhận theo lượt"
+                              : "Người thụ hưởng"}{" "}
+                          <span>
+                            {form[key].length}/{key === "guardianIds" ? 32 : 64}
+                          </span>
+                        </h3>
+                        {fields[key] && (
+                          <p role="alert" className={styles.fieldError}>
+                            {fields[key]}
+                          </p>
+                        )}
+                        {context?.candidates.map((member) => {
+                          const selected = form[key].includes(member.id);
+                          const blocked =
+                            !member.linked ||
+                            (key === "guardianIds" && !member.canGuard) ||
+                            member.permission === "DENIED" ||
+                            (!selected &&
+                              form[key].length >=
+                                (key === "guardianIds" ? 32 : 64));
+                          return (
+                            <label
+                              key={member.id}
+                              className={`${styles.member} ${selected ? styles.memberSelected : ""}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                disabled={blocked && !selected}
+                                onChange={() =>
+                                  change(
+                                    key,
+                                    selected
+                                      ? form[key].filter(
+                                          (id) => id !== member.id,
+                                        )
+                                      : [...form[key], member.id],
+                                  )
+                                }
+                              />
+                              <span>
+                                <strong>{member.fullName}</strong>
+                                <small>
+                                  {member.role} · {member.reason}
+                                  {key === "guardianIds" && !member.canGuard
+                                    ? " · Cần vai trò người bảo hộ"
+                                    : ""}
+                                </small>
+                                {member.address && (
+                                  <code>
+                                    {member.address.slice(0, 8)}…
+                                    {member.address.slice(-6)}
+                                  </code>
+                                )}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </section>
+                    ))}
+                    <p className={styles.notice}>
+                      Thêm hoặc liên kết Core cho thành viên ở mục Thành viên.
+                      Ví chưa xác minh quyền vẫn có thể đưa vào bản nháp; trước
+                      ký, hệ thống sẽ kiểm tra lại toàn bộ.
+                    </p>
+                    {form.ruleTemplate === "ROSCA" &&
+                      form.beneficiaryIds.length > 0 && (
+                        <section className={styles.order}>
+                          <h3>Thứ tự nhận tiền (cố định sau khi tạo)</h3>
+                          {form.beneficiaryIds.map((id, index) => (
+                            <div key={id}>
+                              <b>
+                                {index + 1}. {names([id])[0]}
+                              </b>
+                              {[-1, 1].map((direction) => (
+                                <button
+                                  key={direction}
+                                  aria-label={`Đưa ${names([id])[0]} ${direction < 0 ? "lên" : "xuống"}`}
+                                  disabled={
+                                    index + direction < 0 ||
+                                    index + direction >=
+                                      form.beneficiaryIds.length
+                                  }
+                                  onClick={() => {
+                                    const ids = [...form.beneficiaryIds];
+                                    [ids[index + direction], ids[index]] = [
+                                      ids[index],
+                                      ids[index + direction],
+                                    ];
+                                    change("beneficiaryIds", ids);
+                                  }}
+                                >
+                                  {direction < 0 ? "↑" : "↓"}
+                                </button>
+                              ))}
+                            </div>
+                          ))}
+                        </section>
+                      )}
+                  </>
+                )}
+                {step === 3 && (
+                  <>
+                    <label className={styles.field}>
+                      Số Guardian cần đồng ý
+                      <select
+                        value={form.requiredApprovals}
+                        onChange={(event) =>
+                          change(
+                            "requiredApprovals",
+                            Number(event.target.value),
+                          )
+                        }
+                      >
+                        {Array.from(
+                          {
+                            length: Math.max(
+                              form.guardianIds.length,
+                              form.requiredApprovals,
+                              1,
+                            ),
+                          },
+                          (_, index) => (
+                            <option key={index} value={index + 1}>
+                              {index + 1} trên {form.guardianIds.length} người
+                            </option>
+                          ),
+                        )}
+                      </select>
+                      {fields.guardianIds && (
+                        <small role="alert">{fields.guardianIds}</small>
+                      )}
+                    </label>
+                    {form.ruleTemplate === "SHIELD" && (
+                      <>
+                        {amountField(
+                          "fastWithdrawLimit",
+                          "Hạn mức rút nhanh mỗi lần",
+                        )}
+                        <p>
+                          Hạn mức ngày chung:{" "}
+                          {(() => {
+                            try {
+                              return formatEther(
+                                parseEther(form.fastWithdrawLimit) * 2n,
+                              );
+                            } catch {
+                              return "—";
+                            }
+                          })()}{" "}
+                          AVAX. Đặt 0 để mọi khoản rút đều cần duyệt.
+                        </p>
+                      </>
+                    )}
+                    {form.ruleTemplate === "SHARED_GOAL" && (
+                      <>
+                        {amountField("targetGoalAmount", "Số tiền mục tiêu")}
+                        <label className={styles.field}>
+                          Hạn đạt mục tiêu (giờ trên thiết bị)
+                          <input
+                            type="datetime-local"
+                            value={localDate(form.targetDeadline)}
+                            onChange={(event) =>
+                              change(
+                                "targetDeadline",
+                                event.target.value &&
+                                  Number.isFinite(
+                                    new Date(event.target.value).getTime(),
+                                  )
+                                  ? new Date(event.target.value).toISOString()
+                                  : "",
+                              )
+                            }
+                          />
+                          {fields.targetDeadline && (
+                            <small role="alert">{fields.targetDeadline}</small>
+                          )}
+                          <small>
+                            {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                            {form.targetDeadline
+                              ? ` · ${new Date(form.targetDeadline).toLocaleString("vi-VN", { timeZoneName: "short" })}`
+                              : ""}
+                          </small>
+                        </label>
+                      </>
+                    )}
+                    {form.ruleTemplate === "ROSCA" && (
+                      <>
+                        {amountField(
+                          "roscaRoundContribution",
+                          "Mỗi người góp mỗi kỳ",
+                        )}
+                        <label className={styles.field}>
+                          Khoảng cách tối thiểu giữa hai kỳ
+                          <select
+                            value={form.roscaRoundDuration}
+                            onChange={(event) =>
+                              change("roscaRoundDuration", event.target.value)
+                            }
+                          >
+                            {[
+                              ["86400", "1 ngày"],
+                              ["604800", "7 ngày"],
+                              ["2592000", "30 ngày"],
+                            ].map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                            {!["86400", "604800", "2592000"].includes(
+                              form.roscaRoundDuration,
+                            ) && (
+                              <option value={form.roscaRoundDuration}>
+                                {form.roscaRoundDuration} giây (bản nháp)
+                              </option>
+                            )}
+                          </select>
+                          {fields.roscaRoundDuration && (
+                            <small role="alert">
+                              {fields.roscaRoundDuration}
+                            </small>
+                          )}
+                        </label>
+                      </>
+                    )}
+                    <div className={styles.policy}>
+                      <h3>Quy tắc cần hiểu trước khi tạo</h3>
+                      <p>{rule.policy}</p>
+                      <p>
+                        Danh sách người nhận, Guardian và quy tắc được chốt trên
+                        blockchain. Thay đổi thông tin trong ứng dụng không tự
+                        sửa cấu hình hũ.
+                      </p>
+                    </div>
+                  </>
+                )}
+                {step === 4 && (
+                  <>
+                    <p>Kiểm tra đúng người, đúng mục đích trước khi mở Core.</p>
+                    <dl className={styles.review}>
+                      <div>
+                        <dt>Gia đình</dt>
+                        <dd>{context?.workspaceName}</dd>
+                      </div>
+                      <div>
+                        <dt>Hũ</dt>
+                        <dd>
+                          {form.name} · {rule.title}
+                        </dd>
+                      </div>
+                      {form.description && (
+                        <div>
+                          <dt>Mô tả</dt>
+                          <dd>{form.description}</dd>
+                        </div>
+                      )}
+                      <div>
+                        <dt>Guardian</dt>
+                        <dd>
+                          {names(form.guardianIds).join(", ")} · cần{" "}
+                          {form.requiredApprovals}/{form.guardianIds.length} chữ
+                          ký
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>
+                          {form.ruleTemplate === "ROSCA"
+                            ? "Thứ tự nhận"
+                            : "Người nhận"}
+                        </dt>
+                        <dd>
+                          {names(form.beneficiaryIds).map((name, index) => (
+                            <span key={index}>
+                              {form.ruleTemplate === "ROSCA"
+                                ? `${index + 1}. `
+                                : ""}
+                              {name}
+                              <br />
+                            </span>
+                          ))}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Quy tắc</dt>
+                        <dd>
+                          {form.ruleTemplate === "SHIELD"
+                            ? `${form.fastWithdrawLimit} AVAX/lần; hạn mức ngày chung gấp đôi.`
+                            : form.ruleTemplate === "ROSCA"
+                              ? `${form.roscaRoundContribution} AVAX/người/kỳ; mỗi kỳ tối thiểu ${Number(form.roscaRoundDuration) / 86400} ngày.`
+                              : form.ruleTemplate === "SHARED_GOAL"
+                                ? `${form.targetGoalAmount} AVAX trước ${form.targetDeadline ? new Date(form.targetDeadline).toLocaleString("vi-VN", { timeZoneName: "short" }) : "chưa chọn hạn"}.`
+                                : "Giữ tiền khi giao việc, trả thưởng sau khi đủ chữ ký."}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Tài sản & mạng</dt>
+                        <dd>
+                          AVAX · Avalanche Fuji (43113)
+                          <small>
+                            100% vốn trong cùng mạng. Không có lãi suất hoặc cầu
+                            nối.
+                          </small>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Khi tạo</dt>
+                        <dd>
+                          0 AVAX vào hũ
+                          <small>
+                            Chỉ thanh toán phí mạng bằng AVAX. Nạp tiền là bước
+                            riêng sau khi tạo.
+                          </small>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Phí mạng ước tính</dt>
+                        <dd>
+                          {draft?.preflight
+                            ? `${formatEther(BigInt(draft.preflight.estimatedFeeWei))} AVAX`
+                            : "Bấm kiểm tra cấu hình để ước tính"}
+                          <small>Phí thực tế do Core hiển thị lúc ký.</small>
+                        </dd>
+                      </div>
+                    </dl>
+                    <div className={styles.policy}>
+                      <p>{rule.policy}</p>
+                    </div>
+                    <label className={styles.consent}>
+                      <input
+                        type="checkbox"
+                        checked={form.policyAccepted}
+                        onChange={(event) =>
+                          change("policyAccepted", event.target.checked)
+                        }
+                      />
+                      Tôi đã kiểm tra thành viên và hiểu quy tắc, giới hạn của
+                      hũ này.
+                    </label>
+                    {fields.policyAccepted && (
+                      <p role="alert" className={styles.fieldError}>
+                        {fields.policyAccepted}
+                      </p>
+                    )}
+                    {(!auth.connectedAddress || !auth.walletMatches) && (
+                      <div className={styles.notice}>
+                        <p>
+                          {!auth.connectedAddress
+                            ? "Kết nối Core để ký bằng ví đã liên kết với tài khoản."
+                            : "Core đang dùng ví khác. Chọn đúng ví đã liên kết trước khi ký."}
+                        </p>
+                        <button
+                          className={styles.secondary}
+                          onClick={() =>
+                            void run(async () => {
+                              await auth.connectWallet();
+                            })
+                          }
+                        >
+                          Kết nối Core
+                        </button>
+                      </div>
+                    )}
+                    {draft?.preflight && (
+                      <details className={styles.technical}>
+                        <summary>Thông tin đã xác minh</summary>
+                        <p>
+                          Block finalized {draft.preflight.asOfBlock} ·{" "}
+                          {new Date(draft.preflight.checkedAt).toLocaleString(
+                            "vi-VN",
+                          )}
+                        </p>
+                        <p>
+                          Kiểm tra có hiệu lực đến{" "}
+                          {new Date(
+                            draft.preflight.expiresAt,
+                          ).toLocaleTimeString("vi-VN")}
+                        </p>
+                        <p className={styles.hash}>
+                          Ví tạo: {draft.preflight.actor}
+                          <br />
+                          Hub: {draft.preflight.hub}
+                        </p>
+                      </details>
+                    )}
+                  </>
+                )}
+              </fieldset>
             )}
-
-            <div className="flex justify-between pt-4 border-t border-surface-container/60">
+          </main>
+          <aside className={styles.aside}>
+            <span className={styles.eyebrow}>HŨ CỦA GIA ĐÌNH</span>
+            <rule.icon size={40} />
+            <h2>{form.name || "Hũ tiền mới"}</h2>
+            <p>{rule.summary}</p>
+            <dl>
+              <div>
+                <dt>Loại hũ</dt>
+                <dd>{rule.title}</dd>
+              </div>
+              <div>
+                <dt>Người nhận</dt>
+                <dd>{form.beneficiaryIds.length} người</dd>
+              </div>
+              <div>
+                <dt>Ký duyệt</dt>
+                <dd>
+                  {form.requiredApprovals}/{form.guardianIds.length} Guardian
+                </dd>
+              </div>
+              <div>
+                <dt>Số dư ban đầu</dt>
+                <dd>0 AVAX</dd>
+              </div>
+            </dl>
+            <p className={styles.asideNote}>
+              Mọi lần chuyển tiền đều cần xác nhận riêng. Kinetix không giữ khóa
+              riêng của bạn.
+            </p>
+          </aside>
+        </div>
+        <footer className={styles.footer}>
+          <div>
+            {!immutable && !phase && (
               <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="px-5 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-xs font-bold text-on-surface transition-all cursor-pointer"
-              >
-                ← Quay lại
-              </button>
-              <button
-                type="submit"
-                disabled={
-                  isSubmitting ||
-                  !vaultName.trim() ||
-                  selectedGuardianWallets.length < requiredApprovals ||
-                  selectedBeneficiaryWallets.length === 0
+                disabled={busy}
+                className={styles.secondary}
+                onClick={() =>
+                  void run(async () => {
+                    await save();
+                  })
                 }
-                className="px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-xs font-bold text-white shadow-md transition-all cursor-pointer disabled:opacity-50"
               >
-                {isSubmitting ? "Đang tạo Hũ..." : "Xác nhận tạo Hũ"}
+                <Save size={18} />
+                Lưu nháp
               </button>
-            </div>
-          </form>
-        )}
+            )}
+            <span>
+              {dirty
+                ? "Có thay đổi chưa lưu"
+                : draft
+                  ? "Bản nháp đã lưu trên tài khoản"
+                  : "Chưa gửi giao dịch"}
+            </span>
+          </div>
+          <div className={styles.actions}>
+            {!immutable && !phase && step > 1 && (
+              <button
+                className={styles.secondary}
+                disabled={busy}
+                onClick={() => {
+                  setStep(step - 1);
+                  setError("");
+                  setFields({});
+                }}
+              >
+                <ArrowLeft size={18} />
+                Quay lại
+              </button>
+            )}
+            {!immutable && !phase && step < 4 && (
+              <button
+                disabled={busy || !context}
+                className={styles.primary}
+                onClick={advance}
+              >
+                {busy ? "Đang lưu…" : "Tiếp tục"}
+                <ArrowRight size={18} />
+              </button>
+            )}
+            {!immutable && !phase && step === 4 && (
+              <>
+                {draft?.preflight && !dirty && (
+                  <button
+                    className={styles.secondary}
+                    disabled={busy}
+                    onClick={preflight}
+                  >
+                    Kiểm tra lại
+                  </button>
+                )}
+                <button
+                  className={styles.primary}
+                  disabled={
+                    busy ||
+                    context?.availability !== "READY" ||
+                    !form.policyAccepted ||
+                    (!!draft?.preflight &&
+                      (!auth.walletMatches || !auth.connectedAddress))
+                  }
+                  onClick={draft?.preflight && !dirty ? submit : preflight}
+                >
+                  {busy
+                    ? "Đang kiểm tra…"
+                    : draft?.preflight && !dirty
+                      ? "Xác nhận & mở Core"
+                      : "Kiểm tra cấu hình & phí"}
+                </button>
+              </>
+            )}
+            {(immutable || phase) && (
+              <button
+                className={styles.secondary}
+                disabled={signatureOpen}
+                onClick={close}
+              >
+                {created ? "Hoàn tất" : "Đóng & theo dõi sau"}
+              </button>
+            )}
+          </div>
+        </footer>
       </div>
-    </div>
+    </dialog>
   );
-};
+}

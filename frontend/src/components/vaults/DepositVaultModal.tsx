@@ -14,11 +14,13 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   defaultVaultId?: number;
+  onNext?: () => void;
 }
 export const DepositVaultModal: React.FC<Props> = ({
   isOpen,
   onClose,
   defaultVaultId,
+  onNext,
 }) => {
   const { dynamicVaults, depositToVault, currentWorkspace } = useFamily();
   const vaults = dynamicVaults.filter(
@@ -91,6 +93,16 @@ export const DepositVaultModal: React.FC<Props> = ({
             >
               Xem giao dịch: {hash}
             </a>
+            {onNext &&
+              vault?.ruleTemplate === "MILESTONE" &&
+              vault.onchainVaultId === defaultVaultId && (
+                <button
+                  className="min-h-12 w-full bg-red-600 text-white rounded-xl"
+                  onClick={onNext}
+                >
+                  Tiếp tục giao nhiệm vụ
+                </button>
+              )}
           </div>
         ) : (
           <>

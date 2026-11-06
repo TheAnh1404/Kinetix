@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatEther } from "viem";
 import { useFamily } from "@/context/FamilyContext";
 import { useVaultStates } from "@/hooks/useVaultStates";
@@ -15,6 +15,12 @@ export function VaultWorkflowPanel({ onlyRosca = false }: { onlyRosca?: boolean 
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
+  useEffect(() => { if (family.selectedVault?.id) setSelected(family.selectedVault.id); }, [family.selectedVault?.id]);
+  useEffect(() => {
+    const choose = (event: Event) => { setSelected((event as CustomEvent<string>).detail); };
+    window.addEventListener("kinetix-vault-selected", choose);
+    return () => window.removeEventListener("kinetix-vault-selected", choose);
+  }, []);
   const vaults = family.dynamicVaults.filter((vault) => !onlyRosca || vault.ruleTemplate === "ROSCA");
   const vault = vaults.find((item) => item.id === selected) || vaults[0];
   const data = vault && states[vault.id];

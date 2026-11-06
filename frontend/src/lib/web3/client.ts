@@ -5,6 +5,7 @@ import {
   http,
   PublicClient,
   WalletClient,
+  encodeFunctionData,
 } from "viem";
 import {
   avalancheFamilyL1,
@@ -89,6 +90,7 @@ export interface PendingTransaction {
   status: "PENDING" | "CONFIRMED" | "REVERTED";
   workspaceId?: string;
   operationId?: string;
+  operationStatus?: string;
   sync?: {
     path: string;
     body: object;
@@ -161,7 +163,7 @@ const syncPaths = new Set([
 async function persistOperation(userId: string, transaction: PendingTransaction) {
   if (!transaction.workspaceId || transaction.operationId) return;
   try {
-    const response = await fetch("/api/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workspaceId: transaction.workspaceId, txHash: transaction.hash, attachmentId: (transaction.sync?.body as any)?.attachmentId }), cache: "no-store" });
+    const response = await fetch("/api/operations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workspaceId: transaction.workspaceId, txHash: transaction.hash, attachmentId: (transaction.sync?.body as any)?.attachmentId, draftId: (transaction.sync?.body as any)?.draftId }), cache: "no-store" });
     const data = await response.json();
     if (response.ok && data.operation?.id) saveTransaction(userId, { ...(pendingTransactions(userId).find((item) => item.hash === transaction.hash) || transaction), operationId: data.operation.id });
   } catch { /* Receipt tracking tiếp tục; đăng ký operation sẽ retry theo hash cũ. */ }
@@ -169,6 +171,8 @@ async function persistOperation(userId: string, transaction: PendingTransaction)
 
 export async function restoreOperations(userId: string, workspaceId: string) {
   try {
+    const identity = await apiGet("/api/auth/me");
+    if (identity.user?.id !== userId || identity.onboarding !== "READY") return;
     const response = await fetch(`/api/operations?workspaceId=${encodeURIComponent(workspaceId)}`, { cache: "no-store" });
     if (!response.ok) return;
     const data = await response.json();
@@ -176,9 +180,26 @@ export async function restoreOperations(userId: string, workspaceId: string) {
     for (const operation of [...data.operations].reverse()) {
       if (operation.workspaceId !== workspaceId || !/^0x[0-9a-f]{64}$/i.test(operation.hash)) continue;
       const existing = pendingTransactions(userId).find((item) => item.hash === operation.hash);
-      saveTransaction(userId, { hash: operation.hash, chainId: operation.chainId, workspaceId, operationId: operation.id, submittedAt: operation.submittedAt, status: operation.status === "REVERTED" ? "REVERTED" : ["CONFIRMED", "SYNC_PENDING", "COMPLETED"].includes(operation.status) ? "CONFIRMED" : "PENDING", ...(operation.sync && syncPaths.has(operation.sync.path) ? { sync: { ...operation.sync, status: operation.status === "COMPLETED" || existing?.sync?.status === "DONE" ? "DONE" : "PENDING" } } : existing?.sync ? { sync: existing.sync } : {}) });
+      saveTransaction(userId, { hash: operation.hash, chainId: operation.chainId, workspaceId, operationId: operation.id, operationStatus: operation.status, submittedAt: operation.submittedAt, status: operation.status === "REVERTED" ? "REVERTED" : ["CONFIRMED", "SYNC_PENDING", "COMPLETED"].includes(operation.status) ? "CONFIRMED" : "PENDING", ...(operation.sync && syncPaths.has(operation.sync.path) ? { sync: { ...operation.sync, status: operation.status === "COMPLETED" || existing?.sync?.status === "DONE" ? "DONE" : "PENDING" } } : existing?.sync ? { sync: existing.sync } : {}) });
     }
   } catch { /* Dữ liệu tài chính vẫn được đọc từ API; không tạo kết quả giả khi server lỗi. */ }
+}
+// Business synchronization and journal completion are separate retryable steps.
+async function completeRecordedOperation(userId: string, transaction: PendingTransaction) {
+  if (!transaction.operationId || transaction.operationStatus === "COMPLETED" ||
+      transaction.status !== "CONFIRMED" || transaction.sync?.status !== "DONE") return;
+  try {
+    const response = await fetch(`/api/operations/${transaction.operationId}/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+      cache: "no-store",
+    });
+    const data = await response.json();
+    if (response.ok && data.operation?.id === transaction.operationId && data.operation.status === "COMPLETED") {
+      saveTransaction(userId, { ...transaction, operationStatus: "COMPLETED" });
+    }
+  } catch { /* Retry journal completion on the next poll without replaying the business sync. */ }
 }
 async function syncRecord(userId: string, transaction: PendingTransaction) {
   const sync = transaction.sync;
@@ -214,9 +235,7 @@ async function syncRecord(userId: string, transaction: PendingTransaction) {
     throw new Error(
       "Giao dịch đã xác nhận, cần đồng bộ dữ liệu. Không gửi lại giao dịch.",
     );
-  if (transaction.operationId) {
-    void fetch(`/api/operations/${transaction.operationId}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
-  }
+  await completeRecordedOperation(userId, pendingTransactions(userId).find((item) => item.hash === transaction.hash) || transaction);
   window.dispatchEvent(new Event("kinetix-sync-complete"));
   return data;
 }
@@ -244,15 +263,30 @@ export async function queueTransactionSync(
   }
 }
 export async function reconcileTransactions(userId: string) {
+  // A timer from the previous account must never use the new account's cookie.
+  try {
+    const identity = await apiGet("/api/auth/me");
+    if (identity.user?.id !== userId || identity.onboarding !== "READY") return;
+  } catch { return; }
   for (const transaction of pendingTransactions(userId)) {
     await persistOperation(userId, transaction);
-    if (transaction.operationId && (transaction.status === "PENDING" || !transaction.sync)) {
+    const recorded = pendingTransactions(userId).find((item) => item.hash === transaction.hash) || transaction;
+    if (recorded.operationId && recorded.operationStatus !== "COMPLETED" && recorded.status !== "REVERTED" && (recorded.status === "PENDING" || !recorded.sync)) {
       try {
-        const response = await fetch(`/api/operations/${transaction.operationId}/reconcile`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        const response = await fetch(`/api/operations/${recorded.operationId}/reconcile`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
         const data = await response.json();
-        if (response.ok && data.operation?.sync && syncPaths.has(data.operation.sync.path)) saveTransaction(userId, { ...transaction, sync: { ...data.operation.sync, status: data.operation.status === "COMPLETED" ? "DONE" : "PENDING" } });
+        if (response.ok && data.operation?.id === recorded.operationId) {
+          const operation = data.operation;
+          saveTransaction(userId, {
+            ...recorded,
+            operationStatus: operation.status,
+            status: operation.status === "REVERTED" ? "REVERTED" : ["CONFIRMED", "SYNC_PENDING", "COMPLETED"].includes(operation.status) ? "CONFIRMED" : "PENDING",
+            ...(operation.sync && syncPaths.has(operation.sync.path) ? { sync: { ...operation.sync, status: operation.status === "COMPLETED" ? "DONE" : recorded.sync?.status || "PENDING" } } : {}),
+          });
+        }
       } catch { /* retry sau */ }
     }
+    await completeRecordedOperation(userId, pendingTransactions(userId).find((item) => item.hash === transaction.hash) || recorded);
   }
   await Promise.all(
     pendingTransactions(userId)
@@ -325,7 +359,9 @@ export function getWalletClient(
       try {
         if (!walletUseEnabled)
           throw new Error("Hãy kết nối lại Core để giao dịch.");
-        const { __kinetixSync: reconciliation, ...contractArgs } = args;
+        const { __kinetixSync: reconciliation, __kinetixProgress: onProgress, ...contractArgs } = args;
+        const progress = (status: string, hash?: string) => { try { onProgress?.({ status, hash }); } catch { /* UI cannot interrupt receipt tracking. */ } };
+        progress("PRECHECK");
         const workspaceId = transactionWorkspace;
         if (!workspaceId)
           throw new Error("Hãy chọn không gian trước khi giao dịch.");
@@ -355,8 +391,12 @@ export function getWalletClient(
         const workspace = await apiGet(
           `/api/workspaces/${encodeURIComponent(workspaceId)}`,
         );
-        const contextUrl = `/api/workspaces/${encodeURIComponent(workspaceId)}/transaction-context?functionName=${encodeURIComponent(args.functionName)}&resourceId=${encodeURIComponent(String(args.args?.[0] ?? ""))}`;
+        const draftId = reconciliation?.body?.draftId;
+        const attemptId = draftId ? crypto.randomUUID() : undefined;
+        const draftPath = draftId ? `/api/workspaces/${encodeURIComponent(workspaceId)}/vault-drafts/${encodeURIComponent(draftId)}` : undefined;
+        const contextUrl = `/api/workspaces/${encodeURIComponent(workspaceId)}/transaction-context?functionName=${encodeURIComponent(args.functionName)}&resourceId=${encodeURIComponent(String(args.args?.[0] ?? ""))}${draftId ? `&draftId=${encodeURIComponent(draftId)}&attemptId=${attemptId}` : ""}`;
         const context = await apiGet(contextUrl);
+        if (draftId && context.creationIntent?.data?.toLowerCase() !== encodeFunctionData(contractArgs).toLowerCase()) throw new Error("Cấu hình ký khác bản nháp đã kiểm tra.");
         if (
           context.deploymentVersion !== DEPLOYMENT.version ||
           context.chainId !== hubChain.id ||
@@ -481,12 +521,27 @@ export function getWalletClient(
           throw new Error("Phiên tài khoản đã thay đổi.");
         // Recheck workspace access after wallet prompts, including application-level suspension.
         await apiGet(`/api/workspaces/${encodeURIComponent(workspaceId)}`);
-        await apiGet(contextUrl);
-        const hash = await wallet.writeContract({
-          ...request,
-          account: address as `0x${string}`,
-          chain: targetChain,
-        } as any);
+        const freshContext = await apiGet(contextUrl);
+        if (draftId && freshContext.creationIntent?.data?.toLowerCase() !== encodeFunctionData(contractArgs).toLowerCase()) throw new Error("Cấu hình đã đổi trong lúc kiểm tra. Kiểm tra lại bản nháp.");
+        if (draftPath) {
+          const claimed = await fetch(`${draftPath}/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ attemptId }) });
+          const result = await claimed.json();
+          if (!claimed.ok) throw new Error(result.error || "Bản nháp đang được gửi ở phiên khác.");
+          if (result.intent?.data?.toLowerCase() !== encodeFunctionData(contractArgs).toLowerCase()) {
+            await fetch(`${draftPath}/rejected`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ attemptId }) }).catch(() => undefined);
+            throw new Error("Cấu hình đã đổi trước khi mở Core. Kiểm tra lại bản nháp.");
+          }
+        }
+        progress("AWAITING_SIGNATURE");
+        let hash: `0x${string}`;
+        try {
+          hash = await wallet.writeContract({ ...request, account: address as `0x${string}`, chain: targetChain } as any);
+        } catch (error: any) {
+          let rejected = false;
+          for (let cause = error, depth = 0; cause && depth < 8; cause = cause.cause, depth++) if (cause.code === 4001) rejected = true;
+          if (draftPath && rejected) await fetch(`${draftPath}/rejected`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ attemptId }) }).catch(() => undefined);
+          throw error;
+        }
         const transaction: PendingTransaction = {
           hash,
           chainId: targetChain.id,
@@ -505,6 +560,7 @@ export function getWalletClient(
             : {}),
         };
         saveTransaction(identity.user.id, transaction);
+        progress("BROADCAST", hash);
         await persistOperation(identity.user.id, transaction);
         try {
           const receipt = await publicClient.waitForTransactionReceipt({
@@ -517,7 +573,8 @@ export function getWalletClient(
             status: receipt.status === "success" ? "CONFIRMED" : "REVERTED",
           });
           if (receipt.status !== "success")
-            throw new Error(`Giao dịch đã bị revert: ${hash}`);
+            { progress("REVERTED", hash); throw new Error(`Giao dịch đã bị revert: ${hash}`); }
+          progress("CONFIRMED", hash);
           return hash;
         } catch (error: any) {
           if (

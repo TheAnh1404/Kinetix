@@ -68,6 +68,7 @@ export function MemberManagementModal({
     if (currentWorkspace) {
       const data = await authRequest(base, undefined, "GET");
       setList(data.members);
+      window.dispatchEvent(new Event("kinetix-first-use-refresh"));
     }
   };
   useEffect(() => {

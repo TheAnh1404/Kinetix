@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Wallet, Clock3 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useFamily } from "@/context/FamilyContext";
 import { WalletRecoveryPanel } from "./WalletRecoveryPanel";
 import {
   pendingTransactions,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/web3/client";
 export function AccountStatus() {
   const auth = useAuth();
+  const { currentWorkspace } = useFamily();
   const [transactions, setTransactions] = useState<PendingTransaction[]>([]);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -75,7 +77,7 @@ export function AccountStatus() {
         </p>
       )}
       {auth.onchainPermissions.some(
-        (request) => request.status !== "CONFIRMED",
+        (request) => request.workspaceId === currentWorkspace?.id && request.status !== "CONFIRMED",
       ) && (
         <p className="rounded-xl bg-slate-100 p-4 text-xs text-slate-600">
           Một số quyền giao dịch chưa có xác nhận cấp quyền. Người bảo hộ hoặc

@@ -56,6 +56,7 @@ export async function authRequest(
       throw Object.assign(new Error(data.error || "Không thể xử lý yêu cầu."), {
         code: data.code,
         status: response.status,
+        fields: data.fields,
       });
     return data;
   };
@@ -65,6 +66,7 @@ export async function authRequest(
 }
 async function signChallenge(
   purpose: "REGISTER" | "LOGIN" | "LINK" | "REAUTH",
+  expectedAddress?: string,
 ) {
   const provider = getCoreProvider();
   if (!provider)
@@ -75,6 +77,8 @@ async function signChallenge(
     method: "eth_requestAccounts",
   });
   if (!accounts[0]) throw new Error("Chưa kết nối tài khoản Core.");
+  if (expectedAddress && accounts[0].toLowerCase() !== expectedAddress.toLowerCase())
+    throw new Error("Ví Core đang chọn khác ví trong lời mời. Hãy chuyển đúng tài khoản trước khi ký.");
   let chainId = Number.parseInt(
     await provider.request({ method: "eth_chainId" }),
     16,
@@ -104,6 +108,8 @@ function useAuthState() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [family, setFamily] = useState<AuthFamily | null>(null);
   const [workspaces, setWorkspaces] = useState<any[]>([]);
+  const [entryWorkspaceId, setEntryWorkspaceId] = useState<string | null>(null);
+  const [redirectUrl, setRedirectUrl] = useState("/dashboard");
   const [onchainPermissions, setOnchainPermissions] = useState<
     {
       id: string;
@@ -142,6 +148,8 @@ function useAuthState() {
     setUser(data.user);
     setFamily(data.family || null);
     setWorkspaces(data.workspaces || []);
+    setEntryWorkspaceId(data.entryWorkspaceId || data.family?.id || null);
+    setRedirectUrl(data.redirectUrl || "/dashboard");
     setOnchainPermissions(data.onchainPermissions || []);
     setOnboarding(data.onboarding);
     setLinkedWallet(data.linkedWallet || null);
@@ -156,6 +164,9 @@ function useAuthState() {
     setUser(null);
     setFamily(null);
     setWorkspaces([]);
+    setEntryWorkspaceId(null);
+    setRedirectUrl("/login");
+    document.cookie = "kinetix_workspace=; Path=/; Max-Age=0; SameSite=Lax";
     setOnchainPermissions([]);
     setOnboarding(null);
     setLinkedWallet(null);
@@ -230,13 +241,15 @@ function useAuthState() {
     password: string;
     phoneNumber?: string;
     invitationToken?: string;
-  }) =>
-    finish(
-      await authRequest("/api/auth/register-family", {
-        ...params,
-        ...(await signChallenge("REGISTER")),
-      }),
-    );
+  }) => {
+    const preview = params.invitationToken
+      ? await authRequest("/api/auth/invitations/preview", { token: params.invitationToken })
+      : null;
+    return finish(await authRequest("/api/auth/register-family", {
+      ...params,
+      ...(await signChallenge("REGISTER", preview?.invitation.expectedWallet)),
+    }));
+  };
   const changePassword = async (
     currentPassword: string,
     newPassword: string,
@@ -290,6 +303,8 @@ function useAuthState() {
     user,
     family,
     workspaces,
+    entryWorkspaceId,
+    redirectUrl,
     onchainPermissions,
     onboarding,
     linkedWallet,

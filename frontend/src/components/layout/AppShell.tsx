@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/context/LanguageContext";
 import { WorkspaceSwitcher } from "@/components/workspaces/WorkspaceSwitcher";
 import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
-import { CreateVaultModal } from "@/components/vaults/CreateVaultModal";
+import { useVaultCreation } from "@/context/VaultCreationContext";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { MemberResponsiveShell } from "@/components/layout/MemberResponsiveShell";
 import { NotificationDropdown } from "@/components/dashboard/NotificationDropdown";
@@ -33,7 +33,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const router = useRouter();
 
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
-  const [isCreateVaultOpen, setIsCreateVaultOpen] = useState(false);
+  const vaultCreation = useVaultCreation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -183,7 +183,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           {/* Quick Action: Tạo Hũ Mới */}
           <div className="p-3 border-t border-slate-100">
             <button
-              onClick={() => setIsCreateVaultOpen(true)}
+              onClick={() => vaultCreation.open()}
               type="button"
               className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
             >
@@ -284,7 +284,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
               <button
                 type="button"
-                onClick={() => setIsCreateVaultOpen(true)}
+                onClick={() => vaultCreation.open()}
                 className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[16px]">
@@ -370,11 +370,6 @@ export const AppShell: React.FC<AppShellProps> = ({
       <DepositVaultModal
         isOpen={isDepositModalOpen}
         onClose={() => setIsDepositModalOpen(false)}
-      />
-
-      <CreateVaultModal
-        isOpen={isCreateVaultOpen}
-        onClose={() => setIsCreateVaultOpen(false)}
       />
 
       <SettingsModal

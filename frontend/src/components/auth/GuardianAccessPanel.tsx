@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth, authRequest } from "@/hooks/useAuth";
 import { useFamily } from "@/context/FamilyContext";
-export function GuardianAccessPanel() {
+export function GuardianAccessPanel({ onBusyChange }: { onBusyChange?: (busy: boolean) => void } = {}) {
   const auth = useAuth();
   const { currentWorkspace } = useFamily();
   const [address, setAddress] = useState("");
@@ -15,6 +15,7 @@ export function GuardianAccessPanel() {
   const [guardians, setGuardians] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => { onBusyChange?.(busy); return () => onBusyChange?.(false); }, [busy, onBusyChange]);
   const base = `/api/workspaces/${currentWorkspace?.id}`;
   const load = async () => {
     const data = await authRequest(base, undefined, "GET");
@@ -76,6 +77,11 @@ export function GuardianAccessPanel() {
           <p className="break-all mt-2">Dành cho {invitation.expectedWallet}</p>
           <p className="mt-2">
             Hết hạn: {new Date(invitation.expiresAt).toLocaleString("vi-VN")}
+          </p>
+          <p className="mt-2">
+            Người được mời mở trang đăng nhập, chọn “Tôi nhận được lời mời làm
+            người bảo hộ”, nhập mã này và dùng đúng ví Core phía trên. Không cần
+            tạo gia đình mới.
           </p>
           <button
             className="underline mt-3 font-bold"

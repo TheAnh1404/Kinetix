@@ -8,6 +8,7 @@ import React, {
   ReactNode,
 } from "react";
 import { parseEther } from "viem";
+import { buildVaultCall, CreateVaultParams, CreationPhase } from "../../../shared/vaultCreation";
 import { parseAmount } from "@/lib/member";
 import { FamilyMember, WorkspaceItem, DynamicVaultItem } from "@/types";
 import {
@@ -120,20 +121,7 @@ interface FamilyContextType {
   dynamicVaults: DynamicVaultItem[];
   selectedVault: DynamicVaultItem | null;
   setSelectedVault: (vault: DynamicVaultItem | null) => void;
-  createCustomVault: (params: {
-    name: string;
-    description?: string;
-    ruleTemplate: "SHIELD" | "MILESTONE" | "ROSCA" | "SHARED_GOAL";
-    bufferRatioBps: number;
-    fastWithdrawLimit: string;
-    requiredApprovals: number;
-    guardianWallets?: string[];
-    beneficiaryWallets?: string[];
-    targetGoalAmount?: string;
-    targetDeadline?: string;
-    roscaRoundDuration?: number;
-    roscaRoundContribution?: string;
-  }) => Promise<{ success: boolean; vault?: any; error?: string }>;
+  createCustomVault: (params: CreateVaultParams) => Promise<{ success: boolean; vault?: any; error?: string; txHash?: string }>;
   depositToVault: (
     vaultId: number,
     amount: string | number,
@@ -427,7 +415,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     } catch {
       /* không có storage */
     }
+    const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
     const first =
+      auth.workspaces.find((workspace) => workspace.id === requestedWorkspace) ||
+      auth.workspaces.find((workspace) => workspace.id === auth.entryWorkspaceId) ||
       auth.workspaces.find((workspace) => workspace.id === savedWorkspace) ||
       auth.workspaces.find((workspace) => workspace.id === auth.family?.id) ||
       auth.workspaces[0];
@@ -435,6 +426,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     activeWorkspaceRef.current = first.id;
     setCurrentWorkspace(first);
     setTransactionWorkspace(first.id);
+    document.cookie = `kinetix_workspace=${auth.user.id}.${first.id}; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
     void loadWorkspaceData(first.id).catch(() => {
       clearWorkspace();
     });
@@ -478,6 +470,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     setDataErrors([]);
     setCurrentWorkspace(target);
     setTransactionWorkspace(target.id);
+    document.cookie = `kinetix_workspace=${auth.user!.id}.${target.id}; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
     try {
       sessionStorage.setItem(`kinetix-workspace:${auth.user!.id}`, target.id);
     } catch {
@@ -525,6 +518,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       setCurrentWorkspace(data.workspace);
       activeWorkspaceRef.current = data.workspace.id;
       setTransactionWorkspace(data.workspace.id);
+      document.cookie = `kinetix_workspace=${auth.user!.id}.${data.workspace.id}; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
       clearWorkspace();
       await loadWorkspaceData(data.workspace.id);
       return { success: true, workspace: data.workspace };
@@ -545,6 +539,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     value?: bigint,
     yieldContract = false,
     reconciliation?: { path: string; body: object; method?: string },
+    onProgress?: (phase: CreationPhase) => void,
   ) => {
     const wallet = getWalletClient(yieldContract ? avalancheFuji : hubChain);
     if (!wallet) throw new Error("Hãy kết nối đúng Core Wallet đã liên kết.");
@@ -554,6 +549,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       functionName,
       args,
       __kinetixSync: reconciliation,
+      __kinetixProgress: onProgress,
       ...(value !== undefined ? { value } : {}),
     }) as Promise<`0x${string}`>;
   };
@@ -574,52 +570,23 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     await refreshBalances();
     return data;
   };
-  const createCustomVault: FamilyContextType["createCustomVault"] = async (
-    params,
-  ) => {
+  const createCustomVault: FamilyContextType["createCustomVault"] = async (params) => {
+    let txHash: string | undefined;
+    const progress = (phase: CreationPhase) => {
+      if (phase.hash) txHash = phase.hash;
+      params.onProgress?.(phase);
+    };
     try {
-      if (!currentWorkspace) throw new Error("Hãy chọn không gian.");
-      const guardians = params.guardianWallets || [];
-      const beneficiaries = params.beneficiaryWallets || [];
-      const type = ["SHIELD", "MILESTONE", "ROSCA", "SHARED_GOAL"].indexOf(
-        params.ruleTemplate,
-      );
-      const args: unknown[] = [
-        params.name,
-        type,
-        BigInt(params.bufferRatioBps),
-        parseEther(params.fastWithdrawLimit.toString()),
-        BigInt(params.requiredApprovals),
-        guardians,
-        beneficiaries,
-      ];
-      const advanced = type >= 2;
-      if (advanced)
-        args.push(
-          parseEther((params.targetGoalAmount || 0).toString()),
-          BigInt(
-            params.targetDeadline
-              ? Math.floor(new Date(params.targetDeadline).getTime() / 1000)
-              : 0,
-          ),
-          BigInt(params.roscaRoundDuration || 0),
-          parseEther((params.roscaRoundContribution || 0).toString()),
-        );
-      const txHash = await write(
-        advanced ? "createAdvancedVault" : "createCustomVault",
-        args,
-        undefined,
-        false,
-        { path: "/api/vaults", body: { workspaceId: currentWorkspace.id } },
-      );
-      const data = await sync("/api/vaults", {
-        workspaceId: currentWorkspace.id,
-        txHash,
-      });
-      await refreshBalances();
-      return { success: true, vault: data.vault };
+      if (!currentWorkspace) throw new Error("Hãy chọn gia đình.");
+      const call = buildVaultCall(params);
+      const body = { workspaceId: currentWorkspace.id, draftId: params.draftId };
+      txHash = await write(call.functionName, call.args, undefined, false, { path: "/api/vaults", body }, progress);
+      progress({ status: "SYNC_PENDING", hash: txHash });
+      const data = await sync("/api/vaults", { ...body, txHash });
+      progress({ status: "COMPLETED", hash: txHash });
+      return { success: true, vault: data.vault, txHash };
     } catch (error: any) {
-      return { success: false, error: error.shortMessage || error.message };
+      return { success: false, error: error.shortMessage || error.message, txHash };
     }
   };
   const depositToVault = async (vaultId: number, amount: string | number) => {

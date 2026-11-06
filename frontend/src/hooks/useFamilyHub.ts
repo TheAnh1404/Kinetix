@@ -538,53 +538,6 @@ export function useFamilyHub() {
     [checkIsAllowlisted],
   );
 
-  /**
-   * 9. Tạo Hũ tiền Động tùy biến (Dynamic Vault)
-   */
-  const createCustomVault = useCallback(
-    async (params: {
-      name: string;
-      ruleType: RuleTemplate;
-      bufferRatioBps: number;
-      fastWithdrawLimitAvax: string;
-      requiredApprovals: number;
-      guardians: Address[];
-      beneficiaries: Address[];
-    }): Promise<string> => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const { walletClient, account } = await getAuthorizedWallet();
-
-        const txHash = await (walletClient as any).writeContract({
-          address: CONTRACT_ADDRESSES.familyHub,
-          abi: FAMILY_HUB_ABI,
-          functionName: "createCustomVault",
-          args: [
-            params.name,
-            params.ruleType,
-            BigInt(params.bufferRatioBps),
-            parseEther(params.fastWithdrawLimitAvax || "0"),
-            BigInt(params.requiredApprovals),
-            params.guardians,
-            params.beneficiaries,
-          ],
-          account,
-        });
-
-        return txHash;
-      } catch (err: any) {
-        const msg =
-          err.shortMessage || err.message || "Lỗi khi tạo Hũ tiền mới";
-        setError(msg);
-        throw new Error(msg);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [checkIsAllowlisted],
-  );
-
   return {
     isLoading,
     error,
@@ -602,6 +555,5 @@ export function useFamilyHub() {
     verifyAndRewardChore,
     contributeRoscaRound,
     payoutRoscaRound,
-    createCustomVault,
   };
 }
