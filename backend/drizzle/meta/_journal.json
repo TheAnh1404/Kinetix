@@ -85,6 +85,13 @@
       "when": 1793900600000,
       "tag": "0010_vault_creation_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793900700000,
+      "tag": "0011_vault_v1_clone_address",
+      "breakpoints": true
     }
   ]
 }

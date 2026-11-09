@@ -153,6 +153,7 @@ export const vaults = pgTable(
       .notNull(),
     onchainVaultId: integer("onchain_vault_id").notNull(),
     onchainHub: varchar("onchain_hub", { length: 42 }),
+    onchainVaultAddress: varchar("onchain_vault_address", { length: 42 }),
     onchainChainId: integer("onchain_chain_id"),
     onchainCreationTx: varchar("onchain_creation_tx", { length: 66 }),
     onchainCreationLogIndex: integer("onchain_creation_log_index"),
@@ -220,6 +221,10 @@ export const vaults = pgTable(
       table.onchainHub,
       table.onchainCreationTx,
       table.onchainCreationLogIndex,
+    ),
+    vaultAddressIndex: index("vault_address_index").on(
+      table.onchainChainId,
+      table.onchainVaultAddress,
     ),
   }),
 );
