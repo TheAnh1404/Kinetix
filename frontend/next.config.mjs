@@ -1,4 +1,4 @@
-import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants.js";
 
 const getNextConfig = (phase) => {
   /** @type {import('next').NextConfig} */
