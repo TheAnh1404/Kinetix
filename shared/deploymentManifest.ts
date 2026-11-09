@@ -43,7 +43,7 @@ export function validateDeployment(value: unknown): DeploymentManifest {
   if (
     !m ||
     m.schemaVersion !== 1 ||
-    m.version !== "2.0.0-t1" ||
+    m.version !== "2.1.0-t1" ||
     m.chainId !== 43113 ||
     m.mode !== "single-chain"
   )

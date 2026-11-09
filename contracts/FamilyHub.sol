@@ -88,6 +88,17 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         bool executed;
     }
 
+    /// @notice Đề nghị thêm một thành viên workspace đã allowlist vào Hũ.
+    struct MembershipChangeRequest {
+        uint256 vaultId;
+        address member;
+        bool guardianRole;
+        uint256 epoch;
+        uint256 approvalsCount;
+        uint256 deadline;
+        bool executed;
+    }
+
     // -------------------------------------------------------------
     // CUSTOM ERRORS
     // -------------------------------------------------------------
@@ -129,13 +140,15 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     error ExceedsDailyLimit(uint256 requested, uint256 remainingToday);
     error RoscaAlreadyContributed();
     error RoscaContributionMismatch(uint256 provided, uint256 required);
+    error InvalidMemberAddition();
+    error MembershipLimitReached();
 
     // -------------------------------------------------------------
     // STATE VARIABLES
     // -------------------------------------------------------------
 
     /// @notice Người quản trị tối cao của Hub
-    string public constant deploymentVersion = "2.0.0-t1";
+    string public constant deploymentVersion = "2.1.0-t1";
     bool public constant crossChainEnabled = false;
     bool public constant yieldEnabled = false;
     address public familyAdmin;
@@ -149,6 +162,26 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     event ChoreApproved(uint256 indexed taskId, address indexed guardian, uint256 approvals);
     event ChoreCancelled(uint256 indexed taskId);
     event MembershipEpochChanged(uint256 indexed vaultId, uint256 epoch);
+    event VaultMemberAdditionApproved(
+        uint256 indexed vaultId,
+        bytes32 indexed proposalId,
+        address indexed member,
+        bool guardianRole,
+        uint256 epoch,
+        address approver,
+        uint256 approvalsCount,
+        uint256 requiredApprovals,
+        uint256 deadline
+    );
+    event VaultMemberAdded(
+        uint256 indexed vaultId,
+        bytes32 indexed proposalId,
+        address indexed member,
+        bool guardianRole,
+        uint256 guardianCount,
+        uint256 requiredApprovals,
+        uint256 epoch
+    );
 
     /// @notice Bộ đếm tự tăng cho Hũ tiền động
     uint256 public vaultCounter;
@@ -183,6 +216,8 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     /// @notice Yêu cầu khôi phục ví xã hội: hash(vaultId, oldWallet, newWallet) => RecoveryRequest
     mapping(bytes32 => RecoveryRequest) public recoveryRequests;
     mapping(bytes32 => mapping(address => bool)) public hasApprovedRecovery;
+    mapping(bytes32 => MembershipChangeRequest) public membershipChangeRequests;
+    mapping(bytes32 => mapping(address => bool)) public hasApprovedMembershipChange;
 
     /// @notice Danh sách ví được cấp quyền tương tác mạng L1 khép kín
     mapping(address => bool) public isAllowlisted;
@@ -1024,7 +1059,122 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     }
 
     // -------------------------------------------------------------
-    // 6. SOCIAL RECOVERY CHO THÀNH VIÊN THEO HŨ (BẢO VỆ CẢ CREATOR)
+    // 6. THÊM THÀNH VIÊN VÀO HŨ ĐANG CÓ
+    // -------------------------------------------------------------
+
+    /**
+     * @notice Guardian phê duyệt thành viên đã allowlist bằng quorum hiện tại của Hũ.
+     * @dev Không thêm Beneficiary vào ROSCA vì việc đó sẽ đổi thứ tự nhận tiền.
+     */
+    function approveVaultMemberAddition(
+        uint256 vaultId,
+        address member,
+        bool guardianRole,
+        bytes32 proposalId
+    ) external whenNotPaused onlyAllowed onlyVaultGuardian(vaultId) {
+        DynamicVault storage vault = vaults[vaultId];
+        if (!vault.isActive) revert VaultInactive();
+        if (member == address(0)) revert ZeroAddress();
+        if (proposalId == bytes32(0)) revert InvalidMemberAddition();
+        if (!isAllowlisted[member]) revert NotAllowlisted();
+        if (
+            member == vault.creator ||
+            isVaultGuardian[vaultId][member] ||
+            isVaultBeneficiary[vaultId][member]
+        ) revert DuplicateMember();
+        if (guardianRole && vault.guardians.length >= 32) revert MembershipLimitReached();
+        if (!guardianRole && vault.beneficiaries.length >= 64) revert MembershipLimitReached();
+        if (!guardianRole && vault.ruleType == RuleTemplate.ROSCA) revert FeatureDisabled();
+
+        uint256 epoch = membershipEpoch[vaultId];
+        bytes32 key = keccak256(abi.encode(vaultId, member, guardianRole, epoch, proposalId));
+        MembershipChangeRequest storage request = membershipChangeRequests[key];
+        if (request.vaultId == 0) {
+            request.vaultId = vaultId;
+            request.member = member;
+            request.guardianRole = guardianRole;
+            request.epoch = epoch;
+            request.deadline = block.timestamp + 48 hours;
+        } else if (request.executed) {
+            revert RequestAlreadyExecuted();
+        } else if (block.timestamp > request.deadline) {
+            revert RequestExpired();
+        }
+        if (hasApprovedMembershipChange[key][_msgSender()]) revert AlreadyApproved();
+
+        hasApprovedMembershipChange[key][_msgSender()] = true;
+        uint256 approvals = ++request.approvalsCount;
+        uint256 required = vault.requiredApprovals;
+        emit VaultMemberAdditionApproved(
+            vaultId,
+            proposalId,
+            member,
+            guardianRole,
+            epoch,
+            _msgSender(),
+            approvals,
+            required,
+            request.deadline
+        );
+        if (approvals < required) return;
+
+        request.executed = true;
+        if (guardianRole) {
+            uint256 previousGuardianCount = vault.guardians.length;
+            vault.guardians.push(member);
+            isVaultGuardian[vaultId][member] = true;
+            _registerUserVault(member, vaultId);
+            vault.requiredApprovals =
+                (required * (previousGuardianCount + 1) + previousGuardianCount - 1) /
+                previousGuardianCount;
+        } else {
+            vault.beneficiaries.push(member);
+            isVaultBeneficiary[vaultId][member] = true;
+            _registerUserVault(member, vaultId);
+        }
+
+        membershipEpoch[vaultId]++;
+        emit MembershipEpochChanged(vaultId, membershipEpoch[vaultId]);
+        emit VaultMemberAdded(
+            vaultId,
+            proposalId,
+            member,
+            guardianRole,
+            vault.guardians.length,
+            vault.requiredApprovals,
+            membershipEpoch[vaultId]
+        );
+    }
+
+    /** @notice Trả về trạng thái phê duyệt của đề nghị trong epoch thành viên hiện tại. */
+    function membershipChangeStatus(
+        uint256 vaultId,
+        address member,
+        bool guardianRole,
+        bytes32 proposalId
+    ) external view returns (
+        uint256 approvalsCount,
+        uint256 requiredApprovals,
+        uint256 deadline,
+        bool executed,
+        bool approvedByCaller,
+        uint256 epoch
+    ) {
+        epoch = membershipEpoch[vaultId];
+        bytes32 key = keccak256(abi.encode(vaultId, member, guardianRole, epoch, proposalId));
+        MembershipChangeRequest storage request = membershipChangeRequests[key];
+        return (
+            request.approvalsCount,
+            vaults[vaultId].requiredApprovals,
+            request.deadline,
+            request.executed,
+            hasApprovedMembershipChange[key][_msgSender()],
+            epoch
+        );
+    }
+
+    // -------------------------------------------------------------
+    // 7. SOCIAL RECOVERY CHO THÀNH VIÊN THEO HŨ (BẢO VỆ CẢ CREATOR)
     // -------------------------------------------------------------
 
     /**
@@ -1090,7 +1240,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     }
 
     // -------------------------------------------------------------
-    // 7. CALLBACK TELEPORTER (TIẾP NHẬN PHẢN HỒI TỪ C-CHAIN)
+    // 8. CALLBACK TELEPORTER (TIẾP NHẬN PHẢN HỒI TỪ C-CHAIN)
     // -------------------------------------------------------------
 
     function receiveTeleporterMessage(bytes32, address, bytes calldata) external pure override {
@@ -1105,7 +1255,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     }
 
     // -------------------------------------------------------------
-    // 8. GETTER VIEW FUNCTIONS CHO DAPP
+    // 9. GETTER VIEW FUNCTIONS CHO DAPP
     // -------------------------------------------------------------
 
     /// @notice Getter giữ định dạng ABI cũ nhưng luôn trả assignee sau recovery.

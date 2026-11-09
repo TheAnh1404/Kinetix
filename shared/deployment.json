@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2.0.0-t1",
+  "version": "2.1.0-t1",
   "mode": "single-chain",
   "status": "configured",
   "enabled": false,

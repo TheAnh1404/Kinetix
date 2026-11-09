@@ -130,7 +130,7 @@ async function main() {
       String(hub.target).toLowerCase() ||
     (await hub.crossChainEnabled()) ||
     (await hub.yieldEnabled()) ||
-    (await hub.deploymentVersion()) !== "2.0.0-t1"
+    (await hub.deploymentVersion()) !== "2.1.0-t1"
   )
     throw new Error("WIRING_VERIFICATION_FAILED");
   const manifest: DeploymentManifest = validateDeployment({
@@ -139,7 +139,7 @@ async function main() {
     status: "verified",
     chainId: 43113,
     mode: "single-chain",
-    version: "2.0.0-t1",
+    version: "2.1.0-t1",
     deploymentBlock: journal.contracts.hub.blockNumber,
     compiler: "0.8.26",
     evmVersion: "cancun",
