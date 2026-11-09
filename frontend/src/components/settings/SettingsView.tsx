@@ -290,6 +290,52 @@ export function SettingsView({
             ? "account_security"
             : activeTab;
 
+  const settingsNavItems = [
+    {
+      id: "family_setup" as SettingsSection,
+      label: "Thiết Lập Gia Đình",
+      shortLabel: "Gia Đình",
+      icon: Users,
+      badge: "Mới",
+    },
+    {
+      id: "identity" as SettingsSection,
+      label: "1. Định Danh & Hồ Sơ",
+      shortLabel: "Hồ Sơ",
+      icon: User,
+    },
+    {
+      id: "allowances" as SettingsSection,
+      label: "2. Quỹ Chung & Hạn Mức",
+      shortLabel: "Hạn Mức",
+      icon: Sliders,
+    },
+    {
+      id: "security_wallets" as SettingsSection,
+      label: "3. Bảo Mật, Ví Lai & Gas",
+      shortLabel: "Ví & Gas",
+      icon: Wallet,
+    },
+    {
+      id: "audit_logs" as SettingsSection,
+      label: "4. Nhật Ký Hoạt Động Kép",
+      shortLabel: "Nhật Ký",
+      icon: History,
+    },
+    {
+      id: "workspace" as SettingsSection,
+      label: "Không Gian & Hợp Đồng",
+      shortLabel: "Không Gian",
+      icon: Building2,
+    },
+    {
+      id: "account_security" as SettingsSection,
+      label: "Mật Khẩu & Phiên Ký",
+      shortLabel: "Mật Khẩu",
+      icon: LockKeyhole,
+    },
+  ];
+
   return (
     <div className="w-full">
       {/* ============================================================== */}
@@ -364,23 +410,55 @@ export function SettingsView({
 
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-95"
             >
               <ArrowLeft size={14} />
-              <span>Quay lại Bàn Điều Hành</span>
+              <span>Bàn Điều Hành</span>
             </Link>
           </div>
         </div>
       )}
 
       {/* ============================================================== */}
-      {/* BỐ CỤC 2 CỘT: SIDEBAR PHÂN HỆ + NỘI DUNG CHÍNH (FULL PAGE) */}
+      {/* THANH TAB CUỘN NGANG CHO MOBILE & TABLET (HORIZONTAL CAPSULE BAR) */}
+      {/* ============================================================== */}
+      <div className="lg:hidden w-full overflow-x-auto pb-3 mb-4 scrollbar-none snap-x">
+        <div className="flex items-center gap-2 min-w-max px-0.5">
+          {settingsNavItems.map((item) => {
+            const isActive = resolvedTab === item.id;
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleSelectTab(item.id)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer select-none shrink-0 border ${
+                  isActive
+                    ? "bg-red-600 text-white border-red-600 shadow-xs"
+                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200/90 dark:border-slate-800 hover:bg-slate-50"
+                }`}
+              >
+                <Icon size={14} className={isActive ? "text-white" : "text-slate-500"} />
+                <span>{item.shortLabel}</span>
+                {item.badge && !isActive && (
+                  <span className="px-1 py-0.2 rounded text-[9px] font-mono font-bold bg-rose-100 text-rose-700">
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ============================================================== */}
+      {/* BỐ CỤC 2 CỘT: SIDEBAR PHÂN HỆ + NỘI DUNG CHÍNH (DESKTOP) */}
       {/* ============================================================== */}
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* ============================================================ */}
-        {/* CỘT TRÁI: SIDEBAR ĐIỀU HƯỚNG TẤT CẢ PHÂN HỆ CÀI ĐẶT */}
+        {/* CỘT TRÁI: SIDEBAR ĐIỀU HƯỚNG TẤT CẢ PHÂN HỆ CÀI ĐẶT (DESKTOP) */}
         {/* ============================================================ */}
-        <aside className="w-full lg:w-72 shrink-0 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs space-y-4">
+        <aside className="hidden lg:block w-72 shrink-0 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs space-y-4">
           {/* Nhóm ĐẶC BIỆT: THIẾT LẬP GIA ĐÌNH THEO CÁCH CỦA BẠN */}
           <div className="space-y-1">
             <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 font-mono flex items-center gap-1.5">
