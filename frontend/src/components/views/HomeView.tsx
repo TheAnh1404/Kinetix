@@ -258,8 +258,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
                   {t("arch.calc.deposit")}
                 </span>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-3xl sm:text-4xl font-black text-slate-900 font-mono">
-                    {simulatedDeposit.toLocaleString()}
+                  <span className="text-3xl sm:text-4xl font-black text-slate-900 font-mono" suppressHydrationWarning>
+                    {simulatedDeposit.toLocaleString("en-US")}
                   </span>
                   <span className="text-base font-bold text-red-600 font-mono">AVAX</span>
                 </div>
@@ -276,8 +276,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
                         ? "bg-slate-900 text-white shadow-xs"
                         : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
                     }`}
+                    suppressHydrationWarning
                   >
-                    {amt.toLocaleString()} AVAX
+                    {amt.toLocaleString("en-US")} AVAX
                   </button>
                 ))}
               </div>
