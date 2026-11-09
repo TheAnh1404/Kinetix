@@ -13,6 +13,7 @@ import {
   notifications,
   provisioningRequests,
   vaultCreationDrafts,
+  chainEvents,
 } from "../db/schema";
 import {
   endpoint,
@@ -46,6 +47,61 @@ import {
 
 export const apiRouter = Router();
 apiRouter.get("/vaults/:id/state", endpoint(async (req, res) => res.json({ success: true, data: await vaultState(req.auth!, uuidInput(req.params.id)) })));
+apiRouter.get("/vaults/:id/member-additions", endpoint(async (req, res) => {
+  const access = await vaultAccess(req.auth!, uuidInput(req.params.id), true);
+  const { vault, ws, chainState } = access;
+  const actor = req.auth!.wallet?.address?.toLowerCase();
+  const canApprove = access.canApprove && !!actor && chainState.guardians.some((wallet: string) => wallet.toLowerCase() === actor);
+  const [roster, currentMembers, epoch, eventRows] = await Promise.all([
+    db.select({ id: users.id, fullName: users.fullName, role: workspaceMembers.role, wallet: userWallets.address })
+      .from(workspaceMembers)
+      .innerJoin(users, eq(users.id, workspaceMembers.userId))
+      .leftJoin(userWallets, eq(userWallets.userId, users.id))
+      .where(and(eq(workspaceMembers.workspaceId, ws.id), isNull(workspaceMembers.accessDisabledAt))),
+    db.select().from(vaultMembers).where(eq(vaultMembers.vaultId, vault.id)),
+    readHub(ws.l1HubAddress!, "membershipEpoch", [BigInt(vault.onchainVaultId)]),
+    db.select().from(chainEvents)
+      .where(and(eq(chainEvents.chainId, vault.onchainChainId!), eq(chainEvents.hub, ws.l1HubAddress!.toLowerCase()), eq(chainEvents.eventName, "VaultMemberAdditionApproved"), sql`${chainEvents.payload}->>'vaultId' = ${String(vault.onchainVaultId)}`))
+      .orderBy(desc(chainEvents.blockNumber)).limit(500),
+  ]);
+  const linked = new Set(currentMembers.map((member) => member.userId));
+  const candidates = await Promise.all(roster.map(async (person) => ({
+    id: person.id,
+    fullName: person.fullName,
+    role: person.role,
+    walletAddress: person.wallet || "",
+    inVault: linked.has(person.id),
+    allowlisted: person.wallet ? await readHub(ws.l1HubAddress!, "isAllowlisted", [person.wallet]) : false,
+  })));
+  const proposalMap = new Map<string, any>();
+  for (const row of eventRows) {
+    const payload = row.payload as Record<string, unknown>;
+    if (String(payload.vaultId) !== String(vault.onchainVaultId)) continue;
+    const proposalId = String(payload.proposalId || "").toLowerCase();
+    const memberAddress = String(payload.member || "").toLowerCase();
+    const guardianRole = Boolean(payload.guardianRole);
+    const proposalEpoch = String(payload.epoch);
+    const key = `${proposalId}:${memberAddress}:${guardianRole}:${proposalEpoch}`;
+    if (!proposalMap.has(key) && proposalEpoch === String(epoch)) proposalMap.set(key, { proposalId, memberAddress, guardianRole, epoch: proposalEpoch });
+  }
+  const workspaceAddresses = new Set(candidates.map((candidate) => candidate.walletAddress.toLowerCase()));
+  const proposals = await Promise.all([...proposalMap.values()].filter((proposal) =>
+    workspaceAddresses.has(proposal.memberAddress) && (!proposal.guardianRole || candidates.some((candidate) =>
+      candidate.walletAddress.toLowerCase() === proposal.memberAddress && ["ADMIN", "GUARDIAN"].includes(candidate.role),
+    )),
+  ).map(async (proposal) => {
+    const status: any = await readHub(ws.l1HubAddress!, "membershipChangeStatus", [BigInt(vault.onchainVaultId), proposal.memberAddress, proposal.guardianRole, proposal.proposalId]);
+    return {
+      ...proposal,
+      approvalsCount: Number(status[0]),
+      requiredApprovals: Number(status[1]),
+      deadline: Number(status[2]),
+      executed: Boolean(status[3]),
+      approvedByCaller: Boolean(status[4]),
+    };
+  }));
+  return res.json({ success: true, canApprove, ruleTemplate: vault.ruleTemplate, candidates, proposals: proposals.filter((proposal) => !proposal.executed) });
+}));
 apiRouter.get("/workspaces/:id/provisioning", endpoint(async (req, res) => {
   const { ws } = await workspace(req.auth!, req.params.id);
   await membership(db, req.auth!, ws.id, true);
@@ -164,6 +220,7 @@ apiRouter.get(
             "depositTokenToVault",
             "fastWithdrawToken",
             "recoverMemberWallet",
+            "approveVaultMemberAddition",
           ].includes(action),
           400,
           "Thao tác chưa được hỗ trợ.",
@@ -182,7 +239,34 @@ apiRouter.get(
       assert(vaultId, 403, "Tài nguyên không thuộc không gian đang chọn.");
       const access = await vaultAccess(req.auth!, vaultId, true);
       const capability = access.capabilities?.[action as keyof NonNullable<typeof access.capabilities>];
-      assert(capability?.allowed, 403, "Bạn chưa có quyền thực hiện thao tác này trên hũ.", capability?.reason || "VAULT_ACTION_DENIED");
+      if (action === "approveVaultMemberAddition") {
+        const memberAddress = String(req.query.memberAddress || "").toLowerCase();
+        const roleValue = req.query.guardianRole;
+        const proposalId = String(req.query.proposalId || "");
+        assert(/^0x[0-9a-f]{40}$/.test(memberAddress), 400, "Ví thành viên không hợp lệ.");
+        assert(roleValue === "true" || roleValue === "false", 400, "Vai trò thành viên không hợp lệ.");
+        assert(/^0x[0-9a-f]{64}$/i.test(proposalId) && !/^0x0{64}$/i.test(proposalId), 400, "Mã đề nghị không hợp lệ.");
+        assert(access.canApprove && req.auth!.wallet && access.chainState.guardians.some((wallet: string) => wallet.toLowerCase() === req.auth!.wallet!.address.toLowerCase()), 403, "Chỉ Guardian được cấp quyền và đang hoạt động mới duyệt thành viên.");
+        const [target] = await db.select({ id: users.id, wallet: userWallets.address, role: workspaceMembers.role, existingVaultMember: vaultMembers.id })
+          .from(workspaceMembers)
+          .innerJoin(users, eq(users.id, workspaceMembers.userId))
+          .innerJoin(userWallets, eq(userWallets.userId, users.id))
+          .leftJoin(vaultMembers, and(eq(vaultMembers.vaultId, vaultId), eq(vaultMembers.userId, users.id)))
+          .where(and(eq(workspaceMembers.workspaceId, ws.id), eq(userWallets.address, memberAddress), isNull(workspaceMembers.accessDisabledAt)));
+        assert(target && !target.existingVaultMember, 409, "Thành viên đã trong Hũ hoặc chưa được kích hoạt/liên kết ví.");
+        assert(await readHub(ws.l1HubAddress!, "isAllowlisted", [memberAddress]), 409, "Ví thành viên chưa được allowlist trên Hub.", "NOT_ALLOWLISTED");
+        const [isGuardian, isBeneficiary] = await Promise.all([
+          readHub(ws.l1HubAddress!, "isVaultGuardian", [BigInt(String(resourceId)), memberAddress]),
+          readHub(ws.l1HubAddress!, "isVaultBeneficiary", [BigInt(String(resourceId)), memberAddress]),
+        ]);
+        assert(!isGuardian && !isBeneficiary && memberAddress !== req.auth!.wallet!.address.toLowerCase(), 409, "Ví này đã có vai trò trong Hũ.");
+        const addingGuardian = roleValue === "true";
+        assert(!addingGuardian || ["ADMIN", "GUARDIAN"].includes(target.role), 409, "Tài khoản trẻ em/người cao tuổi chỉ có thể tham gia với vai trò Beneficiary.");
+        assert(addingGuardian ? access.chainState.guardians.length < 32 : access.chainState.beneficiaries.length < 64, 409, "Hũ đã đạt giới hạn thành viên.");
+        assert(addingGuardian || access.vault.ruleTemplate !== "ROSCA", 409, "Không thể thêm người thụ hưởng vào ROSCA đang hoạt động.");
+      } else {
+        assert(capability?.allowed, 403, "Bạn chưa có quyền thực hiện thao tác này trên hũ.", capability?.reason || "VAULT_ACTION_DENIED");
+      }
       if (action === "claimChoreCompleted") {
         const task: any = await readHub(ws.l1HubAddress!, "tasks", [BigInt(String(resourceId))]);
         assert(String(task[4]).toLowerCase() === req.auth!.wallet?.address.toLowerCase(), 403, "Bạn không phải người được giao việc.", "ASSIGNEE_MISMATCH");
@@ -625,6 +709,66 @@ apiRouter.patch(
     return res.json({ success: true, vault: updated });
   }),
 );
+apiRouter.post("/vault-members/add", endpoint(async (req, res) => {
+  const { vault, ws, member } = await vaultAccess(req.auth!, req.body.vaultId || "", true);
+  assert(req.auth!.wallet, 403, "Chưa liên kết ví.");
+  assert(["ADMIN", "GUARDIAN"].includes(member.role), 403, "Vai trò workspace không được phép ký duyệt thành viên.");
+  const memberAddress = String(req.body.memberAddress || "").toLowerCase();
+  const guardianRole = req.body.guardianRole === true;
+  const proposalId = String(req.body.proposalId || "").toLowerCase();
+  assert(/^0x[0-9a-f]{40}$/.test(memberAddress) && /^0x[0-9a-f]{64}$/.test(proposalId), 400, "Thông tin đề nghị không hợp lệ.");
+  const { event, receipt, logIndex } = await verifiedEvent(
+    req.auth!, ws.l1HubAddress!, req.body.txHash, "VaultMemberAdditionApproved",
+    (args) => Number(args.vaultId) === vault.onchainVaultId &&
+      args.member.toLowerCase() === memberAddress && Boolean(args.guardianRole) === guardianRole &&
+      args.proposalId.toLowerCase() === proposalId && args.approver.toLowerCase() === req.auth!.wallet!.address.toLowerCase(),
+  );
+  const saveChainEvent = async (eventName: string, args: any, eventLogIndex: number) => db.insert(chainEvents).values({
+    chainId: vault.onchainChainId!,
+    hub: ws.l1HubAddress!.toLowerCase(),
+    txHash: receipt.transactionHash.toLowerCase(),
+    logIndex: eventLogIndex,
+    blockNumber: receipt.blockNumber,
+    blockHash: receipt.blockHash,
+    eventName,
+    payload: JSON.parse(JSON.stringify(args, (_key, value) => typeof value === "bigint" ? value.toString() : value)),
+  }).onConflictDoNothing();
+  await saveChainEvent("VaultMemberAdditionApproved", event, logIndex);
+  const [target] = await db.select({ userId: users.id, wallet: userWallets.address, role: workspaceMembers.role })
+    .from(workspaceMembers)
+    .innerJoin(users, eq(users.id, workspaceMembers.userId))
+    .innerJoin(userWallets, eq(userWallets.userId, users.id))
+    .where(and(eq(workspaceMembers.workspaceId, ws.id), eq(userWallets.address, memberAddress), isNull(workspaceMembers.accessDisabledAt)));
+  assert(target && target.wallet.toLowerCase() === memberAddress, 409, "Ví cần thuộc thành viên đang hoạt động trong workspace.");
+  assert(!guardianRole || ["ADMIN", "GUARDIAN"].includes(target.role), 409, "Tài khoản trẻ em/người cao tuổi chỉ có thể tham gia với vai trò Beneficiary.");
+  let added = false;
+  let requiredApprovals = Number(event.requiredApprovals);
+  if (Number(event.approvalsCount) >= Number(event.requiredApprovals)) {
+    const { event: completed, logIndex: completedLogIndex } = await verifiedEvent(
+      req.auth!, ws.l1HubAddress!, req.body.txHash, "VaultMemberAdded",
+      (args) => Number(args.vaultId) === vault.onchainVaultId && args.member.toLowerCase() === memberAddress &&
+        Boolean(args.guardianRole) === guardianRole && args.proposalId.toLowerCase() === proposalId,
+    );
+    await saveChainEvent("VaultMemberAdded", completed, completedLogIndex);
+    const state: any = await readHub(ws.l1HubAddress!, "getVault", [BigInt(vault.onchainVaultId)]);
+    assert(guardianRole ? state.guardians.some((wallet: string) => wallet.toLowerCase() === memberAddress) : state.beneficiaries.some((wallet: string) => wallet.toLowerCase() === memberAddress), 409, "Receipt và trạng thái Hũ không khớp.", "VAULT_RECEIPT_MISMATCH");
+    const role = guardianRole ? "GUARDIAN" : "BENEFICIARY";
+    const [existing] = await db.select().from(vaultMembers).where(and(eq(vaultMembers.vaultId, vault.id), eq(vaultMembers.userId, target.userId)));
+    assert(!existing || existing.vaultRole === role, 409, "Thành viên đã có vai trò khác trong Hũ.");
+    if (!existing) await db.insert(vaultMembers).values({ vaultId: vault.id, userId: target.userId, vaultRole: role }).onConflictDoNothing();
+    requiredApprovals = Number(state.requiredApprovals);
+    await db.update(vaults).set({ requiredApprovals }).where(eq(vaults.id, vault.id));
+    if (await readHub(ws.l1HubAddress!, "isAllowlisted", [memberAddress]) && await networkAllowed(memberAddress)) {
+      const identity = provisioningIdentity();
+      await db.insert(provisioningRequests).values({ ...identity, userId: target.userId, workspaceId: ws.id, chainId: vault.onchainChainId!, status: "CONFIRMED", txHash: receipt.transactionHash.toLowerCase() }).onConflictDoUpdate({
+        target: [provisioningRequests.userId, provisioningRequests.workspaceId, provisioningRequests.chainId, provisioningRequests.deploymentRef],
+        set: { status: "CONFIRMED", txHash: receipt.transactionHash.toLowerCase() },
+      });
+    }
+    added = true;
+  }
+  return res.json({ success: true, added, approvalsCount: Number(event.approvalsCount), requiredApprovals, deadline: Number(event.deadline), txHash: receipt.transactionHash.toLowerCase() });
+}));
 apiRouter.get(
   "/withdrawals/:familyId",
   endpoint(async (req, res) => {

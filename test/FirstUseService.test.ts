@@ -55,7 +55,7 @@ describe("First-use service authorization and evidence boundaries", () => {
     };
     const manifest = () => ({
       enabled: state.enabled,
-      version: "2.0.0-t1",
+      version: "2.1.0-t1",
       admin: address,
       chainId: 43113,
       contracts: { hub: { address: hub }, cashflow: { address: hub } },

@@ -99,7 +99,7 @@ describe("Web3 transaction identity and receipt boundary", function () {
         );
       return new Response(
         JSON.stringify({
-          deploymentVersion: "2.0.0-t1",
+          deploymentVersion: "2.1.0-t1",
           creationIntent: { data: state.changedIntent ? "0x9999" : "0x1234" },
           chainId: 99999,
           hub,
@@ -171,7 +171,7 @@ describe("Web3 transaction identity and receipt boundary", function () {
                 }
               : {
                   avalancheFamilyL1: chain,
-                  DEPLOYMENT: { version: "2.0.0-t1" },
+                  DEPLOYMENT: { version: "2.1.0-t1" },
                   hubChain: chain,
                   avalancheFuji: { ...chain, id: 43113 },
                 },

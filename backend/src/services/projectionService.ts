@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { decodeFunctionData, parseEventLogs, TransactionReceipt } from "viem";
 import { db } from "../db";
-import { chainEvents, financialOperations, userWallets, workspaceMembers, chores, vaults, withdrawalRequests } from "../db/schema";
+import { chainEvents, financialOperations, userWallets, workspaceMembers, chores, vaultMembers, vaults, withdrawalRequests } from "../db/schema";
 import { FAMILY_HUB_ABI } from "../../../shared/abis";
 import { decimalAmount, hubClient, readHub } from "./chainService";
 import { recordReceiptActivity } from "./activityService";
@@ -25,7 +25,7 @@ export async function projectReceipt(receipt: TransactionReceipt, vault: typeof 
   for (const event of events) {
     await db.insert(chainEvents).values({ chainId: vault.onchainChainId, hub, txHash: receipt.transactionHash.toLowerCase(), logIndex: event.logIndex, blockNumber: receipt.blockNumber, blockHash: receipt.blockHash, eventName: event.eventName, payload: JSON.parse(JSON.stringify(event.args, (_key, value) => typeof value === "bigint" ? value.toString() : value)) }).onConflictDoNothing();
     if (event.args.vaultId === undefined || BigInt(event.args.vaultId) !== BigInt(vault.onchainVaultId)) continue;
-    const address = event.eventName === "WithdrawalRequested" ? event.args.requester : event.eventName === "ChoreCreated" ? event.args.assignee : undefined;
+    const address = event.eventName === "WithdrawalRequested" ? event.args.requester : event.eventName === "ChoreCreated" ? event.args.assignee : event.eventName === "VaultMemberAdded" ? event.args.member : undefined;
     if (!address) continue;
     const owner = await walletOwnerInWorkspace(address, vault.workspaceId);
     if (!owner) continue;
@@ -33,6 +33,9 @@ export async function projectReceipt(receipt: TransactionReceipt, vault: typeof 
       await db.insert(withdrawalRequests).values({ familyId: vault.workspaceId, vaultId: vault.id, requesterId: owner.userId, amount: decimalAmount(event.args.amount), reason: event.args.reason, vault: vault.name, onchainRequestId: Number(event.args.requestId), deadline: new Date(Number(event.args.deadline) * 1000), requiredApprovals: vault.requiredApprovals, approvalsCount: 0, status: "PENDING", txHash: receipt.transactionHash.toLowerCase() }).onConflictDoNothing();
     } else if (event.eventName === "ChoreCreated") {
       await db.insert(chores).values({ familyId: vault.workspaceId, vaultId: vault.id, childId: owner.userId, title: event.args.title, rewardAmount: decimalAmount(event.args.rewardAmount), onchainTaskId: Number(event.args.taskId), status: "TODO" }).onConflictDoNothing();
+    } else if (event.eventName === "VaultMemberAdded") {
+      await db.insert(vaultMembers).values({ vaultId: vault.id, userId: owner.userId, vaultRole: event.args.guardianRole ? "GUARDIAN" : "BENEFICIARY" }).onConflictDoNothing();
+      await db.update(vaults).set({ requiredApprovals: Number(event.args.requiredApprovals) }).where(eq(vaults.id, vault.id));
     }
   }
   await recordReceiptActivity(receipt, vault);
