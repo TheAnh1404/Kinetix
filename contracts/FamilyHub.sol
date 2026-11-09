@@ -1152,14 +1152,18 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         address member,
         bool guardianRole,
         bytes32 proposalId
-    ) external view returns (
-        uint256 approvalsCount,
-        uint256 requiredApprovals,
-        uint256 deadline,
-        bool executed,
-        bool approvedByCaller,
-        uint256 epoch
-    ) {
+    )
+        external
+        view
+        returns (
+            uint256 approvalsCount,
+            uint256 requiredApprovals,
+            uint256 deadline,
+            bool executed,
+            bool approvedByCaller,
+            uint256 epoch
+        )
+    {
         epoch = membershipEpoch[vaultId];
         bytes32 key = keccak256(abi.encode(vaultId, member, guardianRole, epoch, proposalId));
         MembershipChangeRequest storage request = membershipChangeRequests[key];
