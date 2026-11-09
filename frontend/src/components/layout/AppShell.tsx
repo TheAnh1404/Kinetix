@@ -9,7 +9,6 @@ import { useLanguage } from "@/context/LanguageContext";
 import { WorkspaceSwitcher } from "@/components/workspaces/WorkspaceSwitcher";
 import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
 import { useVaultCreation } from "@/context/VaultCreationContext";
-import { SettingsModal } from "@/components/settings/SettingsModal";
 import { MemberResponsiveShell } from "@/components/layout/MemberResponsiveShell";
 import { NotificationDropdown } from "@/components/dashboard/NotificationDropdown";
 import { TransactionLedgerModal } from "@/components/dashboard/TransactionLedgerModal";
@@ -34,7 +33,6 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const vaultCreation = useVaultCreation();
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
@@ -56,6 +54,14 @@ export const AppShell: React.FC<AppShellProps> = ({
   const userRole =
     currentWorkspace?.role || currentWorkspace?.userRole || "CHILD";
   const isAdmin = userRole === "ADMIN" || userRole === "GUARDIAN";
+  const sidebarAvatar = user?.avatarUrl || currentMember?.avatar;
+  const sidebarInitial = (user?.fullName || currentMember?.name || "K")
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   // Thông tin hiển thị cho từng vai diễn thành viên
   const adminSpaces = [
@@ -201,15 +207,21 @@ export const AppShell: React.FC<AppShellProps> = ({
           {/* User Footer with Logout */}
           <div className="p-3 border-t border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
-              <img
-                src={
-                  user?.avatarUrl ||
-                  currentMember?.avatar ||
-                  "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150"
-                }
-                alt="Avatar"
-                className="w-7 h-7 rounded-full object-cover border border-slate-200"
-              />
+              {sidebarAvatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={sidebarAvatar}
+                  alt={`Ảnh đại diện của ${user?.fullName || currentMember?.name || "thành viên"}`}
+                  className="w-7 h-7 rounded-full object-cover border border-slate-200"
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="w-7 h-7 rounded-full border border-slate-200 bg-slate-100 text-[10px] font-semibold text-slate-600 flex items-center justify-center"
+                >
+                  {sidebarInitial || "K"}
+                </span>
+              )}
               <div className="flex flex-col text-left min-w-0">
                 <span className="text-xs font-bold text-slate-800 truncate">
                   {user?.fullName || "Bố Ba (Chủ Hộ)"}
@@ -221,16 +233,15 @@ export const AppShell: React.FC<AppShellProps> = ({
             </div>
 
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => setIsSettingsOpen(true)}
+              <Link
+                href="/settings"
                 className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors"
-                title="Cài đặt"
-                type="button"
+                title="Cài đặt hệ thống"
               >
                 <span className="material-symbols-outlined text-[16px]">
                   settings
                 </span>
-              </button>
+              </Link>
               <button
                 onClick={handleLogout}
                 className="w-7 h-7 rounded-lg text-slate-400 hover:text-red-600 flex items-center justify-center transition-colors"
@@ -351,13 +362,12 @@ export const AppShell: React.FC<AppShellProps> = ({
                 {item.label}
               </button>
             ))}
-            <button
-              type="button"
-              className="min-h-12 rounded-xl px-3 border"
-              onClick={() => setIsSettingsOpen(true)}
+            <Link
+              href="/settings"
+              className="min-h-12 rounded-xl px-3 border border-slate-200 bg-white flex items-center text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
               Cài đặt
-            </button>
+            </Link>
           </nav>
           {/* Content Canvas */}
           <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
@@ -370,11 +380,6 @@ export const AppShell: React.FC<AppShellProps> = ({
       <DepositVaultModal
         isOpen={isDepositModalOpen}
         onClose={() => setIsDepositModalOpen(false)}
-      />
-
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
       />
 
       <TransactionLedgerModal

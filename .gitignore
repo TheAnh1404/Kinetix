@@ -17,6 +17,7 @@ typechain-types/
 dist/
 build/
 .next/
+.next-dev/
 .next-t1-check/
 .next-auth/
 out/

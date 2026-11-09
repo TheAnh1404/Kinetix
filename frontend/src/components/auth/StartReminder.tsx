@@ -21,15 +21,23 @@ export function StartReminder() {
           Hướng dẫn và các bước còn chờ nằm ở màn Bắt đầu riêng.
         </p>
       </div>
-      <Link
-        className="flex min-h-12 items-center gap-2 text-sm font-bold text-red-700"
-        href={`/start?workspace=${encodeURIComponent(currentWorkspace.id)}`}
-      >
-        {member?.startStatus === "DEFERRED"
-          ? "Tiếp tục thiết lập"
-          : "Xem hướng dẫn"}
-        <ArrowRight size={16} aria-hidden />
-      </Link>
+      <div className="flex items-center gap-4">
+        <Link
+          className="text-xs font-bold text-slate-600 hover:text-slate-900 underline underline-offset-4"
+          href="/settings?tab=family_setup"
+        >
+          Mở trong Cài đặt
+        </Link>
+        <Link
+          className="flex min-h-12 items-center gap-2 text-sm font-bold text-red-700"
+          href={`/start?workspace=${encodeURIComponent(currentWorkspace.id)}`}
+        >
+          {member?.startStatus === "DEFERRED"
+            ? "Tiếp tục thiết lập"
+            : "Xem hướng dẫn"}
+          <ArrowRight size={16} aria-hidden />
+        </Link>
+      </div>
     </aside>
   );
 }

@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { startRedirect } from "../../shared/startFlow";
 
@@ -57,5 +57,13 @@ export async function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/activate", "/register", "/start"],
+  matcher: [
+    "/dashboard/:path*",
+    "/settings",
+    "/settings/:path*",
+    "/login",
+    "/activate",
+    "/register",
+    "/start",
+  ],
 };

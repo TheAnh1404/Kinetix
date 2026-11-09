@@ -71,7 +71,8 @@ export function VaultCreationProvider({ children }: { children: ReactNode }) {
           }}
         />
       )}
-      {memberReturn?.workspaceId === family.currentWorkspace?.id && (
+      {/* Chỉ hiển thị modal quản lý thành viên khi có luồng khởi tạo hũ yêu cầu quay lại và đúng workspace */}
+      {Boolean(memberReturn && memberReturn.workspaceId === family.currentWorkspace?.id) && (
         <MemberManagementModal
           isOpen
           onClose={() => {
@@ -80,7 +81,8 @@ export function VaultCreationProvider({ children }: { children: ReactNode }) {
           }}
         />
       )}
-      {followup?.workspaceId === family.currentWorkspace?.id && (
+      {/* Chỉ hiển thị modal nạp tiền / việc nhà tiếp nối khi có thông tin followup và đúng workspace */}
+      {Boolean(followup && followup.workspaceId === family.currentWorkspace?.id) && (
         <>
           <DepositVaultModal
             isOpen={followup?.action === "deposit"}
