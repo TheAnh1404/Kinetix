@@ -57,6 +57,31 @@ const config: Config = {
         "on-primary-fixed-variant": "#3f465c",
         "on-secondary": "#ffffff",
         "error-container": "#ffdad6",
+        avalanche: {
+          DEFAULT: "#E84142",
+          hover: "#D03031",
+          light: "#FEECEE",
+        },
+        navy: {
+          DEFAULT: "#0F172A",
+          card: "#1E293B",
+          border: "#334155",
+        },
+        yield: {
+          DEFAULT: "#10B981",
+          light: "#ECFDF5",
+          dark: "#047857",
+        },
+        rosca: {
+          DEFAULT: "#F59E0B",
+          light: "#FFFBEB",
+          dark: "#B45309",
+        },
+        kids: {
+          DEFAULT: "#8B5CF6",
+          light: "#F5F3FF",
+          dark: "#6D28D9",
+        },
       },
       borderRadius: {
         DEFAULT: "0.25rem",

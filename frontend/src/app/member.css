@@ -1,26 +1,32 @@
 /* Một cây DOM cho mọi kích thước; đổi breakpoint không xóa state của form. */
 .member-app,
 .member-preview {
-  --accent: #175d50;
-  --accent-dark: #10483e;
-  --tint: #e7f0ea;
-  --page: #f8f7f2;
-  --ink: #213c35;
-  --muted: #52675f;
+  --accent: #059669;
+  --accent-dark: #047857;
+  --tint: #ecfdf5;
+  --page: #f8fafc;
+  --ink: #0f172a;
+  --muted: #475569;
   color: var(--ink);
   font-size: 1.125rem;
   line-height: 1.65;
 }
 .elderly-theme {
+  --accent: #059669;
+  --accent-dark: #047857;
+  --tint: #ecfdf5;
+  --page: #f8fafc;
+  --ink: #0f172a;
+  --muted: #334155;
   font-size: 1.25rem;
 }
 .kids-theme {
-  --accent: #51409a;
-  --accent-dark: #3b2e79;
-  --tint: #eeeaf9;
-  --page: #faf9fd;
-  --ink: #282542;
-  --muted: #635e78;
+  --accent: #7c3aed;
+  --accent-dark: #6d28d9;
+  --tint: #f5f3ff;
+  --page: #f8fafc;
+  --ink: #0f172a;
+  --muted: #475569;
 }
 .member-app {
   min-height: 100dvh;
@@ -366,16 +372,12 @@
   min-height: 48px;
 }
 .support-vault {
-  background: #194f45;
-  background-image: radial-gradient(
-    circle at 95% 0%,
-    #377061 0,
-    transparent 50%
-  );
+  background: linear-gradient(135deg, #064e3b 0%, #047857 50%, #059669 100%);
   color: #fff;
   border-radius: 1.5rem;
   padding: clamp(1.4rem, 3vw, 2.2rem);
-  box-shadow: 0 12px 30px #173b3510;
+  box-shadow: 0 16px 36px -4px rgba(4, 120, 87, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 .section-kicker {
   display: flex;

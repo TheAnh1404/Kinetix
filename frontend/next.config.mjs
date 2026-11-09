@@ -8,8 +8,9 @@ const getNextConfig = (phase) => {
     // Keep dev's writable cache separate from production builds so one Next.js
     // process cannot replace manifests while the other process serves routes.
     distDir:
-      process.env.KINETIX_BUILD_DIR ||
-      (phase === PHASE_DEVELOPMENT_SERVER ? ".next-dev" : ".next"),
+      phase === PHASE_DEVELOPMENT_SERVER
+        ? process.env.KINETIX_DEV_BUILD_DIR || ".next-dev"
+        : process.env.KINETIX_BUILD_DIR || ".next",
     ...(process.env.KINETIX_CONSTRAINED_BUILD === "true"
       ? {
           experimental: {
