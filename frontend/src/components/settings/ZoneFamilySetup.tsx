@@ -23,6 +23,7 @@ import { useFamily } from "@/context/FamilyContext";
 import { useFirstUseStatus } from "@/hooks/useFirstUseStatus";
 import { FirstUseChecklist } from "@/components/auth/FirstUseChecklist";
 import { MemberManagementModal } from "@/components/dashboard/MemberManagementModal";
+import { InvitationAcceptancePanel } from "@/components/auth/InvitationAcceptancePanel";
 import { ProvisioningPanel } from "@/components/dashboard/ProvisioningPanel";
 import { useVaultCreation } from "@/context/VaultCreationContext";
 import type { FirstUseAction } from "../../../../shared/firstUse";
@@ -56,6 +57,7 @@ export function ZoneFamilySetup() {
   const member = auth.workspaces.find((item) => item.id === currentWorkspaceId);
   const userRole = currentWorkspaceId ? member?.role || "CHILD" : "CHILD";
   const isAdmin = userRole === "ADMIN" || userRole === "GUARDIAN";
+  const canManageMembers = userRole === "ADMIN" || member?.canManageMembers === true;
 
   // Trạng thái kiểm tra sẵn sàng hạ tầng & tài chính (First-Use Hook)
   const readiness = useFirstUseStatus(currentWorkspaceId);
@@ -115,7 +117,7 @@ export function ZoneFamilySetup() {
   const handleChecklistAction = (action: FirstUseAction) => {
     switch (action) {
       case "MANAGE_MEMBERS":
-        setIsMemberModalOpen(true);
+        if (canManageMembers) setIsMemberModalOpen(true);
         break;
       case "CREATE_VAULT":
       case "OPEN_VAULTS":
@@ -196,7 +198,7 @@ export function ZoneFamilySetup() {
               <ExternalLink size={14} />
             </Link>
 
-            {isAdmin && (
+            {canManageMembers && (
               <button
                 type="button"
                 onClick={() => setIsMemberModalOpen(true)}
@@ -225,6 +227,8 @@ export function ZoneFamilySetup() {
           </div>
         </div>
       </div>
+
+      <InvitationAcceptancePanel />
 
       {/* =================================================================== */}
       {/* 2. TIẾN TRÌNH 4 BƯỚC KHỞI TẠO (PROGRESS TIMELINE) */}
@@ -352,7 +356,7 @@ export function ZoneFamilySetup() {
             </p>
           </div>
 
-          {isAdmin && (
+          {canManageMembers && (
             <button
               type="button"
               onClick={() => setIsMemberModalOpen(true)}

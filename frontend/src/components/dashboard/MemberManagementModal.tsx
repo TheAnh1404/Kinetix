@@ -552,7 +552,8 @@ export function MemberManagementModal({
                         {members
                           .filter(
                             (item) =>
-                              item.role === "ADMIN" || item.role === "GUARDIAN",
+                              item.role === "ADMIN" ||
+                              (item.role === "GUARDIAN" && item.canManageMembers),
                           )
                           .map((guardian) => (
                             <option key={guardian.id} value={guardian.id}>

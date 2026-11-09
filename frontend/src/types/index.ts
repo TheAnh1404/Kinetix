@@ -19,6 +19,7 @@ export interface FamilyMember {
   avatar: string;
   defaultTab: ActiveTab;
   phoneNumber?: string | null;
+  canManageMembers?: boolean;
 }
 
 export type Member = FamilyMember;

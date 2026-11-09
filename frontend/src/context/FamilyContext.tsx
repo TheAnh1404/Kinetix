@@ -316,6 +316,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         walletAddress: user.walletAddress || "",
         address: user.walletAddress || "",
         avatar: user.avatarUrl || "",
+        canManageMembers: user.canManageMembers,
         defaultTab:
           user.role === "ELDERLY"
             ? "kinetix-shield"

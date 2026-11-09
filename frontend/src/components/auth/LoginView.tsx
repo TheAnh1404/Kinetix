@@ -165,7 +165,7 @@ export function LoginView() {
           {mode === "login"
             ? "Một tài khoản riêng. Kết nối cả gia đình."
             : mode === "invite"
-              ? "Tạo tài khoản người bảo hộ trong không gian của người mời. Bạn cần dùng đúng ví Core được chỉ định."
+              ? "Tạo tài khoản Guardian trong workspace của người mời bằng đúng ví Core được chỉ định. Nếu đã có tài khoản Kinetix, hãy đăng nhập trước rồi mở Cài đặt gia đình để nhận lời mời; không cần tạo tài khoản khác."
               : "Tạo tài khoản người bảo hộ và không gian đầu tiên bằng ví Core của bạn."}
         </p>
       </div>

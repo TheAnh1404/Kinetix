@@ -157,6 +157,7 @@ const syncPaths = new Set([
   "/api/chores/cancel",
   "/api/withdrawals/execute-signatures",
   "/api/vaults/rosca-payout",
+  "/api/vault-members/add",
   "/api/recovery/confirm",
 ]);
 
@@ -394,7 +395,10 @@ export function getWalletClient(
         const draftId = reconciliation?.body?.draftId;
         const attemptId = draftId ? crypto.randomUUID() : undefined;
         const draftPath = draftId ? `/api/workspaces/${encodeURIComponent(workspaceId)}/vault-drafts/${encodeURIComponent(draftId)}` : undefined;
-        const contextUrl = `/api/workspaces/${encodeURIComponent(workspaceId)}/transaction-context?functionName=${encodeURIComponent(args.functionName)}&resourceId=${encodeURIComponent(String(args.args?.[0] ?? ""))}${draftId ? `&draftId=${encodeURIComponent(draftId)}&attemptId=${attemptId}` : ""}`;
+        const memberAdditionContext = args.functionName === "approveVaultMemberAddition"
+          ? `&memberAddress=${encodeURIComponent(String(args.args?.[1] ?? ""))}&guardianRole=${encodeURIComponent(String(args.args?.[2] ?? ""))}&proposalId=${encodeURIComponent(String(args.args?.[3] ?? ""))}`
+          : "";
+        const contextUrl = `/api/workspaces/${encodeURIComponent(workspaceId)}/transaction-context?functionName=${encodeURIComponent(args.functionName)}&resourceId=${encodeURIComponent(String(args.args?.[0] ?? ""))}${memberAdditionContext}${draftId ? `&draftId=${encodeURIComponent(draftId)}&attemptId=${attemptId}` : ""}`;
         const context = await apiGet(contextUrl);
         if (draftId && context.creationIntent?.data?.toLowerCase() !== encodeFunctionData(contractArgs).toLowerCase()) throw new Error("Cấu hình ký khác bản nháp đã kiểm tra.");
         if (
@@ -437,6 +441,7 @@ export function getWalletClient(
             "payoutRoscaRound",
             "createChore",
             "compoundYield",
+            "approveVaultMemberAddition",
           ];
           if (
             vaultFunctions.includes(args.functionName) &&

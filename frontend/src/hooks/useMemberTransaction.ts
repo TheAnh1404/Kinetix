@@ -16,6 +16,11 @@ export function useMemberTransaction() {
   const auth = useAuth();
   const family = useFamily();
   const [state, setState] = useState<State>("idle");
+  const stateRef = useRef<State>("idle");
+  const updateState = (next: State) => {
+    stateRef.current = next;
+    setState(next);
+  };
   const [message, setMessage] = useState("");
   const [hash, setHash] = useState("");
   const locked = useRef(false);
@@ -25,6 +30,7 @@ export function useMemberTransaction() {
   useEffect(() => {
     activeScope.current = scope;
     locked.current = false;
+    stateRef.current = "idle";
     setState("idle");
     setHash("");
     setMessage("");
@@ -47,7 +53,7 @@ export function useMemberTransaction() {
     const existing = userId
       ? pendingTransactions(userId).map((item) => item.hash)
       : [];
-    setState("signing");
+    updateState("signing");
     setMessage(
       "Ở Core, kiểm tra nội dung rồi xác nhận. Quay lại đây để theo dõi kết quả.",
     );
@@ -72,7 +78,7 @@ export function useMemberTransaction() {
       );
       if (unresolved) {
         setHash(unresolved.hash);
-        setState("tracking");
+        updateState("tracking");
         setMessage(
           "Giao dịch đã gửi, đang theo dõi hoặc cập nhật. Không cần gửi lại.",
         );
@@ -107,7 +113,7 @@ export function useMemberTransaction() {
         params.method || "POST",
       );
       if (activeScope.current !== startedScope) return false;
-      setState("success");
+      updateState("success");
       setMessage("Giao dịch đã xác nhận và dữ liệu đã được cập nhật.");
       void family.refreshBalances();
       return true;
@@ -120,12 +126,12 @@ export function useMemberTransaction() {
         );
       if (broadcast) {
         setHash(broadcast.hash);
-        setState("tracking");
+        updateState("tracking");
         setMessage(
           "Giao dịch đã gửi. Hệ thống đang theo dõi và đồng bộ, hãy kiểm tra trạng thái trước khi tiếp tục.",
         );
       } else {
-        setState("error");
+        updateState("error");
         setMessage(
           error.shortMessage ||
             error.message ||
@@ -137,11 +143,19 @@ export function useMemberTransaction() {
       if (activeScope.current === startedScope) locked.current = false;
     }
   };
+  const reset = () => {
+    if (stateRef.current === "success" || stateRef.current === "error") {
+      updateState("idle");
+      setHash("");
+      setMessage("");
+    }
+  };
   return {
     state,
     message,
     hash,
     execute,
+    reset,
     busy: state === "signing",
     blocked: state === "tracking" || state === "success",
   };

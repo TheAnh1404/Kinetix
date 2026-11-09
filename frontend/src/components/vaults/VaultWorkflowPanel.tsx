@@ -4,6 +4,7 @@ import { formatEther } from "viem";
 import { useFamily } from "@/context/FamilyContext";
 import { useVaultStates } from "@/hooks/useVaultStates";
 import { useAuth } from "@/hooks/useAuth";
+import { VaultMemberManagement } from "@/components/vaults/VaultMemberManagement";
 
 const avax = (wei: string) => {
   try {
@@ -182,6 +183,14 @@ export function VaultWorkflowPanel({ onlyRosca = false }: { onlyRosca?: boolean 
           <span className="material-symbols-outlined text-[18px] text-amber-600 shrink-0">warning</span>
           <span>{errors[vault.id]}</span>
         </div>
+      )}
+
+      {vault && (
+        <VaultMemberManagement
+          vault={vault}
+          guardians={data?.state?.guardians || []}
+          beneficiaries={data?.state?.beneficiaries || []}
+        />
       )}
 
       {/* 3. Thẻ Số Dư Trực Quan (Balance Bento Deck) */}
