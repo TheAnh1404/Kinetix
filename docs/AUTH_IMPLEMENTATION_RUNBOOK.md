@@ -1,6 +1,6 @@
 # AUTH implementation and cutover runbook
 
-Updated: 2026-11-05. Current scope and first-use delivery: [FIRST_USE_PLAN.md](FIRST_USE_PLAN.md).
+Updated: 2026-11-05. Runbook for the implemented authentication and first-use flows.
 
 ## Delivery status
 
@@ -8,11 +8,11 @@ Application code, migration, HTTP acceptance tests, transaction adapter and UI a
 
 Verified here: native Argon2id, exact usernames, opaque secrets, SIWE binding, HTTP guards, BFF and transaction adapter tests; contract suites and backend receipt verification against the local Hardhat EVM; backend/frontend TypeScript and Next production compilation.
 
-Historical auth delivery checks passed locally. For current test counts, first-use behavior and pending acceptance, see [FIRST_USE_PLAN.md](FIRST_USE_PLAN.md). Real browser/Core QA is still required.
+Historical auth delivery checks passed locally. First-use behavior is implemented; real browser/Core QA is still required.
 
 Not verified here:
 
-- Hosted/staging PostgreSQL acceptance remains separate. Local isolated PostgreSQL acceptance now passes via `npm run test:auth:local` (96 cases); PostgreSQL + local EVM verification passes via `npm run test:v2:local` (10 checks). See the current plan for reproducible setup. Application migrations 0006–0008 were applied separately after a data snapshot to fix missing registration tables.
+- Hosted/staging PostgreSQL acceptance remains separate. Local isolated PostgreSQL acceptance now passes via `npm run test:auth:local` (96 cases); PostgreSQL + local EVM verification passes via `npm run test:v2:local` (10 checks). Application migrations 0006–0008 were applied separately after a data snapshot to fix missing registration tables.
 - Browser screenshots, responsive QA and real Core-extension interaction: browser access host was unavailable.
 - Live L1 genesis/precompile configuration, deployed ownership and production RPC/network addresses.
 

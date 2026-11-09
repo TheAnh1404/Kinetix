@@ -3,8 +3,7 @@
 ## Trải nghiệm thành viên hiện tại — 04/11/2026
 
 **Trạng thái contract/testnet:** xem [báo cáo và kế hoạch nâng cấp](CONTRACT_TESTNET_REVIEW.md).
-Kế hoạch hiện hành: [hoàn thiện lần đầu sử dụng cho tài khoản mới](docs/FIRST_USE_PLAN.md).
-Đã triển khai [thiết kế lại tạo hũ và tích hợp nghiệp vụ–contract](docs/VAULT_CREATION_PLAN.md):
+Đã triển khai thiết kế lại tạo hũ và tích hợp nghiệp vụ–contract:
 wizard bốn bước dùng chung cho `/start` và dashboard, lưu/mở lại bản nháp, kiểm tra
 thành viên/quy tắc/phí trước ký, theo dõi receipt và khôi phục đồng bộ theo hash cũ.
 Migration `0010_vault_creation_drafts` bổ sung bảng bản nháp riêng, không sửa ledger.
