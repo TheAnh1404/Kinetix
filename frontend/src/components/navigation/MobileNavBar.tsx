@@ -10,6 +10,14 @@ interface MobileNavBarProps {
   onOpenDeposit: () => void;
 }
 
+/**
+ * Thanh Điều Hướng Đáy Di Động (Floating Glass Dock)
+ * Thiết kế theo phong cách Ergonomic Thumb-Zone:
+ * - Kính mờ cao cấp (Backdrop Blur Glassmorphism)
+ * - Nút nạp tiền nổi bật trung tâm (Floating Action Button) với hiệu ứng Avalanche Red
+ * - Khoảng chạm rộng rãi (≥ 48px), chống mỏi ngón tay
+ * - Phản hồi xúc giác trực quan khi nhấn (Active Scale)
+ */
 export const MobileNavBar: React.FC<MobileNavBarProps> = ({
   activeTab,
   onTabChange,
@@ -20,12 +28,12 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
   const navItems = [
     {
       tab: 'quan-tri-cha-me' as ActiveTab,
-      label: language === 'vi' ? 'Quản Trị' : 'Admin',
+      label: language === 'vi' ? 'Quản Trị' : 'Command',
       icon: 'dashboard',
     },
     {
       tab: 'kinetix-shield' as ActiveTab,
-      label: language === 'vi' ? 'Báo Hiếu' : 'Shield',
+      label: language === 'vi' ? 'An Sinh' : 'Shield',
       icon: 'shield',
     },
     {
@@ -47,7 +55,10 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-lg px-2 py-1.5 flex items-center justify-around safe-area-inset-bottom">
+    <nav
+      aria-label="Điều hướng chính trên di động"
+      className="lg:hidden fixed bottom-3 left-3 right-3 max-w-md mx-auto z-40 bg-slate-900/90 backdrop-blur-xl text-white rounded-3xl border border-white/10 shadow-2xl px-2 py-1.5 flex items-center justify-around"
+    >
       {navItems.map((item, idx) => {
         if (item.isCenter) {
           return (
@@ -55,12 +66,13 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
               key={idx}
               onClick={onOpenDeposit}
               type="button"
-              className="flex flex-col items-center justify-center -mt-6 cursor-pointer"
+              className="flex flex-col items-center justify-center -mt-6 cursor-pointer group"
+              title="Nạp tiền vào Quỹ"
             >
-              <div className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-md flex items-center justify-center transition-transform active:scale-90 border-2 border-white">
-                <span className="material-symbols-outlined text-[24px] text-amber-300">bolt</span>
+              <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-red-600 via-rose-600 to-amber-500 text-white shadow-lg shadow-red-600/40 flex items-center justify-center transition-all duration-200 group-active:scale-90 border-2 border-slate-900">
+                <span className="material-symbols-outlined text-[26px] text-white">bolt</span>
               </div>
-              <span className="text-[10px] font-bold text-red-600 mt-0.5">
+              <span className="text-[10px] font-bold text-slate-300 group-hover:text-white mt-1">
                 {item.label}
               </span>
             </button>
@@ -73,20 +85,20 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
             key={idx}
             onClick={() => item.tab && onTabChange(item.tab)}
             type="button"
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+            className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all cursor-pointer min-w-[56px] ${
               isActive
-                ? 'text-red-600 font-bold'
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'text-white font-bold bg-white/10'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <span
               className={`material-symbols-outlined text-[22px] transition-transform ${
-                isActive ? 'scale-110 text-red-600' : 'text-slate-500'
+                isActive ? 'scale-110 text-red-500' : 'text-slate-400'
               }`}
             >
               {item.icon}
             </span>
-            <span className="text-[10px] font-medium leading-tight mt-0.5">
+            <span className="text-[10px] font-medium leading-tight mt-0.5 truncate max-w-[50px]">
               {item.label}
             </span>
           </button>
@@ -95,3 +107,4 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
     </nav>
   );
 };
+export default MobileNavBar;
