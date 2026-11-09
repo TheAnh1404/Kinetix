@@ -124,8 +124,17 @@ export function authErrorHandler(
 export function originGuard(req: Request, _res: Response, next: NextFunction) {
   try {
     if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+      const allowedOrigin = applicationOrigin().origin;
+      const reqOrigin = req.headers.origin;
+      const isDev = process.env.NODE_ENV !== "production";
+      // Chấp nhận nguồn localhost và 127.0.0.1 tương đương nhau trong môi trường dev để tránh lỗi 403
+      const isEquivalentLocal =
+        isDev &&
+        reqOrigin &&
+        ((allowedOrigin === "http://localhost:3000" && reqOrigin === "http://127.0.0.1:3000") ||
+          (allowedOrigin === "http://127.0.0.1:3000" && reqOrigin === "http://localhost:3000"));
       assert(
-        req.headers.origin === applicationOrigin().origin,
+        reqOrigin === allowedOrigin || isEquivalentLocal,
         403,
         "Nguồn yêu cầu không hợp lệ.",
         "ORIGIN_REJECTED",

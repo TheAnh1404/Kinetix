@@ -1,4 +1,15 @@
-﻿import { createPublicClient, http, parseEventLogs } from "viem";
+import http from "node:http";
+import https from "node:https";
+import dns from "node:dns";
+
+// Ngăn lỗi IPv6 Happy Eyeballs gây timeout kết nối RPC & Database trên Windows
+try {
+  dns.setDefaultResultOrder("ipv4first");
+  (http.globalAgent as any).options.autoSelectFamily = false;
+  (https.globalAgent as any).options.autoSelectFamily = false;
+} catch {}
+
+import { createPublicClient, http as viemHttp, parseEventLogs } from "viem";
 import { and, eq, lt, isNotNull } from "drizzle-orm";
 import { db, pool } from "../db";
 import { projectReceipt, projectVault } from "../services/projectionService";
@@ -43,8 +54,9 @@ async function main() {
   const reconcile = async () => {
     if (running) return;
     running = true;
-    const lock = await pool.connect();
+    let lock: any = null;
     try {
+      lock = await pool.connect();
       const result = await lock.query("SELECT pg_try_advisory_lock(hashtext($1)) AS acquired", [`kinetix-indexer:${chainId}:${hub.toLowerCase()}`]);
       if (!result.rows[0].acquired) return;
       const knownVaults = (await mapped()).filter(
@@ -95,8 +107,10 @@ async function main() {
         category: error instanceof Error ? error.name : "UnknownError",
       });
     } finally {
-      await lock.query("SELECT pg_advisory_unlock(hashtext($1))", [`kinetix-indexer:${chainId}:${hub.toLowerCase()}`]).catch(() => {});
-      lock.release();
+      if (lock) {
+        await lock.query("SELECT pg_advisory_unlock(hashtext($1))", [`kinetix-indexer:${chainId}:${hub.toLowerCase()}`]).catch(() => {});
+        lock.release();
+      }
       running = false;
     }
   };

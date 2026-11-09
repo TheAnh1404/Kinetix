@@ -1,3 +1,14 @@
+import http from "node:http";
+import https from "node:https";
+import dns from "node:dns";
+
+// Ngăn lỗi IPv6 Happy Eyeballs gây timeout kết nối RPC & Database trên Windows
+try {
+  dns.setDefaultResultOrder("ipv4first");
+  (http.globalAgent as any).options.autoSelectFamily = false;
+  (https.globalAgent as any).options.autoSelectFamily = false;
+} catch {}
+
 import express from "express";
 import {
   authRouter,

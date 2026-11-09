@@ -1,3 +1,14 @@
+import http from "node:http";
+import https from "node:https";
+import dns from "node:dns";
+
+// Ngăn lỗi IPv6 Happy Eyeballs gây timeout kết nối upstream Express Backend trên Windows
+try {
+  dns.setDefaultResultOrder("ipv4first");
+  (http.globalAgent as any).options.autoSelectFamily = false;
+  (https.globalAgent as any).options.autoSelectFamily = false;
+} catch {}
+
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "node:crypto";
 
@@ -14,9 +25,19 @@ async function proxy(
 ) {
   const method = req.method;
   const origin = process.env.APP_ORIGIN || req.nextUrl.origin;
+  const reqOrigin = req.headers.get("origin");
+  const isDev = process.env.NODE_ENV !== "production";
+  // Chấp nhận nguồn localhost và 127.0.0.1 tương đương nhau trong môi trường dev
+  const isEquivalentLocal =
+    isDev &&
+    reqOrigin &&
+    ((origin === "http://localhost:3000" && reqOrigin === "http://127.0.0.1:3000") ||
+      (origin === "http://127.0.0.1:3000" && reqOrigin === "http://localhost:3000"));
+
   if (
     !["GET", "HEAD", "OPTIONS"].includes(method) &&
-    req.headers.get("origin") !== origin
+    reqOrigin !== origin &&
+    !isEquivalentLocal
   ) {
     return NextResponse.json(
       { success: false, error: "Nguồn yêu cầu không hợp lệ." },
