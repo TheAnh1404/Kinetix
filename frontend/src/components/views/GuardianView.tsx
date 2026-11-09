@@ -8,10 +8,11 @@ import { MemberManagementModal } from "@/components/dashboard/MemberManagementMo
 import { CreateChoreModal } from "@/components/dashboard/CreateChoreModal";
 import { useVaultCreation } from "@/context/VaultCreationContext";
 import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
+import { InterVaultTransferModal } from "@/components/vaults/InterVaultTransferModal";
 import { ChoreProofModal } from "@/components/dashboard/ChoreProofModal";
 import { DynamicVaultItem } from "@/types";
 import { useAuth } from "@/hooks/useAuth";
-import { hubChain } from "@/contracts/config";
+import { hubChain, SNOWTRACE_TESTNET_URL } from "@/contracts/config";
 import { vaultMappingIssue } from "../../../../shared/vaultMapping";
 import { VaultWorkflowPanel } from "@/components/vaults/VaultWorkflowPanel";
 import { useVaultStates } from "@/hooks/useVaultStates";
@@ -48,8 +49,17 @@ export const GuardianView: React.FC = () => {
   const vaultCreation = useVaultCreation();
   const [depositModalVault, setDepositModalVault] =
     useState<DynamicVaultItem | null>(null);
+  const [transferModalVault, setTransferModalVault] =
+    useState<DynamicVaultItem | null>(null);
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const [inspectingChore, setInspectingChore] = useState<any | null>(null);
   const [showOperator, setShowOperator] = useState(false);
+
+  const handleCopyAddress = (addr: string) => {
+    navigator.clipboard.writeText(addr);
+    setCopiedAddress(addr);
+    setTimeout(() => setCopiedAddress(null), 2000);
+  };
 
   // Yêu cầu rút tiền đang chờ duyệt (Pending Multisig Request)
   const pendingRequests = withdrawalRequests.filter(
@@ -215,104 +225,152 @@ export const GuardianView: React.FC = () => {
                     </p>
                   </article>
                 );
-              const bufferRatio = vault.bufferRatioBps / 100;
-              const yieldRatio = 100 - bufferRatio;
               const total = vault.cachedTotalBalance ?? vault.totalBalance ?? 0;
-              const l1Buffer =
-                vault.cachedL1Buffer ??
-                vault.l1BufferBalance ??
-                (total * bufferRatio) / 100;
-              const cChainYield = total - l1Buffer;
+              const liveState = liveStates[vault.id];
+              const reserved = liveState?.balance?.reservedWei
+                ? Number(liveState.balance.reservedWei) / 1e18
+                : (vault.reservedBalance ?? 0);
+              const available = liveState?.balance?.availableWei
+                ? Number(liveState.balance.availableWei) / 1e18
+                : (vault.availableBalance ?? Math.max(0, total - reserved));
+
+              const availPercent = total > 0 ? Math.min(100, Math.max(0, (available / total) * 100)) : 100;
+              const reservedPercent = 100 - availPercent;
 
               return (
                 <div
                   key={vault.id}
-                  className="p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 hover:shadow-xs transition-all flex flex-col gap-3.5"
+                  className="p-5 rounded-3xl bg-white border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all flex flex-col gap-4"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-xl">{vault.icon || "🏦"}</span>
+                  {/* Top Bar: Icon, Name, On-chain Badge, Actions */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl p-2 rounded-2xl bg-slate-50 border border-slate-100">{vault.icon || "🏦"}</span>
                       <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-sm font-bold text-slate-900">
                             {vault.name}
                           </h3>
                           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
                             #{vault.onchainVaultId}
                           </span>
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold font-mono">
+                            {vault.ruleTemplate}
+                          </span>
                         </div>
-                        <span className="text-xs text-slate-500">
-                          {vault.description}
+                        <span className="text-xs text-slate-500 mt-0.5">
+                          {vault.description || "Hũ tiền quản trị đa chữ ký bảo vệ gia đình"}
                         </span>
+
+                        {/* On-Chain Contract Address Badge */}
+                        {vault.onchainVaultAddress ? (
+                          <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-mono text-slate-700 w-fit">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-slate-400 font-sans font-bold text-[10px]">Contract:</span>
+                            <span className="font-bold">{vault.onchainVaultAddress.slice(0, 6)}...{vault.onchainVaultAddress.slice(-4)}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyAddress(vault.onchainVaultAddress!)}
+                              className="hover:text-slate-900 transition-colors cursor-pointer text-slate-400 hover:text-slate-600"
+                              title="Sao chép địa chỉ Smart Contract của Hũ"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">
+                                {copiedAddress === vault.onchainVaultAddress ? "check" : "content_copy"}
+                              </span>
+                            </button>
+                            <a
+                              href={`${SNOWTRACE_TESTNET_URL}/address/${vault.onchainVaultAddress}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-slate-400 hover:text-slate-600 transition-colors"
+                              title="Tra cứu Smart Contract trên Avalanche Explorer"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-slate-400">
+                            <span className="material-symbols-outlined text-[13px]">shield</span>
+                            <span>Bảo vệ qua FamilyHub On-Chain</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold font-mono">
-                        {vault.ruleTemplate}
-                      </span>
+                    {/* Action Buttons: Nạp Quỹ & Chuyển Hũ */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => setTransferModalVault(vault)}
+                        type="button"
+                        className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 border border-slate-200"
+                        title="Chuyển AVAX sang một Hũ khác trong gia đình"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">swap_horiz</span>
+                        <span>Chuyển Hũ</span>
+                      </button>
+
                       <button
                         onClick={() => setDepositModalVault(vault)}
                         type="button"
-                        className="px-3 py-1 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+                        className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center gap-1"
                       >
-                        + Nạp Quỹ
+                        <span className="material-symbols-outlined text-[15px]">add</span>
+                        <span>Nạp Quỹ</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Thanh trượt tỷ lệ đệm thanh khoản L1 / C-Chain */}
-                  <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="text-emerald-700 flex items-center gap-1">
-                        <span>⚡ Tài sản tại Fuji: {bufferRatio}%</span>
-                        <span className="text-[10px] text-slate-400 font-normal">
-                          ({l1Buffer.toFixed(2)} AVAX)
-                        </span>
+                  {/* 3 TẦNG SỐ DƯ MINH BẠCH (TIERED BALANCES) */}
+                  <div className="grid grid-cols-3 gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                        1. Tổng Tài Sản
                       </span>
-                      <span className="text-blue-700 flex items-center gap-1">
-                        <span className="text-[10px] text-slate-400 font-normal">
-                          ({cChainYield.toFixed(2)} AVAX)
-                        </span>
-                        <span>🌊 Liên chuỗi chưa bật: {yieldRatio}%</span>
+                      <span className="text-sm font-mono font-bold text-slate-900 mt-0.5">
+                        {total.toFixed(2)} <span className="text-[10px] font-normal text-slate-500">AVAX</span>
                       </span>
                     </div>
 
-                    <div className="w-full h-2.5 bg-blue-500 rounded-full overflow-hidden flex shadow-inner">
-                      <div
-                        style={{ width: `${bufferRatio}%` }}
-                        className="bg-emerald-500 h-full transition-all duration-500"
-                        title={`Tài sản tại Fuji (${bufferRatio}%)`}
-                      />
+                    <div className="flex flex-col items-center border-x border-slate-200/80 px-2">
+                      <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wider flex items-center gap-0.5">
+                        <span className="material-symbols-outlined text-[12px]">lock</span>
+                        <span>2. Giữ Chỗ M/N</span>
+                      </span>
+                      <span className="text-sm font-mono font-bold text-amber-700 mt-0.5">
+                        {reserved.toFixed(2)} <span className="text-[10px] font-normal text-amber-600">AVAX</span>
+                      </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mt-0.5">
-                      <span>
-                        Rút nhanh &le; {vault.fastWithdrawLimit} AVAX (phí mạng
-                        Fuji)
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider flex items-center gap-0.5">
+                        <span className="material-symbols-outlined text-[12px]">bolt</span>
+                        <span>3. Khả Dụng</span>
                       </span>
-                      <span>
-                        Multisig: {vault.requiredApprovals}/
-                        {vault.guardianCount ?? "—"} Guardians
+                      <span className="text-sm font-mono font-black text-emerald-700 mt-0.5">
+                        {available.toFixed(2)} <span className="text-[10px] font-normal text-emerald-600">AVAX</span>
                       </span>
                     </div>
                   </div>
 
-                  {/* Chi tiết người thụ hưởng & tổng số dư */}
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
-                    <span className="text-slate-500">
-                      Người thụ hưởng:{" "}
-                      <strong className="text-slate-800">
-                        {vault.beneficiaryName}
-                      </strong>
-                    </span>
-                    <span className="font-mono font-bold text-slate-900">
-                      Tổng:{" "}
-                      <span className="text-base text-red-600 font-black">
-                        {total.toFixed(2)}
-                      </span>{" "}
-                      AVAX
-                    </span>
+                  {/* Thanh Progress Bar Khả Dụng vs Giữ Chỗ */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="w-full h-2 bg-amber-100 rounded-full overflow-hidden flex shadow-inner">
+                      <div
+                        style={{ width: `${availPercent}%` }}
+                        className="bg-emerald-500 h-full transition-all duration-500"
+                        title={`Khả dụng: ${availPercent.toFixed(0)}%`}
+                      />
+                      <div
+                        style={{ width: `${reservedPercent}%` }}
+                        className="bg-amber-400 h-full transition-all duration-500"
+                        title={`Khóa giữ chỗ: ${reservedPercent.toFixed(0)}%`}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                      <span>Rút nhanh &le; {vault.fastWithdrawLimit} AVAX/lần</span>
+                      <span>Multisig: {vault.requiredApprovals}/{vault.guardianCount ?? "—"} Guardians</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -505,6 +563,13 @@ export const GuardianView: React.FC = () => {
       <DepositVaultModal
         isOpen={Boolean(depositModalVault)}
         onClose={() => setDepositModalVault(null)}
+      />
+
+      <InterVaultTransferModal
+        isOpen={Boolean(transferModalVault)}
+        onClose={() => setTransferModalVault(null)}
+        sourceVault={transferModalVault}
+        allVaults={dynamicVaults}
       />
 
       <CreateChoreModal

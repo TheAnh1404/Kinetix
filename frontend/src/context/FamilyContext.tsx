@@ -16,7 +16,12 @@ import {
   avalancheFuji,
   CONTRACT_ADDRESSES,
 } from "@/contracts/config";
-import { FAMILY_HUB_ABI, FAMILY_YIELD_VAULT_ABI } from "@/contracts/abis";
+import {
+  FAMILY_HUB_ABI,
+  FAMILY_YIELD_VAULT_ABI,
+  KINETIX_VAULT_V1_ABI,
+  KINETIX_VAULT_FACTORY_V1_ABI,
+} from "@/contracts/abis";
 import {
   getWalletClient,
   publicClientL1,
@@ -124,6 +129,11 @@ interface FamilyContextType {
   createCustomVault: (params: CreateVaultParams) => Promise<{ success: boolean; vault?: any; error?: string; txHash?: string }>;
   depositToVault: (
     vaultId: number,
+    amount: string | number,
+  ) => Promise<{ success: boolean; txHash?: string; error?: string }>;
+  transferBetweenVaults: (
+    sourceVaultId: number,
+    destinationVaultAddress: string,
     amount: string | number,
   ) => Promise<{ success: boolean; txHash?: string; error?: string }>;
   fastWithdrawFromVault: (vaultId: number, amount: number) => Promise<boolean>;
@@ -547,12 +557,16 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     yieldContract = false,
     reconciliation?: { path: string; body: object; method?: string },
     onProgress?: (phase: CreationPhase) => void,
+    customTargetAddress?: `0x${string}`,
+    customAbi?: any,
   ) => {
     const wallet = getWalletClient(yieldContract ? avalancheFuji : hubChain);
     if (!wallet) throw new Error("Hãy kết nối đúng Core Wallet đã liên kết.");
+    const target = customTargetAddress || contractAddress(yieldContract);
+    const abi = customAbi || (yieldContract ? FAMILY_YIELD_VAULT_ABI : FAMILY_HUB_ABI);
     return (wallet as any).writeContract({
-      address: contractAddress(yieldContract),
-      abi: yieldContract ? FAMILY_YIELD_VAULT_ABI : FAMILY_HUB_ABI,
+      address: target,
+      abi,
       functionName,
       args,
       __kinetixSync: reconciliation,
@@ -604,11 +618,23 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       )
         throw new Error("Số tiền phải lớn hơn 0, tối đa 18 chữ số thập phân.");
       const vault = vaultByChainId(vaultId);
-      const txHash = await write(
-        vault.ruleTemplate === "ROSCA"
+      const isClone = Boolean(
+        vault.onchainVaultAddress &&
+          vault.onchainVaultAddress.startsWith("0x") &&
+          vault.onchainVaultAddress !== "0x0000000000000000000000000000000000000000",
+      );
+
+      const functionName = isClone
+        ? vault.ruleTemplate === "ROSCA"
+          ? "contributeRosca"
+          : "deposit"
+        : vault.ruleTemplate === "ROSCA"
           ? "contributeRoscaRound"
-          : "depositToVault",
-        [BigInt(vaultId)],
+          : "depositToVault";
+
+      const txHash = await write(
+        functionName,
+        isClone ? [] : [BigInt(vaultId)],
         parseEther(amount.toString()),
         false,
         {
@@ -616,6 +642,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           body: { vaultId: vault.id, action: "DEPOSIT" },
           method: "PATCH",
         },
+        undefined,
+        isClone ? (vault.onchainVaultAddress as `0x${string}`) : undefined,
+        isClone ? KINETIX_VAULT_V1_ABI : undefined,
       );
       await sync(
         "/api/vaults",
@@ -640,13 +669,72 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       return { success: false, error: error.shortMessage || error.message };
     }
   };
+  const transferBetweenVaults = async (
+    sourceVaultId: number,
+    destinationVaultAddress: string,
+    amount: string | number,
+  ) => {
+    try {
+      if (
+        !/^\d+(\.\d{1,18})?$/.test(String(amount)) ||
+        parseEther(String(amount)) <= 0n
+      ) {
+        throw new Error("Số tiền chuyển phải lớn hơn 0, tối đa 18 chữ số thập phân.");
+      }
+      const sourceVault = vaultByChainId(sourceVaultId);
+      if (!sourceVault.onchainVaultAddress || !sourceVault.onchainVaultAddress.startsWith("0x")) {
+        throw new Error("Hũ nguồn chưa có địa chỉ hợp đồng on-chain V1.");
+      }
+      if (!destinationVaultAddress || !destinationVaultAddress.startsWith("0x")) {
+        throw new Error("Địa chỉ Hũ đích không hợp lệ.");
+      }
+      const randomBytes = new Uint8Array(32);
+      crypto.getRandomValues(randomBytes);
+      const transferId = ("0x" + Array.from(randomBytes).map(b => b.toString(16).padStart(2, "0")).join("")) as `0x${string}`;
+
+      const txHash = await write(
+        "executeVaultTransfer",
+        [
+          destinationVaultAddress as `0x${string}`,
+          parseEther(amount.toString()),
+          transferId,
+        ],
+        undefined,
+        false,
+        {
+          path: "/api/vaults",
+          body: { vaultId: sourceVault.id, action: "TRANSFER" },
+          method: "PATCH",
+        },
+        undefined,
+        sourceVault.onchainVaultAddress as `0x${string}`,
+        KINETIX_VAULT_V1_ABI,
+      );
+      await sync(
+        "/api/vaults",
+        { vaultId: sourceVault.id, action: "TRANSFER", txHash },
+        "PATCH",
+      );
+      return { success: true, txHash };
+    } catch (error: any) {
+      return { success: false, error: error.shortMessage || error.message };
+    }
+  };
   const fastWithdrawFromVault = async (vaultId: number, amount: number) => {
     try {
       const vault = vaultByChainId(vaultId);
       if (!Number.isFinite(amount) || amount <= 0) return false;
+      const isClone = Boolean(
+        vault.onchainVaultAddress &&
+          vault.onchainVaultAddress.startsWith("0x") &&
+          vault.onchainVaultAddress !== "0x0000000000000000000000000000000000000000",
+      );
+
       const txHash = await write(
-        "fastWithdraw",
-        [BigInt(vaultId), parseEther(amount.toString())],
+        isClone ? "withdrawFast" : "fastWithdraw",
+        isClone
+          ? [parseEther(amount.toString()), auth.linkedWallet!.address as `0x${string}`]
+          : [BigInt(vaultId), parseEther(amount.toString())],
         undefined,
         false,
         {
@@ -654,6 +742,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           body: { vaultId: vault.id, action: "WITHDRAW" },
           method: "PATCH",
         },
+        undefined,
+        isClone ? (vault.onchainVaultAddress as `0x${string}`) : undefined,
+        isClone ? KINETIX_VAULT_V1_ABI : undefined,
       );
       await sync(
         "/api/vaults",
@@ -998,6 +1089,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         setSelectedVault,
         createCustomVault,
         depositToVault,
+        transferBetweenVaults,
         fastWithdrawFromVault,
         requestVaultWithdrawal,
         payoutRoscaRound,

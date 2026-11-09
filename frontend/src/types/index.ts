@@ -44,6 +44,7 @@ export interface DynamicVaultItem {
   workspaceId: string;
   onchainVaultId: number;
   onchainHub?: string | null;
+  onchainVaultAddress?: string | null;
   onchainChainId?: number | null;
   onchainCreationTx?: string | null;
   onchainCreationLogIndex?: number | null;
@@ -63,6 +64,11 @@ export interface DynamicVaultItem {
   l1BufferBalance: number;
   cChainPrincipal: number;
   isActive: boolean;
+  // Các trường đa tầng số dư on-chain (Total - Reserved - Available)
+  reservedBalance?: number;
+  availableBalance?: number;
+  exactReservedBalance?: string;
+  exactAvailableBalance?: string;
   // Các trường mở rộng theo 4 bộ quy tắc
   targetGoalAmount?: number;
   targetDeadline?: string | null;

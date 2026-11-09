@@ -45,6 +45,8 @@ export function useMemberTransaction() {
     body: object;
     method?: string;
     preflight?: () => Promise<void>;
+    targetAddress?: `0x${string}`;
+    abi?: any;
   }) => {
     if (locked.current) return false;
     locked.current = true;
@@ -93,8 +95,8 @@ export function useMemberTransaction() {
       const wallet = getWalletClient(hubChain);
       if (!wallet) throw new Error("Chưa kết nối đúng ví Core.");
       const txHash: string = await (wallet as any).writeContract({
-        address: family.currentWorkspace.l1HubAddress,
-        abi: FAMILY_HUB_ABI,
+        address: params.targetAddress || family.currentWorkspace.l1HubAddress,
+        abi: params.abi || FAMILY_HUB_ABI,
         functionName: params.functionName,
         args: params.args,
         __kinetixSync: {

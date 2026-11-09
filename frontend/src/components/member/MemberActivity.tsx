@@ -5,6 +5,7 @@ import { authRequest } from "@/hooks/useAuth";
 import { useFamily } from "@/context/FamilyContext";
 import { amountLabel } from "@/lib/member";
 import { EmptyState } from "./MemberPrimitives";
+import { SNOWTRACE_TESTNET_URL } from "@/contracts/config";
 
 export function ActivityList() {
   const { currentWorkspace } = useFamily();
@@ -88,8 +89,17 @@ export function ActivityList() {
               <time>{new Date(item.createdAt).toLocaleString("vi-VN")}</time>
               <details>
                 <summary>Chi tiết giao dịch</summary>
-                <p>Mạng {item.chainId} · Đã xác nhận</p>
+                <p>Mạng {item.chainId} · Đã xác nhận on-chain</p>
                 <p className="wallet-address">{item.txHash}</p>
+                <a
+                  href={`${SNOWTRACE_TESTNET_URL}/tx/${item.txHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 underline text-xs font-mono font-bold mt-1"
+                >
+                  <span>Xem trên Snowtrace: {item.txHash.slice(0, 10)}...{item.txHash.slice(-8)}</span>
+                  <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                </a>
               </details>
             </div>
             <strong>
