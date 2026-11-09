@@ -45,20 +45,53 @@ export async function authRequest(
   method = "POST",
 ) {
   const request = async () => {
-    const response = await fetch(path, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-      cache: "no-store",
-    });
-    const data = await response.json();
-    if (!response.ok)
-      throw Object.assign(new Error(data.error || "Không thể xử lý yêu cầu."), {
-        code: data.code,
-        status: response.status,
-        fields: data.fields,
-      });
-    return data;
+    const isGet = method.toUpperCase() === "GET";
+    const maxRetries = isGet ? 2 : 0;
+    let lastError: any = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          // Trì hoãn luỹ tiến trước khi thử lại khi gặp 503 hoặc đứt đoạn mạng tạm thời
+          await new Promise((r) => setTimeout(r, attempt * 300));
+        }
+
+        const response = await fetch(path, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+          cache: "no-store",
+        });
+
+        let data: any = {};
+        const text = await response.text();
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          data = { error: text || `HTTP ${response.status}` };
+        }
+
+        if (!response.ok) {
+          // Nếu gặp lỗi 503 (dịch vụ bận/đang khởi động) trên phương thức GET, tự động thử lại
+          if (response.status === 503 && attempt < maxRetries) {
+            continue;
+          }
+          throw Object.assign(new Error(data.error || "Không thể xử lý yêu cầu."), {
+            code: data.code,
+            status: response.status,
+            fields: data.fields,
+          });
+        }
+        return data;
+      } catch (err: any) {
+        lastError = err;
+        if (isGet && attempt < maxRetries && (!err.status || err.status === 503)) {
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastError || new Error("Không thể kết nối đến máy chủ.");
   };
   return method.toUpperCase() === "GET" && body === undefined
     ? shareReadRequest(path, request)

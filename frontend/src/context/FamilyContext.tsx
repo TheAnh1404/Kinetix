@@ -287,14 +287,20 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       "Việc nhà",
       "Thông báo",
     ];
+    // Bỏ qua lỗi 404 cho các danh sách rỗng chưa khởi tạo và thông báo thân thiện khi gặp 503
     setDataErrors(
-      results.flatMap((result, index) =>
-        result.status === "rejected"
-          ? [
-              `${labels[index]}: ${result.reason?.message || "Chưa cập nhật được"}`,
-            ]
-          : [],
-      ),
+      results.flatMap((result, index) => {
+        if (result.status === "rejected") {
+          const status = (result.reason as any)?.status;
+          // 404 cho danh sách rút tiền, việc nhà, thông báo nghĩa là chưa có dữ liệu, không phải lỗi hệ thống
+          if (status === 404 && index >= 2) return [];
+          if (status === 503) {
+            return [`${labels[index]}: Hệ thống đang đồng bộ blockchain, vui lòng chờ trong giây lát.`];
+          }
+          return [`${labels[index]}: ${result.reason?.message || "Chưa cập nhật được"}`];
+        }
+        return [];
+      }),
     );
     const [roster, vaultData, withdrawalsData, choresData, notices] =
       results.map((result) =>
