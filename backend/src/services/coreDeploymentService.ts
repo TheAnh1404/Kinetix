@@ -1,8 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { createHash } from "node:crypto";
-import { Interface } from "ethers";
-import { createPublicClient, http, keccak256 } from "viem";
+import { createPublicClient, http, keccak256, encodeDeployData, encodeFunctionData } from "viem";
 import { AuthContext } from "../auth/service";
 import { assert } from "../auth/security";
 import { workspace } from "./workspaceAccess";
@@ -50,10 +49,24 @@ export function expectedTransaction(key: typeof keys[number], journal: any, admi
   const deploy = constructors[key];
   if (deploy) {
     const compiled = artifact(deploy.name);
-    return { to: null, data: `${compiled.bytecode}${new Interface(compiled.abi).encodeDeploy(deploy.args).slice(2)}` as `0x${string}` };
+    return {
+      to: null,
+      data: encodeDeployData({
+        abi: compiled.abi,
+        bytecode: compiled.bytecode,
+        args: deploy.args,
+      }) as `0x${string}`,
+    };
   }
-  const abi = new Interface(artifact("FamilyHub").abi);
-  return { to: journal.contracts.hub.address as `0x${string}`, data: abi.encodeFunctionData(key === "cashflowWiring" ? "setVaultCashflow" : "setTrustedForwarder", [key === "cashflowWiring" ? journal.contracts.cashflow.address : journal.contracts.forwarder.address]) as `0x${string}` };
+  const compiledHub = artifact("FamilyHub");
+  return {
+    to: journal.contracts.hub.address as `0x${string}`,
+    data: encodeFunctionData({
+      abi: compiledHub.abi,
+      functionName: key === "cashflowWiring" ? "setVaultCashflow" : "setTrustedForwarder",
+      args: [key === "cashflowWiring" ? journal.contracts.cashflow.address : journal.contracts.forwarder.address],
+    }) as `0x${string}`,
+  };
 }
 export async function coreDeploymentPlan(auth: AuthContext, workspaceId: string) {
   const ctx = await context(auth, workspaceId);
