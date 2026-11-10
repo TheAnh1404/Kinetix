@@ -20,7 +20,13 @@ export function needsStart(status?: string | null) {
 }
 export function dashboardRoute(role: string, workspaceId?: string) {
   const group =
-    role === "ELDERLY" ? "elderly" : role === "CHILD" ? "kids" : "guardian";
+    role === "ELDERLY"
+      ? "elderly"
+      : role === "CHILD"
+        ? "kids"
+        : role === "ADMIN" || role === "GUARDIAN"
+          ? "guardian"
+          : "member";
   return `/dashboard/${group}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`;
 }
 export function startRoute(workspaceId: string) {

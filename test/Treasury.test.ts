@@ -215,6 +215,8 @@ describe("Project treasury accounting and receipt boundaries", () => {
         if (name === "../auth/security")
           return { assert, uuidInput, textInput };
         if (name === "viem") return { ...viem, createPublicClient: () => rpc };
+        if (name === "./familyAccess")
+          return { requireWorkspaceWrites: async () => {} };
         if (name.includes("shared/treasury")) return treasury;
         throw new Error(`Unexpected import ${name}`);
       },

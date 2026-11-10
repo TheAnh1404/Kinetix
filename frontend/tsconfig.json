@@ -26,19 +26,22 @@
       "@/*": [
         "./src/*"
       ]
-    }
+    },
+    "typeRoots": [
+      "./node_modules/@types"
+    ]
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next-dev/types/**/*.ts",
-    ".next-auth/types/**/*.ts",
-    ".next-t1-check/types/**/*.ts",
-    ".next-treasury-check/types/**/*.ts"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "../shared/**/*.ts",
+    ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "../backend",
+    "../contracts",
+    "../test"
   ]
 }

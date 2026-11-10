@@ -60,10 +60,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install Backend Dependencies
-        run: npm --prefix backend install
+        working-directory: backend
+        run: npm install
 
       - name: Typecheck Backend Code
-        run: npx --prefix backend tsc --noEmit
+        working-directory: backend
+        run: npm run typecheck
 
   # ----------------------------------------------------------------------------
   # 3. Frontend TypeScript Typecheck & Next.js Production Build
@@ -83,13 +85,16 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Frontend Dependencies
-        run: npm --prefix frontend ci
+        working-directory: frontend
+        run: npm ci
 
       - name: Typecheck Frontend Code
-        run: npx --prefix frontend tsc --noEmit
+        working-directory: frontend
+        run: npm run typecheck
 
       - name: Build Next.js Production App
-        run: npm --prefix frontend run build
+        working-directory: frontend
+        run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: 1
           KINETIX_CONSTRAINED_BUILD: "true"

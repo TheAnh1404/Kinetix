@@ -158,6 +158,8 @@ describe("Treasury workflow service authorization and business transitions", () 
               };
             },
           };
+        if (name === "./familyAccess")
+          return { requireWorkspaceWrites: async () => {} };
         throw new Error(`Unexpected import ${name}`);
       },
       module,
