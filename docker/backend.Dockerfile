@@ -9,8 +9,8 @@ WORKDIR /app
 # 1. Dependencies stage
 FROM base AS deps
 WORKDIR /app/backend
-COPY backend/package.json ./
-RUN npm install
+COPY backend/package*.json ./
+RUN npm ci || npm install
 
 # 2. Production Runner stage
 FROM base AS runner

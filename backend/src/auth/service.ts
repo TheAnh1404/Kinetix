@@ -1223,9 +1223,7 @@ export async function updateManagedMember(
           ),
         );
       assert(
-        receiver &&
-          (receiver.role === "ADMIN" ||
-            (receiver.role === "GUARDIAN" && receiver.canManageMembers)),
+        receiver && receiver.userId === current.user.id && actor.isOwner,
         403,
         "Người nhận chưa có quyền quản lý.",
       );

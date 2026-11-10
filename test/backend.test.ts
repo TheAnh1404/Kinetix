@@ -772,7 +772,7 @@ describe("HTTP guards without a database", () => {
         ).status,
       ).to.equal(429);
     });
-    it("accepts Guardian invitations only for the nominated wallet and grants management separately", async () => {
+    it("accepts wallet-bound invitations without granting family ownership", async () => {
       const invitedAccount = privateKeyToAccount(generatePrivateKey());
       const proof = await signedChallenge(admin, "REAUTH", adminAccount);
       expect(
@@ -838,14 +838,13 @@ describe("HTTP guards without a database", () => {
             "PATCH",
           )
         ).status,
-      ).to.equal(200);
+      ).to.equal(403);
       const listing = await invited.request(
         `/workspaces/${workspaceId}/managed-members`,
         undefined,
         "GET",
       );
-      expect(listing.status).to.equal(200);
-      expect(listing.data.members).to.have.length(0);
+      expect(listing.status).to.equal(403);
       expect(
         (
           await invited.request(

@@ -62,6 +62,7 @@ async function main() {
     } as AuthContext);
   }
   const [admin, guardian, child, elder] = people;
+  await db.update(workspaces).set({ creatorUserId: admin.user.id }).where(eq(workspaces.id, workspace.id));
   const config = (kind: string, beneficiaries: string[]) => ({
     requestId: randomUUID(),
     name: `Fixture ${kind}`,

@@ -24,8 +24,8 @@ export function dashboardRoute(role: string, workspaceId?: string) {
       ? "elderly"
       : role === "CHILD"
         ? "kids"
-        : role === "ADMIN" || role === "GUARDIAN"
-          ? "guardian"
+        : role === "ADMIN"
+          ? "admin"
           : "member";
   return `/dashboard/${group}${workspaceId ? `?workspace=${encodeURIComponent(workspaceId)}` : ""}`;
 }

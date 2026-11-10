@@ -42,8 +42,8 @@ export function GuardianAccessPanel({ onBusyChange }: { onBusyChange?: (busy: bo
     <div className="auth-form mt-5">
       <p className="auth-help">
         Lời mời riêng gắn với một địa chỉ Core, dùng một lần trong 48 giờ.
-        Guardian mới chưa có quyền quản lý thành viên cho đến khi Admin phân
-        công.
+        Người được mời sử dụng quyền thành viên. Quyền quản trị gia đình luôn
+        thuộc người tạo gia đình.
       </p>
       <form
         className="auth-form"
@@ -99,27 +99,10 @@ export function GuardianAccessPanel({ onBusyChange }: { onBusyChange?: (busy: bo
           <div>
             <strong className="text-sm">{guardian.fullName}</strong>
             <p className="text-xs text-slate-500 mt-1">
-              {guardian.canManageMembers
-                ? "Có quyền quản lý · chỉ thành viên được phân công"
-                : "Chưa được cấp quyền quản lý thành viên"}
+              Thành viên · Không có quyền quản trị gia đình
             </p>
           </div>
-          <button
-            disabled={busy}
-            className="text-xs font-bold text-red-600"
-            onClick={() =>
-              void run(async () => {
-                await authRequest(
-                  `${base}/management-permissions/${guardian.id}`,
-                  { enabled: !guardian.canManageMembers },
-                  "PATCH",
-                );
-                await load();
-              })
-            }
-          >
-            {guardian.canManageMembers ? "Thu hồi" : "Cấp quyền"}
-          </button>
+
         </div>
       ))}
       {error && (

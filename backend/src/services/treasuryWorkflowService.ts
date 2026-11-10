@@ -727,6 +727,8 @@ export async function saveSavingsGoal(
   return db.transaction(async (tx) => {
     await lock(tx);
     const { jar, policy } = await scope(tx, auth, jarId);
+    assert(!jar.isArchived, 409, "Hũ đã lưu trữ.");
+    await requireWorkspaceWrites(tx, jar.workspaceId);
     assert(
       policy.kind === "SAVINGS" && policy.beneficiaries.includes(auth.user.id),
       403,

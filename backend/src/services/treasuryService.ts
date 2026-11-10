@@ -200,7 +200,7 @@ export async function createTreasuryTransfer(
           ),
         );
       assert(
-        target && target.id !== jar.id,
+          target && !target.isArchived && target.id !== jar.id,
         400,
         "Hũ nhận phải khác hũ nguồn và cùng không gian.",
       );

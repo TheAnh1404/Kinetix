@@ -59,13 +59,13 @@ describe("Separate first-use entry and security routing", () => {
       `/dashboard/kids?workspace=${workspace}`,
     );
     expect(dashboardRoute("GUARDIAN", workspace)).to.equal(
-      `/dashboard/guardian?workspace=${workspace}`,
+      `/dashboard/member?workspace=${workspace}`,
     );
   });
   it("supports disabling only the presentation gate without bypassing activation", () => {
     expect(
       entryRoute("READY", workspace, "ADMIN", undefined, false),
-    ).to.include("/dashboard/guardian");
+    ).to.include("/dashboard/admin");
     expect(
       entryRoute("LINK_WALLET", workspace, "ADMIN", undefined, false),
     ).to.equal("/activate");

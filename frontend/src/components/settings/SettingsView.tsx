@@ -1,47 +1,27 @@
 "use client";
-
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  Users,
+  UserRound,
   ShieldCheck,
   Wallet,
-  LockKeyhole,
-  LogOut,
-  Building2,
-  Sliders,
-  User,
-  ExternalLink,
-  Copy,
-  Check,
-  CheckCircle2,
-  Sparkles,
-  Zap,
-  History,
-  ArrowLeft,
-  ChevronRight,
+  SlidersHorizontal,
   Home,
+  Monitor,
+  Copy,
+  ArrowUpRight,
+  LogOut,
+  Sun,
+  Bell,
+  EyeOff,
+  Volume2,
 } from "lucide-react";
 import { useAuth, authRequest } from "@/hooks/useAuth";
 import { useFamily } from "@/context/FamilyContext";
 import { useSettings } from "@/context/SettingsContext";
-import { PasswordField } from "@/components/auth/LoginView";
-import { AvatarStudio } from "@/components/settings/AvatarStudio";
-import { ZoneFamilySetup } from "./ZoneFamilySetup";
-import { ZoneIdentityHeader } from "./ZoneIdentityHeader";
-import { ZoneMemberAllowances } from "./ZoneMemberAllowances";
-import { ZoneSecurityWalletsGas } from "./ZoneSecurityWalletsGas";
-import { ZoneDualAuditLog } from "./ZoneDualAuditLog";
-import { DualSyncModal } from "./DualSyncModal";
-import { useSettingsData } from "@/hooks/useSettingsData";
-
-type Session = {
-  id: string;
-  createdAt: string;
-  lastSeenAt: string;
-  expiresAt: string;
-};
+import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
+import { isWorkspaceOwner } from "../../../../shared/workspacePermissions";
+import "./account.css";
 
 export type SettingsSection =
   | "family_setup"
@@ -51,87 +31,107 @@ export type SettingsSection =
   | "audit_logs"
   | "workspace"
   | "account_security"
-  // Backwards compatibility aliases
   | "profile"
   | "preferences"
   | "security"
-  | "wallet";
-
-interface SettingsViewProps {
+  | "wallet"
+  | "family";
+type Tab = "profile" | "security" | "wallet" | "preferences" | "family";
+const sections = [
+  { id: "profile", title: "Hồ sơ cá nhân", Icon: UserRound },
+  { id: "security", title: "Bảo mật", Icon: ShieldCheck },
+  { id: "wallet", title: "Ví & mạng lưới", Icon: Wallet },
+  { id: "preferences", title: "Tùy chọn", Icon: SlidersHorizontal },
+  { id: "family", title: "Gia đình", Icon: Home },
+] as const;
+function resolveTab(tab?: SettingsSection): Tab {
+  return tab === "identity"
+    ? "profile"
+    : tab === "account_security"
+      ? "security"
+      : tab === "security_wallets"
+        ? "wallet"
+        : ["family_setup", "allowances", "audit_logs", "workspace"].includes(
+              tab || "",
+            )
+          ? "family"
+          : sections.some((section) => section.id === tab)
+            ? (tab as Tab)
+            : "profile";
+}
+type Props = {
   initialTab?: SettingsSection;
   onTabChange?: (tab: SettingsSection) => void;
   isStandalonePage?: boolean;
+};
+export function SettingsView(props: Props) {
+  const auth = useAuth();
+  const family = useFamily();
+  return (
+    <SettingsAccount
+      key={`${auth.user?.id}:${family.currentWorkspace?.id}`}
+      {...props}
+    />
+  );
 }
-
-export function SettingsView({
-  initialTab = "family_setup",
-  onTabChange,
-  isStandalonePage = true,
-}: SettingsViewProps) {
+function SettingsAccount({ initialTab, onTabChange }: Props) {
   const auth = useAuth();
   const family = useFamily();
   const settings = useSettings();
-  const router = useRouter();
-
-  const [activeTab, setActiveTab] = useState<SettingsSection>(initialTab);
-
-  useEffect(() => {
-    if (initialTab) setActiveTab(initialTab);
-  }, [initialTab]);
-
-  const handleSelectTab = (tab: SettingsSection) => {
-    setActiveTab(tab);
-    onTabChange?.(tab);
-  };
-
-  // Form Profile states
-  const [fullName, setFullName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-
-  // Password & Security states
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [currentSession, setCurrentSession] = useState("");
-
-  // Status feedback
+  const access = useWorkspaceAccess();
+  const [tab, setTab] = useState<Tab>(resolveTab(initialTab));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [copiedCode, setCopiedCode] = useState(false);
-
-  // Dual-Sync Modal state
-  const [syncModalOpen, setSyncModalOpen] = useState(false);
-  const [syncStep, setSyncStep] = useState<"DATABASE" | "ONCHAIN" | "COMPLETED" | "ERROR">("DATABASE");
-  const [syncTxHash, setSyncTxHash] = useState<string | null>(null);
-  const [syncError, setSyncError] = useState("");
-  const [syncActionTitle, setSyncActionTitle] = useState("");
-
-  // Hybrid Web2 + Web3 Settings Data Hook
-  const currentWorkspaceId = family.currentWorkspace?.id;
-  const settingsData = useSettingsData(currentWorkspaceId);
-
+  const [fullName, setFullName] = useState(auth.user?.fullName || "");
+  const [phoneNumber, setPhoneNumber] = useState(auth.user?.phoneNumber || "");
+  const [avatarUrl, setAvatarUrl] = useState(auth.user?.avatarUrl || "");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [repeatPassword, setRepeatPassword] = useState("");
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessionId, setSessionId] = useState("");
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  const [prefs, setPrefs] = useState<any>(null);
+  const [prefError, setPrefError] = useState("");
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    setTab(resolveTab(initialTab));
+  }, [initialTab]);
   const loadSessions = async () => {
-    try {
-      const data = await authRequest("/api/auth/sessions", undefined, "GET");
-      setSessions(data.sessions || []);
-      setCurrentSession(data.currentSessionId || "");
-    } catch {
-      // Bỏ qua lỗi nếu phiên chưa sẵn sàng
+    const response = await authRequest("/api/auth/sessions", undefined, "GET");
+    if (alive.current) {
+      setSessions(response.sessions);
+      setSessionId(response.currentSessionId);
+      setSessionsLoaded(true);
     }
   };
-
+  const loadPrefs = async () => {
+    const response = await authRequest(
+      `/api/settings/overview${family.currentWorkspace ? `?workspaceId=${family.currentWorkspace.id}` : ""}`,
+      undefined,
+      "GET",
+    );
+    if (alive.current) {
+      setPrefs(response.data.preferences);
+      setPrefError("");
+    }
+  };
   useEffect(() => {
-    setFullName(auth.user?.fullName || "");
-    setPhoneNumber(auth.user?.phoneNumber || "");
-    setAvatarUrl(auth.user?.avatarUrl || "");
-    setError("");
-    setNotice("");
-    void loadSessions().catch((err) => setError(err.message));
-  }, [auth.user]);
-
+    void loadPrefs().catch((err) => alive.current && setPrefError(err.message));
+  }, []);
+  useEffect(() => {
+    if (tab === "security")
+      void loadSessions().catch(
+        (err) => alive.current && setError(err.message),
+      );
+  }, [tab]);
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
     setError("");
@@ -139,898 +139,676 @@ export function SettingsView({
     try {
       await action();
     } catch (err: any) {
-      setError(err.message || "Đã xảy ra lỗi. Vui lòng thử lại.");
+      if (alive.current)
+        setError(err.message || "Chưa thể hoàn tất. Vui lòng thử lại.");
     } finally {
-      setBusy(false);
+      if (alive.current) setBusy(false);
     }
   };
-
-  const handleSaveProfile = async (event: React.FormEvent) => {
-    event.preventDefault();
-    await run(async () => {
-      await authRequest(
-        "/api/user/profile",
-        {
-          fullName: fullName.trim(),
-          phoneNumber: phoneNumber.trim() || null,
-          avatarUrl: avatarUrl.trim() || null,
-        },
+  const select = (id: Tab) => {
+    setTab(id);
+    setError("");
+    setNotice("");
+    setCurrentPassword("");
+    setNewPassword("");
+    setRepeatPassword("");
+    onTabChange?.(id);
+  };
+  const savePrefs = (patch: Record<string, unknown>) =>
+    run(async () => {
+      const result = await authRequest(
+        "/api/settings/preferences",
+        { ...patch, workspaceId: family.currentWorkspace?.id },
         "PUT",
       );
-      await auth.checkSession();
-      await family.refreshMembers();
-      settingsData.refresh();
-      settings.playActionSound("success");
-      setNotice("Đã lưu hồ sơ cá nhân và ảnh đại diện thành công!");
-      setTimeout(() => setNotice(""), 4000);
+      if (!alive.current) return;
+      setPrefs(result.preferences);
+      if (typeof patch.privacyHideBalance === "boolean")
+        settings.setPrivacyHideBalance(patch.privacyHideBalance);
+      setNotice("Đã lưu tùy chọn tài khoản.");
     });
-  };
-
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard?.writeText(code);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2500);
-  };
-
-  // 1. Thao tác lưu phân quyền & hạn mức (Dual-Sync)
-  const handleSavePolicy = async (policy: {
-    targetMemberUserId: string;
-    dailyLimitAmount: number;
-    autoApproveThreshold: number;
-    allowedCategories: string[];
-    isFrozen: boolean;
-  }) => {
-    setSyncActionTitle("Đồng Bộ Hạn Mức Chi Tiêu");
-    setSyncModalOpen(true);
-    setSyncStep("DATABASE");
-    setSyncTxHash(null);
-    setSyncError("");
-
-    try {
-      // BƯỚC 1: Lưu Optimistic Stage vào Postgres
-      const prepareRes = await settingsData.prepareSync({
-        actionType: "UPDATE_ALLOWANCE",
-        targetMemberUserId: policy.targetMemberUserId,
-        dailyLimitAmount: policy.dailyLimitAmount,
-        autoApproveThreshold: policy.autoApproveThreshold,
-        allowedCategories: policy.allowedCategories,
-        isFrozen: policy.isFrozen,
-      });
-
-      // BƯỚC 2: Ký xác thực & gửi On-chain Smart Contract
-      setSyncStep("ONCHAIN");
-      const randomBytes = Array.from({ length: 32 }, () =>
-        Math.floor(Math.random() * 256)
-          .toString(16)
-          .padStart(2, "0"),
-      ).join("");
-      const mockTxHash = `0x${randomBytes}` as `0x${string}`;
-
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-
-      // BƯỚC 3: Xác nhận TxHash hoàn tất Dual-Sync
-      await settingsData.confirmSync({
-        pendingLogId: prepareRes.pendingLogId,
-        txHash: mockTxHash,
-        targetMemberUserId: policy.targetMemberUserId,
-      });
-
-      setSyncTxHash(mockTxHash);
-      setSyncStep("COMPLETED");
-      settings.playActionSound("success");
-    } catch (err: any) {
-      console.error("Lỗi đồng bộ kép:", err);
-      setSyncError(err.message || "Lỗi đồng bộ Smart Contract.");
-      setSyncStep("ERROR");
-      settings.playActionSound("alert");
-    }
-  };
-
-  // 2. Thao tác Đóng băng khẩn cấp (Emergency Freeze)
-  const handleToggleFreeze = async (memberUserId: string, currentFreeze: boolean) => {
-    const nextFreeze = !currentFreeze;
-    setSyncActionTitle(nextFreeze ? "Đóng Băng Khẩn Cấp Thành Viên" : "Mở Khóa Chi Tiêu Cho Thành Viên");
-    setSyncModalOpen(true);
-    setSyncStep("DATABASE");
-    setSyncTxHash(null);
-    setSyncError("");
-
-    try {
-      const freezeRes = await settingsData.freezeMember(memberUserId, nextFreeze);
-
-      setSyncStep("ONCHAIN");
-      const randomBytes = Array.from({ length: 32 }, () =>
-        Math.floor(Math.random() * 256)
-          .toString(16)
-          .padStart(2, "0"),
-      ).join("");
-      const mockTxHash = `0x${randomBytes}` as `0x${string}`;
-
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      await settingsData.confirmSync({
-        pendingLogId: freezeRes.pendingLogId,
-        txHash: mockTxHash,
-        targetMemberUserId: memberUserId,
-      });
-
-      setSyncTxHash(mockTxHash);
-      setSyncStep("COMPLETED");
-      settings.playActionSound("success");
-    } catch (err: any) {
-      setSyncError(err.message || "Lỗi đóng băng thành viên.");
-      setSyncStep("ERROR");
-      settings.playActionSound("alert");
-    }
-  };
-
-  // 3. Thao tác Thu hồi Session Key
-  const handleRevokeSession = async (sessionId: string) => {
-    await run(async () => {
-      await settingsData.revokeSessionKey(sessionId);
-      settings.playActionSound("success");
-      setNotice("Đã thu hồi Session Key thành công!");
-      setTimeout(() => setNotice(""), 3000);
-    });
-  };
-
-  const currentWs = family.currentWorkspace;
-  const userRole = currentWs?.role || currentWs?.userRole || "CHILD";
-  const isAdmin = userRole === "ADMIN" || userRole === "GUARDIAN";
-
-  // Normalize active tab (handle backwards compatible alias strings)
-  const resolvedTab: SettingsSection =
-    activeTab === "profile"
-      ? "identity"
-      : activeTab === "wallet"
-        ? "security_wallets"
-        : activeTab === "preferences"
-          ? "security_wallets"
-          : activeTab === "security"
-            ? "account_security"
-            : activeTab;
-
-  const settingsNavItems = [
-    {
-      id: "family_setup" as SettingsSection,
-      label: "Thiết Lập Gia Đình",
-      shortLabel: "Gia Đình",
-      icon: Users,
-      badge: "Mới",
-    },
-    {
-      id: "identity" as SettingsSection,
-      label: "1. Định Danh & Hồ Sơ",
-      shortLabel: "Hồ Sơ",
-      icon: User,
-    },
-    {
-      id: "allowances" as SettingsSection,
-      label: "2. Quỹ Chung & Hạn Mức",
-      shortLabel: "Hạn Mức",
-      icon: Sliders,
-    },
-    {
-      id: "security_wallets" as SettingsSection,
-      label: "3. Bảo Mật, Ví Lai & Gas",
-      shortLabel: "Ví & Gas",
-      icon: Wallet,
-    },
-    {
-      id: "audit_logs" as SettingsSection,
-      label: "4. Nhật Ký Hoạt Động Kép",
-      shortLabel: "Nhật Ký",
-      icon: History,
-    },
-    {
-      id: "workspace" as SettingsSection,
-      label: "Không Gian & Hợp Đồng",
-      shortLabel: "Không Gian",
-      icon: Building2,
-    },
-    {
-      id: "account_security" as SettingsSection,
-      label: "Mật Khẩu & Phiên Ký",
-      shortLabel: "Mật Khẩu",
-      icon: LockKeyhole,
-    },
-  ];
-
+  const initials =
+    fullName
+      .trim()
+      .split(/\s+/)
+      .slice(-2)
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase() || "K";
   return (
-    <div className="w-full">
-      {/* ============================================================== */}
-      {/* BREADCRUMB & HEADER QUẢN TRỊ TRANG CÀI ĐẶT RIÊNG BIỆT */}
-      {/* ============================================================== */}
-      {isStandalonePage && (
-        <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-          <div className="space-y-1">
-            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-              <Link
-                href="/dashboard"
-                className="hover:text-slate-900 dark:hover:text-white flex items-center gap-1 transition-colors"
-              >
-                <Home size={13} />
-                <span>Bàn Điều Hành</span>
-              </Link>
-              <ChevronRight size={13} className="text-slate-400" />
-              <span className="text-slate-800 dark:text-slate-200 font-semibold">
-                Cài Đặt & Quản Lý
-              </span>
-              <ChevronRight size={13} className="text-slate-400" />
-              <span className="text-red-600 font-bold uppercase font-mono text-[11px]">
-                {resolvedTab === "family_setup" && "Thiết Lập Gia Đình"}
-                {resolvedTab === "identity" && "Định Danh & Hồ Sơ"}
-                {resolvedTab === "allowances" && "Quỹ Chung & Hạn Mức"}
-                {resolvedTab === "security_wallets" && "Bảo Mật & Ví Lai"}
-                {resolvedTab === "audit_logs" && "Nhật Ký Kép"}
-                {resolvedTab === "workspace" && "Không Gian Làm Việc"}
-                {resolvedTab === "account_security" && "Mật Khẩu & Phiên Ký"}
-              </span>
-            </nav>
-
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Cài Đặt & Quản Trị Hệ Thống
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Quản trị không gian đa thế hệ, cấu hình phân quyền và giám sát an ninh Dual-Chain
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 self-start md:self-auto">
-            {/* Chuyển đổi Lite Mode <-> Pro Mode */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
-              <button
-                type="button"
-                onClick={() => settings.setUiMode("LITE")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  settings.uiMode === "LITE"
-                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs"
-                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-                }`}
-                title="Chế độ thân thiện, ẩn thông tin Blockchain phức tạp"
-              >
-                <Sparkles size={13} className="text-amber-500" />
-                <span>Lite</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => settings.setUiMode("PRO")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  settings.uiMode === "PRO"
-                    ? "bg-red-600 text-white shadow-xs"
-                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-                }`}
-                title="Chế độ chuyên sâu Pro Mode"
-              >
-                <Zap size={13} />
-                <span>Pro</span>
-              </button>
-            </div>
-
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-95"
-            >
-              <ArrowLeft size={14} />
-              <span>Bàn Điều Hành</span>
-            </Link>
-          </div>
+    <div className="account-ui">
+      <header className="account-heading">
+        <div>
+          <span className="account-eyebrow">TÀI KHOẢN KINETIX</span>
+          <h1>Cài đặt</h1>
+          <p>
+            Thông tin cá nhân, bảo mật và trải nghiệm của bạn, ở cùng một nơi.
+          </p>
         </div>
-      )}
-
-      {/* ============================================================== */}
-      {/* THANH TAB CUỘN NGANG CHO MOBILE & TABLET (HORIZONTAL CAPSULE BAR) */}
-      {/* ============================================================== */}
-      <div className="lg:hidden w-full overflow-x-auto pb-3 mb-4 scrollbar-none snap-x">
-        <div className="flex items-center gap-2 min-w-max px-0.5">
-          {settingsNavItems.map((item) => {
-            const isActive = resolvedTab === item.id;
-            const Icon = item.icon;
-            return (
+        <span className="account-badge neutral">
+          <UserRound size={14} /> Tài khoản cá nhân
+        </span>
+      </header>
+      <div className="account-layout">
+        <aside className="account-sidebar">
+          <nav className="account-nav" aria-label="Các mục cài đặt">
+            {sections.map(({ id, title, Icon }) => (
               <button
-                key={item.id}
-                type="button"
-                onClick={() => handleSelectTab(item.id)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer select-none shrink-0 border ${
-                  isActive
-                    ? "bg-red-600 text-white border-red-600 shadow-xs"
-                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200/90 dark:border-slate-800 hover:bg-slate-50"
-                }`}
+                key={id}
+                aria-current={tab === id ? "page" : undefined}
+                onClick={() => select(id)}
               >
-                <Icon size={14} className={isActive ? "text-white" : "text-slate-500"} />
-                <span>{item.shortLabel}</span>
-                {item.badge && !isActive && (
-                  <span className="px-1 py-0.2 rounded text-[9px] font-mono font-bold bg-rose-100 text-rose-700">
-                    {item.badge}
-                  </span>
-                )}
+                <Icon size={19} aria-hidden="true" />
+                {title}
               </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ============================================================== */}
-      {/* BỐ CỤC 2 CỘT: SIDEBAR PHÂN HỆ + NỘI DUNG CHÍNH (DESKTOP) */}
-      {/* ============================================================== */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
-        {/* ============================================================ */}
-        {/* CỘT TRÁI: SIDEBAR ĐIỀU HƯỚNG TẤT CẢ PHÂN HỆ CÀI ĐẶT (DESKTOP) */}
-        {/* ============================================================ */}
-        <aside className="hidden lg:block w-72 shrink-0 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs space-y-4 sticky top-20 self-start max-h-[calc(100vh-6rem)] overflow-y-auto">
-          {/* Nhóm ĐẶC BIỆT: THIẾT LẬP GIA ĐÌNH THEO CÁCH CỦA BẠN */}
-          <div className="space-y-1">
-            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 font-mono flex items-center gap-1.5">
-              <Sparkles size={12} />
-              <span>Khởi Đầu & Hướng Dẫn</span>
-            </span>
-
-            <button
-              type="button"
-              onClick={() => handleSelectTab("family_setup")}
-              className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-bold transition-all text-left cursor-pointer border ${
-                resolvedTab === "family_setup"
-                  ? "bg-rose-50 text-rose-950 border-rose-300 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800 shadow-xs"
-                  : "text-slate-700 dark:text-slate-300 border-transparent hover:bg-slate-100/80 dark:hover:bg-slate-800/60"
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                    resolvedTab === "family_setup"
-                      ? "bg-rose-600 text-white"
-                      : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
-                  }`}
-                >
-                  <Users size={16} />
-                </span>
-                <div className="min-w-0">
-                  <span className="block truncate font-bold text-xs">
-                    Thiết Lập Gia Đình
-                  </span>
-                  <span className="block text-[10px] font-normal text-slate-500 truncate">
-                    Theo cách của bạn
-                  </span>
-                </div>
-              </div>
-
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-200/60 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300">
-                Mới
-              </span>
-            </button>
-          </div>
-
-          {/* NHÓM 1: 4-ZONE HYBRID FINANCE ARCHITECTURE */}
-          <div className="space-y-1 pt-3 border-t border-slate-100 dark:border-slate-800/80">
-            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">
-              Phân Hệ Hybrid Finance
-            </span>
-
-            {/* Zone 1 */}
-            <button
-              type="button"
-              onClick={() => handleSelectTab("identity")}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
-                resolvedTab === "identity"
-                  ? "bg-red-600 text-white shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60"
-              }`}
-            >
-              <User size={16} />
-              <span>1. Định Danh & Hồ Sơ</span>
-            </button>
-
-            {/* Zone 2 */}
-            <button
-              type="button"
-              onClick={() => handleSelectTab("allowances")}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
-                resolvedTab === "allowances"
-                  ? "bg-red-600 text-white shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60"
-              }`}
-            >
-              <Sliders size={16} />
-              <span>2. Quỹ Chung & Hạn Mức</span>
-            </button>
-
-            {/* Zone 3 */}
-            <button
-              type="button"
-              onClick={() => handleSelectTab("security_wallets")}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
-                resolvedTab === "security_wallets"
-                  ? "bg-red-600 text-white shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60"
-              }`}
-            >
-              <Wallet size={16} />
-              <span>3. Bảo Mật, Ví Lai & Gas</span>
-            </button>
-
-            {/* Zone 4 */}
-            <button
-              type="button"
-              onClick={() => handleSelectTab("audit_logs")}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
-                resolvedTab === "audit_logs"
-                  ? "bg-red-600 text-white shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60"
-              }`}
-            >
-              <History size={16} />
-              <span>4. Nhật Ký Hoạt Động Kép</span>
-            </button>
-          </div>
-
-          {/* NHÓM 2: HỆ THỐNG & TÀI KHOẢN */}
-          <div className="space-y-1 pt-3 border-t border-slate-100 dark:border-slate-800/80">
-            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">
-              Cài Đặt Không Gian
-            </span>
-
-            <button
-              type="button"
-              onClick={() => handleSelectTab("workspace")}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
-                resolvedTab === "workspace"
-                  ? "bg-red-600 text-white shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60"
-              }`}
-            >
-              <Building2 size={16} />
-              <span>Không Gian & Hợp Đồng</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSelectTab("account_security")}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
-                resolvedTab === "account_security"
-                  ? "bg-red-600 text-white shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60"
-              }`}
-            >
-              <LockKeyhole size={16} />
-              <span>Mật Khẩu & Phiên Ký</span>
-            </button>
-          </div>
-
-          {/* Đăng xuất */}
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void run(auth.logout)}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 text-xs font-bold hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors cursor-pointer"
-            >
-              <LogOut size={14} />
-              <span>Đăng xuất tài khoản</span>
-            </button>
+            ))}
+          </nav>
+          <div className="account-sidebar-note">
+            <strong>
+              {family.currentWorkspace?.name || "Chưa chọn gia đình"}
+            </strong>
+            {access.isOwner
+              ? "Bạn là chủ nhà trong gia đình này."
+              : "Bạn sử dụng quyền thành viên trong gia đình này."}
+            <p>Thiết lập tài khoản theo bạn khi chuyển gia đình.</p>
           </div>
         </aside>
-
-        {/* ============================================================ */}
-        {/* CỘT PHẢI: KHUNG NỘI DUNG CHÍNH (KHÔNG BỊ GÒ BÓ MODAL) */}
-        {/* ============================================================ */}
-        <main className="flex-1 min-w-0 w-full bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-8 shadow-xs">
-          {/* Tiêu đề phân hệ hiện tại */}
-          <div className="mb-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-mono uppercase tracking-wider text-red-600 dark:text-red-400 font-bold block">
-                {resolvedTab === "family_setup" && "Khởi Đầu • Thiết Lập Onboarding"}
-                {resolvedTab === "identity" && "Zone 1 • Định danh Web2 & Web3"}
-                {resolvedTab === "allowances" && "Zone 2 • Phân quyền & Hạn mức"}
-                {resolvedTab === "security_wallets" && "Zone 3 • Bảo mật & Ví Lai"}
-                {resolvedTab === "audit_logs" && "Zone 4 • Nhật ký Kép Dual Log"}
-                {resolvedTab === "workspace" && "Hệ thống • Không gian & Hợp đồng"}
-                {resolvedTab === "account_security" && "Tài khoản • Mật khẩu & Phiên"}
-              </span>
-              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                {resolvedTab === "family_setup" && "Thiết Lập Gia Đình Theo Cách Của Bạn"}
-                {resolvedTab === "identity" && "Định Danh & Hồ Sơ Cá Nhân"}
-                {resolvedTab === "allowances" && "Quản Lý Quỹ Nhóm & Hạn Mức Tự Động"}
-                {resolvedTab === "security_wallets" && "Trung Tâm Bảo Mật, Ví Lai & Gas"}
-                {resolvedTab === "audit_logs" && "Nhật Ký Hoạt Động Kép (Web2 + Web3)"}
-                {resolvedTab === "workspace" && "Không Gian Làm Việc & Mạng Fuji"}
-                {resolvedTab === "account_security" && "Bảo Mật Mật Khẩu & Phiên Đăng Nhập"}
-              </h2>
-            </div>
-          </div>
-
-          {/* Feedback Alerts */}
+        <div className="account-content">
           {error && (
-            <div className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-              <span>⚠️ {error}</span>
-            </div>
+            <p className="account-message error" role="alert">
+              {error}
+            </p>
           )}
           {notice && (
-            <div className="mb-6 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-              <CheckCircle2 size={16} className="text-emerald-600" />
-              <span>{notice}</span>
-            </div>
+            <p className="account-message success" role="status">
+              {notice}
+            </p>
           )}
-
-          {/* ========================================================== */}
-          {/* 1. TAB MỚI: THIẾT LẬP GIA ĐÌNH THEO CÁCH CỦA BẠN */}
-          {/* ========================================================== */}
-          {resolvedTab === "family_setup" && (
-            <div className="animate-in fade-in duration-150">
-              <ZoneFamilySetup />
-            </div>
-          )}
-
-          {/* ========================================================== */}
-          {/* 2. ZONE 1: ĐỊNH DANH HỢP NHẤT & AVATAR STUDIO */}
-          {/* ========================================================== */}
-          {resolvedTab === "identity" && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              <ZoneIdentityHeader
-                user={{
-                  id: auth.user?.id || "",
-                  fullName: fullName || auth.user?.fullName || "",
-                  phoneNumber: phoneNumber || auth.user?.phoneNumber || "",
-                  avatarUrl,
-                  primaryWallet:
-                    settingsData.data?.linkedWallets.find((w) => w.isPrimaryReceiving)
-                      ?.walletAddress ||
-                    auth.linkedWallet?.address ||
-                    "",
-                  authMethod: auth.user?.role === "CHILD" ? "PASSKEY_EMBEDDED" : "CORE_WALLET",
-                }}
-                uiMode={settings.uiMode}
-                onOpenAvatarStudio={() => {
-                  const el = document.getElementById("avatar-studio-section");
-                  el?.scrollIntoView({ behavior: "smooth" });
-                }}
-              />
-
-              <form onSubmit={handleSaveProfile} className="space-y-6">
-                <div id="avatar-studio-section">
-                  <AvatarStudio
-                    currentAvatar={avatarUrl}
-                    onAvatarChange={(newUrl) => setAvatarUrl(newUrl)}
-                    fullName={fullName || auth.user?.fullName}
-                    roleBadge={auth.user?.role || "MEMBER"}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-200/60 dark:border-slate-800">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Họ và Tên Hiển Thị *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={100}
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white text-slate-900 dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Số Điện Thoại (Tùy chọn)
-                    </label>
-                    <input
-                      type="tel"
-                      maxLength={30}
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="0908889999"
-                      className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white text-slate-900 dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-red-500"
-                    />
+          {tab === "profile" && (
+            <>
+              <section className="account-card">
+                <CardHeading
+                  title="Hồ sơ cá nhân"
+                  description="Cách bạn xuất hiện với người thân trong các gia đình tham gia."
+                />
+                <div className="account-row">
+                  <span className="account-avatar large">
+                    {auth.user?.avatarUrl ? (
+                      <img src={auth.user.avatarUrl} alt="" />
+                    ) : (
+                      initials
+                    )}
+                  </span>
+                  <div className="account-row-body">
+                    <strong>{auth.user?.fullName}</strong>
+                    <small>
+                      @{auth.user?.username || "Chưa thiết lập tên đăng nhập"}
+                    </small>
                   </div>
                 </div>
-
-                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-500 flex items-center justify-between">
-                  <span>
-                    Tên đăng nhập hệ thống:{" "}
-                    <strong className="text-slate-800 dark:text-white font-mono">
-                      @{auth.user?.username || "kinetix"}
-                    </strong>
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-mono">
-                    Cố định
-                  </span>
-                </div>
-
-                <div className="flex justify-end pt-2">
+                <form
+                  className="account-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void run(async () => {
+                      await authRequest(
+                        "/api/user/profile",
+                        {
+                          fullName: fullName.trim(),
+                          phoneNumber: phoneNumber.trim() || null,
+                          avatarUrl: avatarUrl.trim() || null,
+                        },
+                        "PUT",
+                      );
+                      if (!alive.current) return;
+                      await auth.checkSession();
+                      if (alive.current) setNotice("Đã lưu hồ sơ cá nhân.");
+                    });
+                  }}
+                >
+                  <div className="account-fields">
+                    <label>
+                      Họ và tên
+                      <input
+                        className="account-input"
+                        autoComplete="name"
+                        required
+                        maxLength={100}
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Số điện thoại <small>Không bắt buộc</small>
+                      <input
+                        className="account-input"
+                        type="tel"
+                        autoComplete="tel"
+                        maxLength={25}
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    Đường dẫn ảnh đại diện{" "}
+                    <small>Không bắt buộc · URL HTTPS</small>
+                    <input
+                      className="account-input"
+                      type="url"
+                      placeholder="https://…"
+                      value={avatarUrl}
+                      onChange={(e) => setAvatarUrl(e.target.value)}
+                    />
+                  </label>
                   <button
-                    type="submit"
-                    disabled={busy}
-                    className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                    className="account-button"
+                    disabled={busy || !fullName.trim()}
                   >
-                    {busy ? "Đang lưu thay đổi..." : "Lưu Hồ Sơ & Ảnh Đại Diện"}
+                    {busy ? "Đang lưu…" : "Lưu thay đổi"}
+                  </button>
+                </form>
+              </section>
+              <section className="account-card">
+                <div className="account-row">
+                  <LogOut size={21} />
+                  <RowText
+                    title="Kết thúc phiên trên thiết bị này"
+                    description="Bạn có thể đăng nhập lại bằng thông tin tài khoản hoặc Core."
+                  />
+                  <button
+                    className="account-button secondary"
+                    disabled={busy}
+                    onClick={() => void run(auth.logout)}
+                  >
+                    Đăng xuất
                   </button>
                 </div>
-              </form>
-            </div>
+              </section>
+            </>
           )}
-
-          {/* ========================================================== */}
-          {/* 3. ZONE 2: QUẢN LÝ QUỸ NHÓM & HẠN MỨC */}
-          {/* ========================================================== */}
-          {resolvedTab === "allowances" && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              <ZoneMemberAllowances
-                members={settingsData.data?.members || []}
-                allowancePolicies={settingsData.data?.allowancePolicies || []}
-                isAdmin={isAdmin}
-                uiMode={settings.uiMode}
-                l1HubAddress={currentWs?.l1HubAddress}
-                onSavePolicy={handleSavePolicy}
-                onToggleFreeze={handleToggleFreeze}
-                busy={busy}
-              />
-            </div>
-          )}
-
-          {/* ========================================================== */}
-          {/* 4. ZONE 3: TRUNG TÂM BẢO MẬT, VÍ LAI & PHIÊN KÝ */}
-          {/* ========================================================== */}
-          {resolvedTab === "security_wallets" && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              <ZoneSecurityWalletsGas
-                linkedWallets={settingsData.data?.linkedWallets || []}
-                sessionKeys={settingsData.data?.sessionKeys || []}
-                securityScore={
-                  settingsData.data?.security || {
-                    score: 85,
-                    level: "Cao",
-                    factors: ["Đã xác thực phiên làm việc"],
-                  }
-                }
-                gasPreference={settings.gasPreference}
-                uiMode={settings.uiMode}
-                onSetPrimaryWallet={settingsData.setPrimaryWallet}
-                onLinkWallet={settingsData.linkWallet}
-                onUpdateGasPref={async (gas) => {
-                  settings.setGasPreference(gas);
-                  await settingsData.updatePreferences({ gasPreference: gas });
-                }}
-                onRevokeSession={handleRevokeSession}
-                busy={busy}
-              />
-            </div>
-          )}
-
-          {/* ========================================================== */}
-          {/* 5. ZONE 4: NHẬT KÝ HOẠT ĐỘNG KÉP */}
-          {/* ========================================================== */}
-          {resolvedTab === "audit_logs" && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              <ZoneDualAuditLog
-                logs={settingsData.data?.auditTimeline || []}
-                uiMode={settings.uiMode}
-              />
-            </div>
-          )}
-
-          {/* ========================================================== */}
-          {/* 6. TAB: KHÔNG GIAN LÀM VIỆC & MẠNG FUJI */}
-          {/* ========================================================== */}
-          {resolvedTab === "workspace" && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono uppercase font-bold text-slate-500">
-                    Không Gian Đang Chọn
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-bold font-mono">
-                    Hoạt Động ✓
-                  </span>
-                </div>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div>
-                    <h4 className="text-base font-bold text-slate-900 dark:text-white">
-                      {currentWs?.name || "Không Gian Gia Đình Kinetix"}
-                    </h4>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-mono mt-1">
-                      <span>Mã Không Gian:</span>
-                      <strong className="text-slate-800 dark:text-slate-200">
-                        {currentWs?.workspaceCode || "KNTX-8888"}
-                      </strong>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleCopyCode(currentWs?.workspaceCode || "KNTX-8888")
-                        }
-                        className="text-red-600 hover:text-red-700 cursor-pointer"
-                        title="Sao chép mã"
-                      >
-                        {copiedCode ? <Check size={14} /> : <Copy size={14} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <span className="px-3 py-1 rounded-xl bg-white text-slate-900 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 font-mono">
-                    Vai Trò: {userRole}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono">
-                  Hợp Đồng Thông Minh Liên Chuỗi (Dual-Chain Registry)
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="p-4 rounded-2xl bg-white text-slate-900 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                        <span>⚡ FamilyHub Contract</span>
-                      </span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
-                        Fuji T1
-                      </span>
-                    </div>
-                    <p className="font-mono text-xs text-slate-600 dark:text-slate-400 break-all">
-                      {currentWs?.l1HubAddress || "Chưa triển khai"}
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-white text-slate-900 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
-                        <span>🌊 FamilyYieldVault Contract</span>
-                      </span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
-                        Fuji T1
-                      </span>
-                    </div>
-                    <p className="font-mono text-xs text-slate-600 dark:text-slate-400 break-all">
-                      {currentWs?.cchainVaultAddress || "Chưa triển khai"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================== */}
-          {/* 7. TAB: MẬT KHẨU & PHIÊN ĐĂNG NHẬP */}
-          {/* ========================================================== */}
-          {resolvedTab === "account_security" && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (newPassword !== confirm) {
-                    setError("Hai mật khẩu mới chưa khớp.");
-                    return;
-                  }
-                  void run(async () => {
-                    await auth.changePassword(currentPassword, newPassword);
-                    setCurrentPassword("");
-                    setNewPassword("");
-                    setConfirm("");
-                    await loadSessions();
-                    settings.playActionSound("success");
-                    setNotice(
-                      "Đã đổi mật khẩu thành công và thu hồi các phiên đăng nhập cũ!",
-                    );
-                  });
-                }}
-                className="space-y-4"
-              >
-                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
-                  <LockKeyhole size={15} />
-                  <span>Đổi Mật Khẩu Cá Nhân (Argon2id)</span>
-                </h4>
-
-                <PasswordField
-                  label="Mật khẩu hiện tại"
-                  value={currentPassword}
-                  onChange={setCurrentPassword}
+          {tab === "security" && (
+            <>
+              <section className="account-card">
+                <CardHeading
+                  title="Mật khẩu đăng nhập"
+                  description="Dùng mật khẩu riêng cho Kinetix. Đổi mật khẩu sẽ kết thúc các phiên đăng nhập."
                 />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <PasswordField
-                    label="Mật khẩu mới (tối thiểu 12 ký tự)"
-                    id="security-new"
-                    value={newPassword}
-                    onChange={setNewPassword}
-                    minLength={12}
-                    autoComplete="new-password"
-                  />
-                  <PasswordField
-                    label="Xác nhận mật khẩu mới"
-                    id="security-confirm"
-                    value={confirm}
-                    onChange={setConfirm}
-                    minLength={12}
-                    autoComplete="new-password"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={busy || !currentPassword || !newPassword}
-                  className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+                <form
+                  className="account-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void run(async () => {
+                      if (newPassword !== repeatPassword)
+                        throw new Error("Mật khẩu xác nhận chưa khớp.");
+                      await auth.changePassword(currentPassword, newPassword);
+                    });
+                  }}
                 >
-                  {busy ? "Đang xử lý..." : "Cập Nhật Mật Khẩu Mới"}
-                </button>
-              </form>
-
-              <div className="space-y-3 pt-4 border-t border-slate-200/60 dark:border-slate-800">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={16} className="text-emerald-600" />
-                  <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono">
-                    Phiên Đăng Nhập Đang Hoạt Động ({sessions.length})
-                  </h4>
+                  <label>
+                    Mật khẩu hiện tại
+                    <input
+                      className="account-input"
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                    />
+                  </label>
+                  <div className="account-fields">
+                    <label>
+                      Mật khẩu mới
+                      <input
+                        className="account-input"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        minLength={12}
+                        maxLength={128}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Nhập lại mật khẩu mới
+                      <input
+                        className="account-input"
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        minLength={12}
+                        maxLength={128}
+                        value={repeatPassword}
+                        onChange={(e) => setRepeatPassword(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <small>
+                    Tối thiểu 12 ký tự; kết hợp chữ hoa, chữ thường, số và ký tự
+                    đặc biệt.
+                  </small>
+                  <button className="account-button" disabled={busy}>
+                    Đổi mật khẩu
+                  </button>
+                </form>
+              </section>
+              <section className="account-card">
+                <CardHeading
+                  title="Thiết bị & phiên đăng nhập"
+                  description="Thu hồi phiên không nhận ra. Các phiên này thuộc tài khoản của bạn."
+                />
+                <div className="account-row">
+                  <button
+                    className="account-button secondary"
+                    disabled={busy}
+                    onClick={() => void run(loadSessions)}
+                  >
+                    Tải lại danh sách
+                  </button>
                 </div>
-                <p className="text-xs text-slate-500">
-                  Bạn có thể thu hồi từ xa các phiên làm việc trên các thiết
-                  bị khác để đảm bảo an toàn tuyệt đối.
-                </p>
-
-                <div className="space-y-2 pt-1">
-                  {sessions.map((session) => {
-                    const isCurrent = session.id === currentSession;
-                    return (
-                      <div
-                        key={session.id}
-                        className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3 bg-white text-slate-900 dark:bg-slate-800"
+                {!sessionsLoaded && (
+                  <p className="account-empty" role="status">
+                    Chưa tải được danh sách phiên.
+                  </p>
+                )}
+                {sessions.map((session) => (
+                  <div className="account-row" key={session.id}>
+                    <Monitor size={21} />
+                    <RowText
+                      title={
+                        session.id === sessionId
+                          ? "Thiết bị hiện tại"
+                          : "Phiên đăng nhập khác"
+                      }
+                      description={`Hoạt động: ${new Date(session.lastSeenAt).toLocaleString("vi-VN")} · Hết hạn: ${new Date(session.expiresAt).toLocaleString("vi-VN")}`}
+                    />
+                    {session.id === sessionId ? (
+                      <span className="account-badge">Đang dùng</span>
+                    ) : (
+                      <button
+                        className="account-button secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(async () => {
+                            await authRequest(
+                              `/api/auth/sessions/${session.id}`,
+                              undefined,
+                              "DELETE",
+                            );
+                            await loadSessions();
+                            if (alive.current)
+                              setNotice("Đã thu hồi phiên đăng nhập.");
+                          })
+                        }
                       >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <strong className="text-xs font-mono text-slate-900 dark:text-white">
-                              {isCurrent
-                                ? "Thiết Bị Hiện Tại (Phiên Này)"
-                                : `Phiên: ${session.id.slice(0, 8)}...`}
-                            </strong>
-                            {isCurrent && (
-                              <span className="px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                                Đang dùng
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[11px] text-slate-400 font-mono block mt-0.5">
-                            Hoạt động cuối:{" "}
-                            {new Date(session.lastSeenAt).toLocaleString(
-                              "vi-VN",
-                            )}
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() =>
-                            void run(async () => {
-                              await authRequest(
-                                `/api/auth/sessions/${session.id}`,
-                                {},
-                                "DELETE",
-                              );
-                              if (isCurrent) window.location.assign("/login");
-                              else await loadSessions();
-                            })
-                          }
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
-                        >
-                          Thu hồi
-                        </button>
-                      </div>
-                    );
-                  })}
+                        Thu hồi
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </section>
+              <section className="account-card">
+                <div className="account-row">
+                  <ShieldCheck size={22} />
+                  <RowText
+                    title="Xác thực lại bằng ví Core"
+                    description="Xác minh bạn đang giữ ví đã liên kết trước thao tác nhạy cảm."
+                  />
+                  <button
+                    className="account-button secondary"
+                    disabled={busy || !auth.linkedWallet}
+                    onClick={() =>
+                      void run(async () => {
+                        await auth.reauthenticate();
+                        if (alive.current)
+                          setNotice("Đã xác thực lại bằng chữ ký Core.");
+                      })
+                    }
+                  >
+                    Xác thực lại
+                  </button>
                 </div>
-              </div>
-            </div>
+              </section>
+            </>
           )}
-        </main>
+          {tab === "wallet" && (
+            <>
+              <section className="account-card">
+                <CardHeading
+                  title="Ví Core đã liên kết"
+                  description="Ví được xác minh bằng chữ ký trong quy trình đăng nhập hoặc liên kết."
+                />
+                <div className="account-row">
+                  <span className="account-avatar">
+                    <Wallet size={22} />
+                  </span>
+                  <div className="account-row-body">
+                    <strong>Ví tài khoản</strong>
+                    <small className="account-address">
+                      {auth.linkedWallet?.address || "Chưa liên kết ví"}
+                    </small>
+                  </div>
+                  {auth.linkedWallet && (
+                    <button
+                      className="account-button secondary"
+                      aria-label="Sao chép địa chỉ ví"
+                      onClick={() =>
+                        void run(async () => {
+                          await navigator.clipboard.writeText(
+                            auth.linkedWallet!.address,
+                          );
+                          if (alive.current)
+                            setNotice("Đã sao chép địa chỉ ví.");
+                        })
+                      }
+                    >
+                      <Copy size={17} />
+                    </button>
+                  )}
+                </div>
+                <div className="account-row">
+                  <RowText
+                    title="Kết nối trên thiết bị này"
+                    description={
+                      auth.connectedAddress
+                        ? `${auth.connectedAddress}${auth.walletMatches ? " · Khớp ví tài khoản" : " · Chưa khớp ví tài khoản"}`
+                        : "Kết nối Core khi cần ký giao dịch."
+                    }
+                  />
+                  <button
+                    className="account-button secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        if (auth.connectedAddress) auth.disconnectWallet();
+                        else await auth.connectWallet();
+                      })
+                    }
+                  >
+                    {auth.connectedAddress ? "Ngắt kết nối" : "Kết nối Core"}
+                  </button>
+                </div>
+                <div className="account-card-footer">
+                  <Link className="account-text-link" href="/recovery">
+                    Cần khôi phục tài khoản? <ArrowUpRight size={16} />
+                  </Link>
+                </div>
+              </section>
+              <section className="account-card">
+                <CardHeading
+                  title="Mạng & phí giao dịch"
+                  description="Mạng đang vận hành của các hũ sử dụng ví kho tiền dự án."
+                />
+                <div className="account-row">
+                  <RowText
+                    title="Avalanche Fuji C-Chain"
+                    description="Chain ID 43113 · Token testnet AVAX"
+                  />
+                  <span className="account-badge neutral">Testnet</span>
+                </div>
+                <div className="account-row">
+                  <RowText
+                    title="Phí mạng bằng AVAX"
+                    description="Core hiển thị phí trước khi ký. Địa chỉ nhận và số tiền được kiểm tra theo yêu cầu giao dịch."
+                  />
+                </div>
+              </section>
+            </>
+          )}
+          {tab === "preferences" && (
+            <>
+              <section className="account-card">
+                <CardHeading
+                  title="Hiển thị & âm thanh"
+                  description="Những tùy chọn này được lưu trên thiết bị bạn đang dùng."
+                />
+                <ToggleRow
+                  Icon={Sun}
+                  title="Giao diện tối"
+                  description="Giảm độ sáng khi sử dụng vào buổi tối."
+                  value={settings.theme === "dark"}
+                  onChange={() =>
+                    settings.setTheme(
+                      settings.theme === "dark" ? "light" : "dark",
+                    )
+                  }
+                />
+                <ToggleRow
+                  Icon={Volume2}
+                  title="Âm thanh thao tác"
+                  description="Phản hồi âm thanh cho các thao tác được hỗ trợ."
+                  value={settings.soundEnabled}
+                  onChange={() =>
+                    settings.setSoundEnabled(!settings.soundEnabled)
+                  }
+                />
+              </section>
+              <section className="account-card">
+                <CardHeading
+                  title="Quyền riêng tư & thông báo"
+                  description="Đồng bộ theo tài khoản. Cảnh báo bảo mật luôn được giữ bật."
+                />
+                {prefError ? (
+                  <div className="account-empty" role="alert">
+                    <p>{prefError}</p>
+                    <button
+                      className="account-button secondary"
+                      onClick={() => void run(loadPrefs)}
+                    >
+                      Thử lại
+                    </button>
+                  </div>
+                ) : !prefs ? (
+                  <p className="account-empty" role="status">
+                    Đang tải tùy chọn…
+                  </p>
+                ) : (
+                  <>
+                    <ToggleRow
+                      Icon={EyeOff}
+                      title="Ẩn số dư khi xem"
+                      description="Che số tiền trên những màn hình hỗ trợ chế độ riêng tư."
+                      value={prefs.privacyHideBalance}
+                      disabled={busy}
+                      onChange={() =>
+                        void savePrefs({
+                          privacyHideBalance: !prefs.privacyHideBalance,
+                        })
+                      }
+                    />
+                    <ToggleRow
+                      Icon={Bell}
+                      title="Thông báo giao dịch"
+                      description="Lưu lựa chọn nhận thông báo giao dịch trong ứng dụng."
+                      value={prefs.notificationConfig?.transactions !== false}
+                      disabled={busy}
+                      onChange={() =>
+                        void savePrefs({
+                          notificationConfig: {
+                            ...prefs.notificationConfig,
+                            transactions:
+                              prefs.notificationConfig?.transactions === false,
+                          },
+                        })
+                      }
+                    />
+                    <ToggleRow
+                      Icon={Bell}
+                      title="Thông báo việc nhà"
+                      description="Lưu lựa chọn nhận cập nhật việc nhà của gia đình."
+                      value={prefs.notificationConfig?.chores !== false}
+                      disabled={busy}
+                      onChange={() =>
+                        void savePrefs({
+                          notificationConfig: {
+                            ...prefs.notificationConfig,
+                            chores: prefs.notificationConfig?.chores === false,
+                          },
+                        })
+                      }
+                    />
+                    <div className="account-row">
+                      <RowText
+                        title="Đơn vị hiển thị"
+                        description="AVAX · Giữ nguyên số tiền, không quy đổi tỷ giá ước tính."
+                      />
+                      <span className="account-badge neutral">AVAX</span>
+                    </div>
+                  </>
+                )}
+              </section>
+            </>
+          )}
+          {tab === "family" && (
+            <>
+              <div className="account-scope">
+                <Home size={21} />
+                <p>
+                  <strong>
+                    Quyền của bạn được kiểm tra riêng ở từng gia đình.
+                  </strong>{" "}
+                  Tạo gia đình cho bạn quyền chủ nhà tại đó. Tham gia gia đình
+                  khác giữ quyền thành viên tại nơi được mời.
+                </p>
+              </div>
+              <section className="account-card">
+                <div className="account-card-heading">
+                  <div>
+                    <h2>Gia đình đang mở</h2>
+                    <p>
+                      {family.currentWorkspace?.name || "Chưa chọn gia đình"}
+                    </p>
+                  </div>
+                  <span
+                    className={`account-badge ${access.isOwner ? "" : "neutral"}`}
+                  >
+                    {access.isOwner ? "Chủ nhà" : "Thành viên"}
+                  </span>
+                </div>
+                <div className="account-row">
+                  <ShieldCheck size={24} />
+                  <RowText
+                    title={
+                      access.isOwner
+                        ? "Khu quản trị riêng của gia đình"
+                        : "Không gian thành viên"
+                    }
+                    description={
+                      access.isOwner
+                        ? "Thành viên, chính sách hũ, kiểm soát vận hành và báo cáo được quản lý tại đây."
+                        : "Nạp tiền, yêu cầu nhận tiền và tham gia hụi theo quyền được giao trong từng hũ."
+                    }
+                  />
+                  <Link
+                    className="account-button"
+                    href={access.isOwner ? "/dashboard/admin" : "/dashboard"}
+                  >
+                    {access.isOwner ? "Mở quản trị" : "Về gia đình"}
+                    <ArrowUpRight size={16} />
+                  </Link>
+                </div>
+              </section>
+              <section className="account-card">
+                <CardHeading
+                  title="Các gia đình của bạn"
+                  description="Chuyển gia đình để xem đúng quyền và số liệu tương ứng."
+                />
+                {auth.workspaces.map((workspace) => (
+                  <div className="account-row" key={workspace.id}>
+                    <span className="account-avatar">
+                      <Home size={21} />
+                    </span>
+                    <RowText
+                      title={workspace.name}
+                      description={
+                        isWorkspaceOwner(auth.user?.id, workspace)
+                          ? "Gia đình bạn tạo · Chủ nhà"
+                          : "Gia đình tham gia · Thành viên"
+                      }
+                    />
+                    {workspace.id === family.currentWorkspace?.id ? (
+                      <span className="account-badge neutral">Đang mở</span>
+                    ) : (
+                      <button
+                        className="account-button secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(async () => {
+                            await family.switchWorkspace(workspace.id);
+                          })
+                        }
+                      >
+                        Chuyển đến
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </section>
+            </>
+          )}
+        </div>
       </div>
-
-      {/* Dual-Sync Modal khi ký xác nhận on-chain */}
-      <DualSyncModal
-        isOpen={syncModalOpen}
-        onClose={() => setSyncModalOpen(false)}
-        step={syncStep}
-        txHash={syncTxHash}
-        errorMessage={syncError}
-        actionTitle={syncActionTitle}
+    </div>
+  );
+}
+function CardHeading({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="account-card-heading">
+      <div>
+        <h2>{title}</h2>
+        <p>{description}</p>
+      </div>
+    </div>
+  );
+}
+function RowText({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="account-row-body">
+      <strong>{title}</strong>
+      <small>{description}</small>
+    </div>
+  );
+}
+function ToggleRow({
+  Icon,
+  title,
+  description,
+  value,
+  disabled,
+  onChange,
+}: {
+  Icon: typeof Sun;
+  title: string;
+  description: string;
+  value: boolean;
+  disabled?: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <div className="account-row">
+      <Icon size={21} aria-hidden="true" />
+      <RowText title={title} description={description} />
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        aria-label={title}
+        disabled={disabled}
+        className="account-switch"
+        onClick={onChange}
       />
     </div>
   );

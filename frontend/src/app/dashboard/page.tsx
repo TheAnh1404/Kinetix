@@ -4,7 +4,7 @@ import React, { Suspense, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ActiveTab, RoleType } from "@/types";
 import { AppShell } from "@/components/layout/AppShell";
-import { GuardianView } from "@/components/views/GuardianView";
+import { AdminConsole } from "@/components/admin/AdminConsole";
 import { RoscaView } from "@/components/views/RoscaView";
 import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -185,7 +185,7 @@ function DashboardContent() {
     >
       {notices}
       {activeTab === "quan-tri-cha-me" ? (
-        <GuardianView />
+        <AdminConsole key={`${auth.user?.id}:${family.currentWorkspace.id}`} />
       ) : activeTab === "quy-rosca" ? (
         <RoscaView currentMember={family.currentMember} />
       ) : (

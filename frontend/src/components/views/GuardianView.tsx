@@ -11,6 +11,7 @@ import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
 import { InterVaultTransferModal } from "@/components/vaults/InterVaultTransferModal";
 import { ChoreProofModal } from "@/components/dashboard/ChoreProofModal";
 import { DynamicVaultItem } from "@/types";
+import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import { useAuth } from "@/hooks/useAuth";
 import { hubChain, SNOWTRACE_TESTNET_URL } from "@/contracts/config";
 import { vaultMappingIssue } from "../../../../shared/vaultMapping";
@@ -35,11 +36,7 @@ export const GuardianView: React.FC = () => {
   } = useFamily();
   const auth = useAuth();
   const { states: liveStates } = useVaultStates();
-  const canManageMembers = auth.workspaces.some(
-    (workspace) =>
-      workspace.id === currentWorkspace?.id &&
-      (workspace.role === "ADMIN" || workspace.canManageMembers),
-  );
+  const { isOwner: canManageMembers } = useWorkspaceAccess();
 
   const { language } = useLanguage();
 

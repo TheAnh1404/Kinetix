@@ -32,9 +32,9 @@ export function RoleNavigation({ elderly }: { elderly: boolean }) {
   const auth = useAuth(); const family = useFamily();
   const adult = auth.workspaces.find((item) => item.id === family.currentWorkspace?.id)?.role === "GUARDIAN";
   const entries = adult ? [
-    { href: "/dashboard/member", label: "H? an sinh", Icon: Home },
-    { href: "/dashboard/kids", label: "Heo ??t", Icon: Gift },
-    { href: "/settings", label: "C?i ??t", Icon: UserRound },
+    { href: "/dashboard/member", label: "Hũ an sinh", Icon: Home },
+    { href: "/dashboard/kids", label: "Heo đất", Icon: Gift },
+    { href: "/settings", label: "Cài đặt", Icon: UserRound },
   ] : elderly
     ? [
         { href: "/dashboard/elderly", label: "Trang chính", Icon: Home },
