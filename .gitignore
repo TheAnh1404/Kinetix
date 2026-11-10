@@ -11,6 +11,8 @@ typechain-types/
 # Environment files
 .env
 .env.local
+.env.docker
+backend/dist/
 .env.*.local
 
 # Build outputs

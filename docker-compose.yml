@@ -1,0 +1,138 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kinetix-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kinetix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kinetix_secret_123}
+      POSTGRES_DB: ${POSTGRES_DB:-kinetix_db}
+    volumes:
+      - kinetix_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kinetix} -d ${POSTGRES_DB:-kinetix_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kinetix-net
+
+  pgproxy:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: kinetix-pgproxy
+    restart: unless-stopped
+    command: node docker/pg-proxy.cjs
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PROXY_PORT: "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kinetix-net
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: kinetix-migrate
+    restart: "no"
+    command: npx tsx backend/src/db/migrate.ts
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-kinetix}:${POSTGRES_PASSWORD:-kinetix_secret_123}@postgres:5432/${POSTGRES_DB:-kinetix_db}
+      LOCAL_PG_WS_PROXY: pgproxy:8080
+    depends_on:
+      pgproxy:
+        condition: service_healthy
+    networks:
+      - kinetix-net
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: kinetix-backend-api
+    restart: unless-stopped
+    command: npx tsx backend/src/server.ts
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://${POSTGRES_USER:-kinetix}:${POSTGRES_PASSWORD:-kinetix_secret_123}@postgres:5432/${POSTGRES_DB:-kinetix_db}
+      LOCAL_PG_WS_PROXY: pgproxy:8080
+      JWT_SECRET: ${JWT_SECRET:-kinetix_secure_jwt_secret_dev_32char_key!}
+      FUJI_RPC_URL: ${FUJI_RPC_URL:-https://api.avax-test.network/ext/bc/C/rpc}
+      FUJI_CHAIN_ID: "43113"
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+    ports:
+      - "4000:4000"
+    depends_on:
+      pgproxy:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kinetix-net
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: kinetix-event-worker
+    restart: unless-stopped
+    command: npx tsx backend/src/workers/eventListener.ts
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-kinetix}:${POSTGRES_PASSWORD:-kinetix_secret_123}@postgres:5432/${POSTGRES_DB:-kinetix_db}
+      LOCAL_PG_WS_PROXY: pgproxy:8080
+      FUJI_RPC_URL: ${FUJI_RPC_URL:-https://api.avax-test.network/ext/bc/C/rpc}
+      FUJI_CHAIN_ID: "43113"
+    depends_on:
+      pgproxy:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      backend:
+        condition: service_healthy
+    networks:
+      - kinetix-net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    container_name: kinetix-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      BACKEND_INTERNAL_URL: http://backend:4000
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      FUJI_RPC_URL: ${FUJI_RPC_URL:-https://api.avax-test.network/ext/bc/C/rpc}
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - kinetix-net
+
+volumes:
+  kinetix_pgdata:
+    driver: local
+
+networks:
+  kinetix-net:
+    driver: bridge

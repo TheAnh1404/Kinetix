@@ -30,6 +30,16 @@ class IPv4WebSocket extends ws {
 }
 
 neonConfig.webSocketConstructor = IPv4WebSocket;
+// Local/Compose PostgreSQL uses an internal fixed-target WebSocket gateway.
+// Neon cloud keeps its default secure transport when this option is absent.
+if (process.env.LOCAL_PG_WS_PROXY) {
+  const proxy = process.env.LOCAL_PG_WS_PROXY;
+  if (!/^[a-zA-Z0-9.-]+:\d+$/.test(proxy)) throw new Error("Invalid local PostgreSQL proxy configuration.");
+  neonConfig.wsProxy = () => proxy;
+  neonConfig.useSecureWebSocket = false;
+  neonConfig.forceDisablePgSSL = true;
+  neonConfig.pipelineConnect = false;
+}
 export const pool = new Pool({ connectionString });
 
 // Bắt sự kiện lỗi khi idle client ngắt kết nối để không crash tiến trình Node.js

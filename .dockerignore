@@ -1,0 +1,36 @@
+# Node dependencies and build output
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js build cache
+frontend/.next
+frontend/.next-*
+frontend/out
+
+# Hardhat and contract artifacts
+artifacts
+cache
+typechain-types
+
+# Local environment and private data
+.env
+.env.local
+.env.*.local
+.private
+.cache
+.auth-build
+
+# Git and OS metadata
+.git
+.gitignore
+.gitattributes
+.DS_Store
+Thumbs.db
+
+# Documentation & IDE
+.vscode
+.agents
+*.log

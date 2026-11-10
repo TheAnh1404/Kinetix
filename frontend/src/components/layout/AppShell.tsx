@@ -108,11 +108,11 @@ export const AppShell: React.FC<AppShellProps> = ({
       label: language === "vi" ? "Hũ An Sinh" : "Shield Vault",
       fullLabel: language === "vi" ? "Hũ An Sinh Ông Bà" : "Elderly Shield Vault",
       icon: "shield",
-      badge: language === "vi" ? "0 Gas Tức thì" : "0 Gas Instant",
+      badge: language === "vi" ? "Theo hạn mức" : "Policy limits",
       description:
         language === "vi"
-          ? "Rút nhanh tức thì từ đệm L1 & phòng vệ rủi ro"
-          : "Instant 0 gas withdrawals from L1 buffer & emergency shield",
+          ? "Khoản hỗ trợ gia đình với hạn mức và trạng thái duyệt rõ ràng"
+          : "Family support with clear spending limits and approval status",
       accent: "text-emerald-700 bg-emerald-50 border-emerald-200",
     },
     {
@@ -132,11 +132,11 @@ export const AppShell: React.FC<AppShellProps> = ({
       label: language === "vi" ? "Quỹ Họ Hụi" : "ROSCA Savings",
       fullLabel: language === "vi" ? "Quỹ Họ Hụi Xoay Vòng" : "ROSCA Savings Vault",
       icon: "groups",
-      badge: language === "vi" ? "8% APY C-Chain" : "8% APY C-Chain",
+      badge: language === "vi" ? "Góp theo kỳ" : "Round contributions",
       description:
         language === "vi"
-          ? "Góp vốn xoay vòng, sinh lời DeFi trên C-Chain"
-          : "Rotational savings pool earning 8% APY on C-Chain",
+          ? "Góp theo kỳ, theo dõi lượt nhận và bằng chứng chi trả"
+          : "Rotational contributions with verifiable payout history",
       accent: "text-cyan-700 bg-cyan-50 border-cyan-200",
     },
   ];
@@ -399,7 +399,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="font-bold text-slate-700">Family L1</span>
                     <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 rounded font-semibold border border-emerald-200">
-                      0 Gas
+                      Fuji
                     </span>
                   </div>
                   <span className="text-slate-300 font-sans text-xs">⇄</span>
@@ -407,7 +407,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     <span className="w-2 h-2 rounded-full bg-red-500" />
                     <span className="font-bold text-slate-700">Fuji C-Chain</span>
                     <span className="text-[10px] text-red-700 bg-red-50 px-1 rounded font-semibold border border-red-200">
-                      8% APY
+                      AVAX
                     </span>
                   </div>
                   <span className="material-symbols-outlined text-[15px] text-slate-400 group-hover:text-slate-600 transition-transform">
@@ -422,11 +422,11 @@ export const AppShell: React.FC<AppShellProps> = ({
                       <div className="flex items-center gap-2">
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
                         <span className="text-xs font-bold text-slate-900">
-                          Dual-Chain Telemetry Hub
+                        Thông tin mạng & nguồn tiền
                         </span>
                       </div>
                       <span className="text-[10px] font-mono text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold border border-emerald-200">
-                        Synchronized
+                        Fuji Testnet
                       </span>
                     </div>
 
@@ -436,11 +436,11 @@ export const AppShell: React.FC<AppShellProps> = ({
                         <div className="flex items-center justify-between font-bold text-slate-900">
                           <span>⚡ Family L1 (Appchain)</span>
                           <span className="text-[10px] font-mono text-emerald-700 bg-emerald-100/60 px-1 rounded">
-                            0 Gas Fee
+                            Theo cấu hình
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500 mt-1">
-                          Bộ đệm thanh khoản cục bộ (`localBuffer`). Rút tiền nhanh tức thì (&lt;1s) cho thành viên được cấp quyền qua Allowlist Precompile.
+                          Hũ smart contract kiểm tra hạn mức và quyền trên mạng được triển khai. Xem thông tin xác minh trong từng hũ.
                         </p>
                       </div>
 
@@ -449,11 +449,11 @@ export const AppShell: React.FC<AppShellProps> = ({
                         <div className="flex items-center justify-between font-bold text-slate-900">
                           <span>🌊 Avalanche Fuji C-Chain</span>
                           <span className="text-[10px] font-mono text-red-700 bg-red-100/60 px-1 rounded">
-                            8% APY
+                            Phí mạng AVAX
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500 mt-1">
-                          Hợp đồng tích lũy `FamilyYieldVault.sol`. Quản lý vốn nhàn rỗi, sinh lời an toàn qua Avalanche Teleporter (ICM / ICTT).
+                          Tiền ví chung được giữ trong Core. Nạp và chi trả có tx hash để đối soát, không có lợi suất tự động.
                         </p>
                       </div>
                     </div>

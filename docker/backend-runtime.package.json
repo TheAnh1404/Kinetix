@@ -1,0 +1,4 @@
+{
+  "name": "kinetix-runtime", "private": true,
+  "scripts": { "start": "node backend/src/server.js", "worker:listen": "node backend/src/workers/eventListener.js", "db:migrate": "node backend/src/db/migrate.js", "proxy": "node docker/pg-proxy.cjs" }
+}
