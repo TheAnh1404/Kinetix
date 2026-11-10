@@ -5,7 +5,16 @@ const net = require("node:net");
 const { WebSocketServer, WebSocket } = require("ws");
 const host = process.env.PGHOST || "postgres";
 const port = Number(process.env.PGPORT || 5432);
-const server = http.createServer((req, res) => { res.writeHead(req.url === "/health" ? 200 : 404); res.end(req.url === "/health" ? "ok" : "not found"); });
+const proxyPort = Number(process.env.PROXY_PORT || 8080);
+const server = http.createServer((req, res) => {
+  if (req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("ok");
+    return;
+  }
+  res.writeHead(404);
+  res.end("not found");
+});
 const sockets = new Set();
 const gateway = new WebSocketServer({ server, maxPayload: 1024 * 1024 });
 gateway.on("connection", (socket) => {
@@ -19,5 +28,7 @@ gateway.on("connection", (socket) => {
   socket.on("error", () => connection.destroy());
   socket.on("close", () => connection.destroy());
 });
-server.listen(Number(process.env.PROXY_PORT || 8080), "0.0.0.0");
+server.listen(proxyPort, "0.0.0.0", () => {
+  console.log(`[PG-Proxy] Gateway listening on 0.0.0.0:${proxyPort} -> ${host}:${port}`);
+});
 for (const signal of ["SIGTERM", "SIGINT"]) process.once(signal, () => { for (const socket of sockets) socket.destroy(); gateway.close(); server.close(() => process.exit(0)); });

@@ -11,9 +11,9 @@ services:
       - kinetix_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kinetix} -d ${POSTGRES_DB:-kinetix_db}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      interval: 3s
+      timeout: 3s
+      retries: 10
     networks:
       - kinetix-net
 
@@ -33,10 +33,11 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8080/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 2s
     networks:
       - kinetix-net
 
@@ -82,10 +83,11 @@ services:
       migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/health || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:4000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
     networks:
       - kinetix-net
 

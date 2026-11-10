@@ -61,7 +61,7 @@ app.use((_req, res) =>
 );
 app.use(authErrorHandler);
 if (process.env.NODE_ENV !== "test")
-  app.listen(Number(process.env.PORT || 4000), () =>
-    console.log("Kinetix API listening"),
+  app.listen(Number(process.env.PORT || 4000), "0.0.0.0", () =>
+    console.log(`Kinetix API listening on 0.0.0.0:${process.env.PORT || 4000}`),
   );
 export default app;

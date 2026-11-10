@@ -162,6 +162,8 @@ jobs:
         run: |
           docker compose config --quiet
           docker compose up -d --no-build
+          echo "Initial container status:"
+          docker compose ps
 
           echo "Waiting for backend /api/ready..."
           backend_ready=0
@@ -176,6 +178,7 @@ jobs:
           done
           if [ $backend_ready -ne 1 ]; then
             echo "::error::Backend failed to become ready in 90 seconds"
+            docker compose ps -a
             docker compose logs backend migrate pgproxy
             exit 1
           fi
@@ -193,15 +196,20 @@ jobs:
           done
           if [ $frontend_ready -ne 1 ]; then
             echo "::error::Frontend failed to become ready in 90 seconds"
+            docker compose ps -a
             docker compose logs frontend
             exit 1
           fi
 
+          echo "Current stack status:"
+          docker compose ps
           echo "Smoke tests passed: full stack is healthy and responding!"
 
       - name: Dump all container logs on failure
         if: failure()
-        run: docker compose logs
+        run: |
+          docker compose ps -a
+          docker compose logs --tail=200
 
       - name: Remove disposable CI containers
         if: always()
