@@ -364,6 +364,37 @@ describe("Family creator ownership and signed administration", () => {
     );
     expect(state.auditLogs).to.have.length(1);
   });
+  it("rejects a stored payload changed after signing and malformed ECDSA input", async () => {
+    const intent = await prepare();
+    const signature = await sign(intent);
+    state.familyAdminIntents[0].payload = { name: "Unsigned name" };
+    await fails(
+      () => service.executeAdminIntent(auth, ws, intent.id, signature),
+      409,
+    );
+    state.familyAdminIntents[0].payload = { name: "Family renamed" };
+    await fails(
+      () =>
+        service.executeAdminIntent(auth, ws, intent.id, `0x${"0".repeat(130)}`),
+      401,
+    );
+    expect(state.workspaces[0].name).to.equal("Family A");
+  });
+  it("revokes only a live invitation from the selected family", async () => {
+    state.workspaceInvitations.push(
+      { id: id(70), workspaceId: ws, expiresAt: new Date(Date.now() + 600000) },
+      {
+        id: id(71),
+        workspaceId: otherWs,
+        expiresAt: new Date(Date.now() + 600000),
+      },
+    );
+    await fails(() => prepare("REVOKE_INVITE", { invitationId: id(71) }), 409);
+    const intent = await prepare("REVOKE_INVITE", { invitationId: id(70) });
+    await service.executeAdminIntent(auth, ws, intent.id, await sign(intent));
+    expect(state.workspaceInvitations[0].revokedAt).to.be.instanceOf(Date);
+    expect(state.workspaceInvitations[1].revokedAt).to.equal(undefined);
+  });
   it("reuses a matching idempotency key and rejects a different payload", async () => {
     const intent = await prepare("MEMBER_ACCESS", {
       userId: guest,

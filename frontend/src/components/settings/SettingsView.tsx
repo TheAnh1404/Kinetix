@@ -178,6 +178,43 @@ function SettingsAccount({ initialTab, onTabChange }: Props) {
       .map((word) => word[0])
       .join("")
       .toUpperCase() || "K";
+  const uploadAvatar = (file?: File) =>
+    run(async () => {
+      if (!file) return;
+      if (
+        !["image/png", "image/jpeg", "image/webp"].includes(file.type) ||
+        file.size > 5 * 1024 * 1024
+      )
+        throw new Error("Chọn ảnh PNG, JPG hoặc WebP không quá 5 MB.");
+      const bitmap = await createImageBitmap(file);
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 256;
+        canvas.height = 256;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Trình duyệt chưa hỗ trợ xử lý ảnh.");
+        const side = Math.min(bitmap.width, bitmap.height);
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, 256, 256);
+        context.drawImage(
+          bitmap,
+          (bitmap.width - side) / 2,
+          (bitmap.height - side) / 2,
+          side,
+          side,
+          0,
+          0,
+          256,
+          256,
+        );
+        if (alive.current) {
+          setAvatarUrl(canvas.toDataURL("image/jpeg", 0.85));
+          setNotice("Ảnh đã sẵn sàng. Chọn Lưu thay đổi để cập nhật hồ sơ.");
+        }
+      } finally {
+        bitmap.close();
+      }
+    });
   return (
     <div className="account-ui">
       <header className="account-heading">
@@ -236,8 +273,8 @@ function SettingsAccount({ initialTab, onTabChange }: Props) {
                 />
                 <div className="account-row">
                   <span className="account-avatar large">
-                    {auth.user?.avatarUrl ? (
-                      <img src={auth.user.avatarUrl} alt="" />
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="Ảnh đại diện xem trước" />
                     ) : (
                       initials
                     )}
@@ -248,6 +285,29 @@ function SettingsAccount({ initialTab, onTabChange }: Props) {
                       @{auth.user?.username || "Chưa thiết lập tên đăng nhập"}
                     </small>
                   </div>
+                  <label className="account-avatar-upload">
+                    Chọn ảnh mới
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      disabled={busy}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = "";
+                        void uploadAvatar(file);
+                      }}
+                    />
+                    <small>PNG, JPG, WebP · Tối đa 5 MB</small>
+                  </label>
+                  {avatarUrl && (
+                    <button
+                      className="account-button subtle"
+                      disabled={busy}
+                      onClick={() => setAvatarUrl("")}
+                    >
+                      Xóa ảnh
+                    </button>
+                  )}
                 </div>
                 <form
                   className="account-form"
@@ -293,17 +353,19 @@ function SettingsAccount({ initialTab, onTabChange }: Props) {
                       />
                     </label>
                   </div>
-                  <label>
-                    Đường dẫn ảnh đại diện{" "}
-                    <small>Không bắt buộc · URL HTTPS</small>
-                    <input
-                      className="account-input"
-                      type="url"
-                      placeholder="https://…"
-                      value={avatarUrl}
-                      onChange={(e) => setAvatarUrl(e.target.value)}
-                    />
-                  </label>
+                  {!avatarUrl.startsWith("data:") && (
+                    <label>
+                      Đường dẫn ảnh đại diện{" "}
+                      <small>Không bắt buộc · URL HTTPS</small>
+                      <input
+                        className="account-input"
+                        type="url"
+                        placeholder="https://…"
+                        value={avatarUrl}
+                        onChange={(e) => setAvatarUrl(e.target.value)}
+                      />
+                    </label>
+                  )}
                   <button
                     className="account-button"
                     disabled={busy || !fullName.trim()}

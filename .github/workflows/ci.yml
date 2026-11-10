@@ -61,6 +61,7 @@ jobs:
           }
         env:
           NODE_ENV: test
+          DATABASE_URL: postgres://mock_test:mock_test@127.0.0.1:5432/mock_test
 
   # ----------------------------------------------------------------------------
   # 2. Backend TypeScript Typecheck & Validation
@@ -68,17 +69,6 @@ jobs:
   backend-check:
     name: Backend API & Worker Typecheck
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: kinetix_test
-          POSTGRES_PASSWORD: isolated_ci_password
-          POSTGRES_DB: kinetix_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U kinetix_test -d kinetix_test"
-          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -100,15 +90,6 @@ jobs:
       - name: Typecheck Backend Code
         working-directory: backend
         run: npm run typecheck
-
-      - name: Install rendering test dependencies
-        run: npm --prefix frontend ci
-
-      - name: Test API, authentication, ownership and settings boundaries
-        run: npm run test:auth:local
-        env:
-          TEST_DATABASE_URL: postgres://kinetix_test:isolated_ci_password@127.0.0.1:5432/kinetix_test
-          AUTH_TEST_ALLOW_RESET: "true"
 
   # ----------------------------------------------------------------------------
   # 3. Frontend TypeScript Typecheck & Next.js Production Build

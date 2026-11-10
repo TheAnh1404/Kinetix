@@ -26,6 +26,8 @@ typechain-types
 .private
 .cache
 .auth-build
+**/.auth-build
+**/.cache
 
 # Git and OS metadata
 .git

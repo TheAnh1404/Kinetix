@@ -349,6 +349,30 @@ export async function executeAdminIntent(
       409,
       "Cấu hình đã thay đổi. Cần xem lại và ký yêu cầu mới.",
     );
+    const signedLines = intent.message.split("\n");
+    let signedPayload: Record<string, unknown> = {};
+    try {
+      signedPayload = JSON.parse(
+        signedLines.find((line) => line.startsWith("Nội dung: "))?.slice(10) ||
+          "{}",
+      );
+    } catch {
+      /* Fail closed for corrupt stored messages. */
+    }
+    assert(
+      canonical(signedPayload) === canonical(intent.payload) &&
+        [
+          `Workspace: ${workspaceId}`,
+          `Chủ nhà: ${current.user.id}`,
+          `Session: ${digest(current.session.id)}`,
+          `Thao tác: ${intent.action}`,
+          `Phiên bản: ${intent.revision}`,
+          `Nonce: ${intent.id}`,
+          `Hết hạn: ${intent.expiresAt.toISOString()}`,
+        ].every((line) => signedLines.includes(line)),
+      409,
+      "Nội dung yêu cầu không còn khớp nội dung được ký. Chuẩn bị yêu cầu mới.",
+    );
     assert(
       current.wallet &&
         typeof signature === "string" &&
@@ -590,14 +614,12 @@ export async function executeAdminIntent(
       .update(intents)
       .set({ status: "COMPLETED", completedAt: new Date() })
       .where(eq(intents.id, intent.id));
-    await tx
-      .insert(auditLogs)
-      .values({
-        workspaceId,
-        actorId: current.user.id,
-        subjectId: current.user.id,
-        action: `FAMILY_ADMIN_${intent.action}:${intent.id}`,
-      });
+    await tx.insert(auditLogs).values({
+      workspaceId,
+      actorId: current.user.id,
+      subjectId: current.user.id,
+      action: `FAMILY_ADMIN_${intent.action}:${intent.id}`,
+    });
     return {
       success: true,
       csv,

@@ -16,7 +16,11 @@ try {
   // Bỏ qua nếu môi trường không hỗ trợ
 }
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString =
+  process.env.DATABASE_URL ||
+  (process.env.NODE_ENV === "test"
+    ? "postgres://mock_test:mock_test@127.0.0.1:5432/mock_test"
+    : "");
 
 if (!connectionString) {
   throw new Error("DATABASE_URL is missing in environment variables.");

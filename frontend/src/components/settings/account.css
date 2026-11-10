@@ -762,6 +762,35 @@
   bottom: 0;
   background: var(--ac-card);
 }
+.account-avatar-upload {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 650;
+  max-width: 230px;
+}
+.account-avatar-upload small {
+  font-weight: 400;
+  color: var(--ac-muted);
+  font-size: 11px;
+}
+.account-avatar-upload input {
+  font-size: 11px;
+  max-width: 100%;
+  border: 1px solid var(--ac-border);
+  border-radius: 8px;
+  padding: 7px;
+  background: var(--ac-bg);
+}
+.account-avatar-upload input::file-selector-button {
+  background: var(--ac-card);
+  border: 1px solid var(--ac-border);
+  padding: 6px 9px;
+  border-radius: 5px;
+  color: var(--ac-text);
+  cursor: pointer;
+  margin-right: 8px;
+}
 @media (prefers-reduced-motion: reduce) {
   .account-ui * {
     animation: none !important;
