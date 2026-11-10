@@ -164,10 +164,10 @@ export const AppShell: React.FC<AppShellProps> = ({
         {/* ============================================================== */}
         {/* SIDEBAR BÊN TRÁI: TRỤC ĐIỀU HƯỚNG DUY NHẤT TRÊN DESKTOP */}
         {/* ============================================================== */}
-        <aside className="hidden lg:flex w-68 bg-white border-r border-slate-200/80 flex-col shrink-0">
+        <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col shrink-0 sticky top-0 h-screen max-h-screen self-start overflow-hidden z-20">
           
           {/* Header Brand: Logo Lớn Nổi Bật & Nhận Diện Kinetix OS */}
-          <div className="h-20 px-5 border-b border-slate-100 flex items-center justify-between">
+          <div className="h-20 px-5 border-b border-slate-100 flex items-center justify-between shrink-0">
             <Link href="/dashboard" className="flex items-center gap-3 group">
               <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white flex items-center justify-center font-black text-xl shadow-md shadow-red-500/30 group-hover:scale-105 transition-transform shrink-0">
                 K
@@ -184,7 +184,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* Bộ chọn Không Gian Làm Việc */}
-          <div className="p-3 border-b border-slate-100 bg-slate-50/50">
+          <div className="p-3 border-b border-slate-100 bg-slate-50/50 shrink-0">
             <span className="block px-1 text-[10px] font-mono uppercase font-bold text-slate-400 mb-1.5">
               {language === "vi" ? "Không Gian Làm Việc" : "Workspace"}
             </span>
@@ -192,7 +192,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* Mã Không Gian Gia Đình (Family / Workspace Code) */}
-          <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between shrink-0">
             <div className="flex flex-col min-w-0 pr-2">
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
                 {language === "vi" ? "Mã mời người thân:" : "Workspace Code:"}
@@ -223,7 +223,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* Danh mục 4 Không Gian Cốt Lõi */}
-          <div className="flex-1 p-3 space-y-1 overflow-y-auto">
+          <div className="flex-1 min-h-0 p-3 space-y-1 overflow-y-auto">
             <div className="flex items-center justify-between px-2 py-1 mb-1">
               <span className="text-[10px] font-mono uppercase font-bold text-slate-400">
                 {language === "vi" ? "Không Gian" : "Spaces"}
@@ -272,7 +272,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* Quick Action: Khởi Tạo Hũ Mới */}
-          <div className="p-3 border-t border-slate-100">
+          <div className="p-3 border-t border-slate-100 shrink-0">
             <button
               onClick={() => vaultCreation.open()}
               type="button"
@@ -290,7 +290,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* User Footer: Avatar, Name, Role, Settings, Logout */}
-          <div className="p-3 border-t border-slate-100 flex items-center justify-between bg-white">
+          <div className="p-3 border-t border-slate-100 flex items-center justify-between bg-white shrink-0 mt-auto">
             <div className="flex items-center gap-2.5 min-w-0">
               {sidebarAvatar ? (
                 // eslint-disable-next-line @next/next/no-img-element

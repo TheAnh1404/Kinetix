@@ -458,7 +458,7 @@ export function SettingsView({
         {/* ============================================================ */}
         {/* CỘT TRÁI: SIDEBAR ĐIỀU HƯỚNG TẤT CẢ PHÂN HỆ CÀI ĐẶT (DESKTOP) */}
         {/* ============================================================ */}
-        <aside className="hidden lg:block w-72 shrink-0 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs space-y-4">
+        <aside className="hidden lg:block w-72 shrink-0 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs space-y-4 sticky top-20 self-start max-h-[calc(100vh-6rem)] overflow-y-auto">
           {/* Nhóm ĐẶC BIỆT: THIẾT LẬP GIA ĐÌNH THEO CÁCH CỦA BẠN */}
           <div className="space-y-1">
             <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 font-mono flex items-center gap-1.5">
