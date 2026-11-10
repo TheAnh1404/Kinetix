@@ -161,9 +161,47 @@ jobs:
       - name: Validate and smoke test the complete stack
         run: |
           docker compose config --quiet
-          docker compose up -d --no-build --wait --wait-timeout 180
-          curl --fail http://localhost:4000/api/ready
-          curl --fail http://localhost:3000/login
+          docker compose up -d --no-build
+
+          echo "Waiting for backend /api/ready..."
+          backend_ready=0
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:4000/api/ready | grep -q "ready"; then
+              echo "Backend is ready!"
+              backend_ready=1
+              break
+            fi
+            echo "Waiting for backend ($i/30)..."
+            sleep 3
+          done
+          if [ $backend_ready -ne 1 ]; then
+            echo "::error::Backend failed to become ready in 90 seconds"
+            docker compose logs backend migrate pgproxy
+            exit 1
+          fi
+
+          echo "Waiting for frontend /login..."
+          frontend_ready=0
+          for i in $(seq 1 30); do
+            if curl -s -f http://localhost:3000/login > /dev/null 2>&1; then
+              echo "Frontend is ready!"
+              frontend_ready=1
+              break
+            fi
+            echo "Waiting for frontend ($i/30)..."
+            sleep 3
+          done
+          if [ $frontend_ready -ne 1 ]; then
+            echo "::error::Frontend failed to become ready in 90 seconds"
+            docker compose logs frontend
+            exit 1
+          fi
+
+          echo "Smoke tests passed: full stack is healthy and responding!"
+
+      - name: Dump all container logs on failure
+        if: failure()
+        run: docker compose logs
 
       - name: Remove disposable CI containers
         if: always()
