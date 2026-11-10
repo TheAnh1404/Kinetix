@@ -13,6 +13,8 @@ describe("Member page rendering and personal-data boundaries", () => {
   let family: any;
   let pathname: string;
   let cache: Map<string, any>;
+  let source: string;
+  let experience: any;
   const user = { id: "child-a", fullName: "Member fixture" };
   function load(file: string): any {
     const filename = resolve(file);
@@ -37,11 +39,12 @@ describe("Member page rendering and personal-data boundaries", () => {
       if (name === "next/navigation")
         return {
           usePathname: () => pathname,
-          useSearchParams: () => new URLSearchParams(),
+          useSearchParams: () => new URLSearchParams(`source=${source}`),
           useRouter: () => ({ push() {} }),
         };
       if (name === "@/context/FamilyContext")
         return { useFamily: () => family };
+      if (name === "@/hooks/useVaultExperience") return { useVaultExperience: () => experience };
       if (name === "@/hooks/useAuth")
         return {
           useAuth: () => ({
@@ -68,6 +71,8 @@ describe("Member page rendering and personal-data boundaries", () => {
       }
       if (name.startsWith("./"))
         return load(resolve(filename, "..", `${name}.tsx`));
+      if (name.includes("shared/treasury")) return require("../shared/treasury");
+      if (name.includes("shared/vaultExperience")) return require("../shared/vaultExperience");
       return require(name);
     };
     new Function("require", "module", "exports", code)(
@@ -79,6 +84,8 @@ describe("Member page rendering and personal-data boundaries", () => {
   }
   beforeEach(() => {
     cache = new Map();
+    source = "contract";
+    experience = { data: null, loading: false, busy: false, error: "", message: "" };
     pathname = "/dashboard/kids";
     family = {
       chores: [],
@@ -87,6 +94,30 @@ describe("Member page rendering and personal-data boundaries", () => {
       workspaces: [{ id: "space", name: "Family fixture" }],
       currentWorkspace: { id: "space", name: "Family fixture" },
     };
+  });
+  const fixture = (kind: string) => {
+    source = "core";
+    const jar = { id: "jar-core", name: "Hũ dữ liệu thật", balanceWei: "200000000000000000", reservedWei: "0", availableWei: "200000000000000000", remainingTodayWei: "1000000000000000000", beneficiary: true, reviewer: false, jobs: [], activity: [], policy: { kind, beneficiaries: [user.id], guardians: ["guardian"], quorum: 1, round: 0, roundStartedAt: "2026-11-10T00:00:00Z", contributionWei: "123456789123456", durationSeconds: 86400, goalName: "Xe đạp", goalWei: "1000000000000000000" } };
+    experience.data = { userId: user.id, canManage: false, people: [{ id: user.id, name: "Member fixture", wallet: `0x${"a".repeat(40)}` }], jars: [jar], audit: [], checkedAt: "2026-11-10T00:00:00Z" };
+    return jar;
+  };
+  it("renders the new support experience with accurate available funds and a review-first request", () => {
+    fixture("SHIELD"); pathname = "/dashboard/elderly";
+    const { ElderlyPortal } = load("frontend/src/components/member/ElderlyPortal.tsx");
+    const html = renderToStaticMarkup(React.createElement(ElderlyPortal));
+    expect(html).to.include("SỐ TIỀN KHẢ DỤNG CỦA HŨ"); expect(html).to.include("Xem lại yêu cầu"); expect(html).to.include("0.2"); expect(html).not.to.include("0 Gas");
+  });
+  it("renders actual savings separately from lifetime paid rewards", () => {
+    fixture("SAVINGS"); pathname = "/dashboard/kids";
+    const { KidsPortal } = load("frontend/src/components/member/KidsPortal.tsx");
+    const html = renderToStaticMarkup(React.createElement(KidsPortal));
+    expect(html).to.include("HEO ĐẤT HIỆN CÓ"); expect(html).to.include("20% mục tiêu"); expect(html).to.include("không phải số dư ví");
+  });
+  it("renders a dedicated ROSCA roster, exact contribution, and ordered payout schedule", () => {
+    fixture("ROSCA"); pathname = "/dashboard/rosca";
+    const { VaultExperience } = load("frontend/src/components/vaults/VaultExperience.tsx");
+    const html = renderToStaticMarkup(React.createElement(VaultExperience, { kind: "ROSCA", legacy: null }));
+    expect(html).to.include("0.000123456789123456"); expect(html).to.include("Ai đã góp kỳ này?"); expect(html).to.include("Lịch nhận luân phiên"); expect(html).not.to.include("8% APY");
   });
   it("renders a fresh child's empty state with zero rewards and no invented chores", () => {
     const { KidsPortal } = load(

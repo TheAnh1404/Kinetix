@@ -21,6 +21,7 @@ import { EmptyState, PageHeader, StatusTimeline } from "./MemberPrimitives";
 import { ProofUploader } from "./ProofUploader";
 import { MemberFamily } from "./MemberFamily";
 import { ActivityList } from "./MemberActivity";
+import { VaultExperience } from "@/components/vaults/VaultExperience";
 
 const choreLabels = {
   TODO: "Chưa làm",
@@ -68,7 +69,7 @@ export function ChoreCard({ chore }: { chore: ChoreItem }) {
   );
 }
 
-export function KidsPortal({ preview = false }: { preview?: boolean }) {
+function ContractKidsPortal({ preview = false }: { preview?: boolean }) {
   const auth = useAuth();
   const family = useFamily();
   const pathname = usePathname();
@@ -303,6 +304,11 @@ export function KidsPortal({ preview = false }: { preview?: boolean }) {
       )}
     </>
   );
+}
+export function KidsPortal({ preview = false }: { preview?: boolean }) {
+  const pathname = usePathname();
+  if (pathname.includes("/profile")) return <MemberFamily />;
+  return <VaultExperience kind="MILESTONE" legacy={<ContractKidsPortal preview={preview} />} />;
 }
 
 function ChoreDetail({ chore }: { chore: ChoreItem }) {

@@ -1,0 +1,770 @@
+.vault-experience {
+  --vx-accent: #047857;
+  --vx-tint: #ecfdf5;
+  --vx-ink: #0f172a;
+  --vx-muted: #475569;
+  color: var(--vx-ink);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  font-size: 16px;
+  line-height: 1.6;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding-bottom: 32px;
+}
+.vault-experience * {
+  box-sizing: border-box;
+}
+.vx-milestone {
+  --vx-accent: #6d28d9;
+  --vx-tint: #f5f3ff;
+}
+.vx-rosca {
+  --vx-accent: #92400e;
+  --vx-tint: #fffbeb;
+}
+.vault-experience
+  :is(button, a, input, select, textarea, summary):focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 4px;
+}
+.vault-experience button {
+  cursor: pointer;
+}
+.vault-experience button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.vault-experience h1,
+.vault-experience h2,
+.vault-experience h3,
+.vault-experience p {
+  margin: 0;
+}
+.vault-experience h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+.vault-experience h2 {
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+.vault-experience h3 {
+  font-size: 19px;
+  font-weight: 700;
+}
+.vx-page-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+}
+.vx-page-header p {
+  color: var(--vx-muted);
+  margin-top: 8px;
+  max-width: 65ch;
+}
+.vx-eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  font-weight: 750;
+  color: var(--vx-accent);
+}
+.vx-source {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 650;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 99px;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+.vx-source-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  background: #e9eef3;
+  border-radius: 16px;
+  align-self: flex-start;
+}
+.vx-source-tabs button {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 650;
+  color: #475569;
+}
+.vx-source-tabs button[aria-pressed="true"] {
+  background: white;
+  color: var(--vx-ink);
+  box-shadow: 0 2px 5px #0f172a0a;
+}
+.vx-setup {
+  border: 1px dashed #94a3b8;
+  border-radius: 18px;
+  padding: 16px 20px;
+  background: white;
+}
+.vault-experience summary {
+  cursor: pointer;
+  min-height: 32px;
+  font-weight: 650;
+}
+.vx-setup > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vx-setup[open] > summary,
+.vx-card[open] > summary {
+  margin-bottom: 20px;
+}
+.vx-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+.vx-jar-picker {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 4px 10px;
+  scroll-snap-type: x proximity;
+}
+.vx-jar-picker > button {
+  text-align: left;
+  padding: 14px 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  background: white;
+  min-width: 180px;
+  max-width: 300px;
+  scroll-snap-align: start;
+}
+.vx-jar-picker > button.selected {
+  border-color: var(--vx-accent);
+  box-shadow: 0 0 0 1px var(--vx-accent);
+  background: var(--vx-tint);
+}
+.vx-jar-picker span {
+  display: block;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.vx-jar-picker small {
+  color: var(--vx-muted);
+  font-size: 13px;
+}
+.vx-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: stretch;
+}
+.vx-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 26px;
+  padding: 32px;
+  background: var(--vx-tint);
+  border: 1px solid color-mix(in srgb, var(--vx-accent) 22%, white);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.vx-hero::after {
+  content: "";
+  position: absolute;
+  width: 230px;
+  height: 230px;
+  border: 40px solid color-mix(in srgb, var(--vx-accent) 6%, transparent);
+  border-radius: 50%;
+  right: -90px;
+  top: -90px;
+  z-index: -1;
+}
+.vx-money {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  max-width: 100%;
+  font-weight: 700;
+}
+.vx-money > span {
+  overflow-wrap: anywhere;
+}
+.vx-money small {
+  font-size: clamp(14px, 0.46em, 24px);
+  min-width: fit-content;
+  font-weight: 600;
+  color: inherit;
+  opacity: 0.85;
+}
+.vx-hero-money {
+  font-size: clamp(30px, 4.4vw, 52px);
+  line-height: 1.18;
+  letter-spacing: -0.035em;
+}
+.vx-large-money {
+  font-size: 28px;
+  line-height: 1.3;
+}
+.vx-hero-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-top: 1px solid #0f172a1a;
+  padding-top: 16px;
+  margin-top: auto;
+  color: #334155;
+  font-size: 14px;
+}
+.vx-hero-meta .vx-money small {
+  font-size: 14px;
+}
+.vx-card {
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 22px;
+  padding: 24px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 2px 6px #0f172a03;
+}
+.vx-card-icon {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  color: var(--vx-accent);
+  background: var(--vx-tint);
+  flex-shrink: 0;
+}
+.vx-muted {
+  color: var(--vx-muted);
+  font-size: 14px;
+}
+.vx-fields,
+.vx-two-columns,
+.vx-job-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.vx-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.vault-experience label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #334155;
+  font-size: 15px;
+  font-weight: 550;
+  min-width: 0;
+}
+.vault-experience :is(input:not([type="checkbox"]), select, textarea) {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 11px 14px;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: 400;
+  color: #0f172a;
+  width: 100%;
+  max-width: 100%;
+}
+.vault-experience input[type="checkbox"] {
+  accent-color: var(--vx-accent);
+  width: 20px;
+  height: 20px;
+}
+.vault-experience textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+.vault-experience fieldset {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+}
+.vault-experience legend {
+  padding: 0 7px;
+  font-size: 15px;
+  font-weight: 650;
+}
+.vx-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+.vx-checkboxes label {
+  flex-direction: row;
+  align-items: center;
+  min-height: 40px;
+}
+.vx-button,
+.vx-button-secondary {
+  min-height: 48px;
+  border-radius: 12px;
+  padding: 11px 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 650;
+  text-align: center;
+  transition: background 0.15s ease;
+  align-self: flex-start;
+  max-width: 100%;
+}
+.vx-button {
+  background: var(--vx-accent);
+  color: white;
+  border: 1px solid transparent;
+}
+.vx-button:hover {
+  filter: brightness(0.94);
+}
+.vx-button-secondary {
+  background: #fff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+.vx-button-secondary:hover {
+  background: #f1f5f9;
+}
+.vx-text-link {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  color: var(--vx-accent);
+  align-self: flex-start;
+}
+.vx-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.vx-heading,
+.vx-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.vx-section-heading > label {
+  flex-direction: row;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.vx-status {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.5;
+  padding: 5px 10px;
+  background: #f1f5f9;
+  color: #475569;
+  border-radius: 99px;
+}
+.vx-status-paid,
+.vx-status-confirmed {
+  color: #065f46;
+  background: #ecfdf5;
+}
+.vx-status-approved {
+  color: #1e40af;
+  background: #eff6ff;
+}
+.vx-status-submitted,
+.vx-status-paying,
+.vx-status-pending,
+.vx-status-ready {
+  color: #92400e;
+  background: #fffbeb;
+}
+.vx-status-rejected,
+.vx-status-reverted {
+  color: #991b1b;
+  background: #fef2f2;
+}
+.vx-alert {
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  border-radius: 16px;
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+.vx-notice {
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  background: #ecfdf5;
+  border-radius: 16px;
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+.vx-empty,
+.vx-skeleton {
+  border: 1px dashed #cbd5e1;
+  border-radius: 22px;
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  color: var(--vx-muted);
+  background: #ffffffa0;
+}
+.vx-empty svg {
+  color: var(--vx-accent);
+}
+.vx-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.vx-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 20px;
+}
+.vx-metrics svg {
+  color: var(--vx-accent);
+}
+.vx-metrics strong {
+  font-size: 28px;
+}
+.vx-metrics > div > span:last-child {
+  font-size: 14px;
+  color: var(--vx-muted);
+}
+.vx-goal {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  align-items: start;
+  background: var(--vx-tint);
+}
+.vx-goal > svg {
+  color: var(--vx-accent);
+}
+.vx-goal > div {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.vault-experience progress {
+  accent-color: var(--vx-accent);
+  width: 100%;
+  height: 12px;
+  border-radius: 99px;
+  overflow: hidden;
+}
+.vx-roster {
+  display: flex;
+  flex-direction: column;
+}
+.vx-roster > div {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+.vx-roster > div > span:last-child {
+  margin-left: auto;
+  font-size: 14px;
+}
+.vx-roster strong,
+.vx-roster small {
+  display: block;
+}
+.vx-avatar {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vx-tint);
+  color: var(--vx-accent);
+  border-radius: 50%;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.vx-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  list-style: none;
+}
+.vx-schedule li {
+  display: flex;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+.vx-schedule li > span {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+.vx-schedule li.active > span {
+  background: var(--vx-accent);
+  color: white;
+  border-color: transparent;
+}
+.vx-schedule p {
+  font-size: 14px;
+  color: var(--vx-muted);
+}
+.vx-description {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.vx-address {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-family: ui-monospace, monospace;
+  color: var(--vx-muted);
+}
+.vx-proof {
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #f1f5f9;
+  margin: 12px auto;
+}
+.vx-upload {
+  border: 1px dashed #a78bfa;
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--vx-tint);
+}
+.vx-payment {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.vx-payment a {
+  color: var(--vx-accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 14px;
+  text-decoration: underline;
+}
+.vx-payment details {
+  flex-basis: 100%;
+}
+.vx-transaction {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid #e2e8f0;
+  padding: 16px 0;
+}
+.vx-ledger {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.vx-order {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+.vx-order li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.vx-order li > span {
+  margin-right: auto;
+}
+.vx-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  flex-shrink: 0;
+}
+.vx-dialog {
+  --vx-accent: #047857;
+  --vx-muted: #475569;
+  width: min(540px, calc(100% - 32px));
+  max-height: calc(100dvh - 40px);
+  border: 0;
+  border-radius: 24px;
+  padding: 0;
+  box-shadow: 0 24px 80px #0f172a40;
+  color: #0f172a;
+}
+.vx-milestone .vx-dialog {
+  --vx-accent: #6d28d9;
+}
+.vx-rosca .vx-dialog {
+  --vx-accent: #92400e;
+}
+.vx-dialog::backdrop {
+  background: #0f172a99;
+  backdrop-filter: blur(3px);
+}
+.vx-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px;
+}
+.vx-dialog h2 {
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 750;
+}
+.vx-shield {
+  font-size: 18px;
+}
+.vx-shield .vx-button {
+  min-height: 56px;
+  font-size: 17px;
+}
+.member-large-text .vault-experience {
+  font-size: 22px;
+}
+.member-large-text
+  .vault-experience
+  :is(input, select, textarea, button, label, .vx-muted, .vx-status) {
+  font-size: 20px;
+}
+@media (max-width: 900px) {
+  .vx-overview {
+    grid-template-columns: 1fr;
+  }
+  .vx-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+@media (max-width: 600px) {
+  .vault-experience {
+    gap: 20px;
+  }
+  .vx-fields,
+  .vx-two-columns,
+  .vx-job-grid,
+  .vx-ledger {
+    grid-template-columns: 1fr;
+  }
+  .vx-card {
+    padding: 20px;
+    border-radius: 20px;
+  }
+  .vx-hero {
+    padding: 24px;
+  }
+  .vx-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .vx-section-heading > label {
+    width: 100%;
+  }
+  .vx-metrics {
+    grid-template-columns: 1fr;
+  }
+  .vx-metrics > div {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .vx-goal {
+    grid-template-columns: 1fr;
+  }
+  .vx-source-tabs {
+    align-self: stretch;
+  }
+  .vx-source-tabs button {
+    flex: 1;
+    padding: 8px;
+  }
+  .vx-heading {
+    flex-wrap: wrap;
+  }
+  .vx-roster > div {
+    flex-wrap: wrap;
+  }
+  .vx-dialog-body {
+    padding: 22px;
+  }
+  .vx-actions > * {
+    flex: 1;
+  }
+  .vx-button,
+  .vx-button-secondary {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vault-experience * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

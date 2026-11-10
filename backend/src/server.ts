@@ -25,6 +25,8 @@ import { firstUseRouter } from "./routes/firstUseRoutes";
 import { START_FLOW_VERSION } from "../../shared/startFlow";
 import { vaultCreationRouter } from "./routes/vaultCreationRoutes";
 import { treasuryRouter } from "./routes/treasuryRoutes";
+import { treasuryWorkflowRouter } from "./routes/treasuryWorkflowRoutes";
+import { pool } from "./db";
 import * as dotenv from "dotenv";
 
 dotenv.config();
@@ -43,9 +45,13 @@ app.use("/api", originGuard, express.json({ limit: "1mb" }));
 app.get("/api/health", (_req, res) =>
   res.json({ success: true, status: "ok", startFlowVersion: START_FLOW_VERSION }),
 );
+app.get("/api/ready", async (_req, res) => {
+  try { await pool.query("SELECT 1"); res.json({ status: "ready" }); }
+  catch { res.status(503).json({ status: "unavailable" }); }
+});
 app.use("/api/auth", authRouter);
 app.use("/api/settings", authenticated, fullSession, settingsRouter);
-app.use("/api", authenticated, fullSession, treasuryRouter, vaultCreationRouter, firstUseRouter, operationRouter, memberRouter, apiRouter);
+app.use("/api", authenticated, fullSession, treasuryWorkflowRouter, treasuryRouter, vaultCreationRouter, firstUseRouter, operationRouter, memberRouter, apiRouter);
 app.get("/health", (_req, res) =>
   res.json({ status: "ok", service: "Kinetix API" }),
 );

@@ -1,98 +1,173 @@
 "use client";
-
-import React from "react";
-import { VaultWorkflowPanel } from "@/components/vaults/VaultWorkflowPanel";
-import { useFamily } from "@/context/FamilyContext";
+import React, { useState } from "react";
 import { formatEther } from "viem";
-
-interface RoscaViewProps {
-  currentMember?: unknown;
-}
-
-/**
- * Giao diện Quỹ Họ Hụi Xoay Vòng (Kinetix ROSCA Hub)
- * Thiết kế chuẩn Web3 Fintech:
- * - Minh bạch lượt nhận theo epoch và block timestamp Avalanche
- * - Vòng tròn luân chuyển lượt nhận & biểu đồ tiến độ các kỳ
- * - Chống giật hụi nhờ khóa quỹ hợp đồng thông minh
- */
-export const RoscaView: React.FC<RoscaViewProps> = () => {
-  const { dynamicVaults } = useFamily();
-  const roscaVaults = dynamicVaults.filter((v) => v.ruleTemplate === "ROSCA");
-
+import { useFamily } from "@/context/FamilyContext";
+import { useVaultStates } from "@/hooks/useVaultStates";
+import { useAuth } from "@/hooks/useAuth";
+import { VaultExperience } from "@/components/vaults/VaultExperience";
+import { Money, SourceBadge } from "@/components/vaults/ExperiencePrimitives";
+function ContractRosca() {
+  const family = useFamily();
+  const auth = useAuth();
+  const { states, errors, refresh } = useVaultStates();
+  const [selected, setSelected] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const vaults = family.dynamicVaults.filter((v) => v.ruleTemplate === "ROSCA");
+  const vault = vaults.find((v) => v.id === selected) || vaults[0];
+  const data = vault && states[vault.id];
+  const act = async (action: () => Promise<boolean>) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      setMessage(
+        (await action())
+          ? "Giao dịch đã gửi. Theo dõi trạng thái xác nhận và đồng bộ."
+          : "Chưa hoàn tất. Kiểm tra thông báo Core.",
+      );
+      await refresh();
+    } catch (e) {
+      setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!vaults.length)
+    return (
+      <div className="vx-empty">
+        <h2>Chưa có quỹ smart contract</h2>
+        <p>Quỹ được triển khai và cấp quyền sẽ xuất hiện tại đây.</p>
+      </div>
+    );
   return (
-    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto pb-12">
-      {/* 1. Header & Giới thiệu Quỹ Họ Hụi Minh Bạch */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-md shadow-amber-500/20 shrink-0">
-            <span className="material-symbols-outlined text-[26px]">groups</span>
+    <div className="vx-content">
+      <label>
+        Chọn quỹ
+        <select value={vault?.id} onChange={(e) => setSelected(e.target.value)}>
+          {vaults.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {message && (
+        <p role="status" className="vx-notice">
+          {message}
+        </p>
+      )}
+      {errors[vault.id] && (
+        <p role="alert" className="vx-alert">
+          {errors[vault.id]}
+        </p>
+      )}
+      {data?.rosca ? (
+        <>
+          <div className="vx-overview">
+            <section className="vx-hero">
+              <SourceBadge contract />
+              <h2>{vault.name}</h2>
+              <p>
+                {data.rosca.ended
+                  ? "Chu kỳ đã hoàn tất"
+                  : `Kỳ ${Number(data.state.roscaCurrentRound) + 1} / ${data.state.beneficiaries.length}`}
+              </p>
+              <Money
+                wei={String(data.state.totalBalance)}
+                className="vx-hero-money"
+              />
+              <p>Số dư quỹ trên smart contract</p>
+            </section>
+            <aside className="vx-card">
+              <h2>Khoản góp cố định</h2>
+              <Money
+                wei={String(data.state.roscaRoundContribution)}
+                className="vx-large-money"
+              />
+              <p>
+                Sớm nhất giải ngân{" "}
+                {new Date(
+                  Number(data.rosca.nextPayoutAt) * 1000,
+                ).toLocaleString("vi-VN")}
+              </p>
+              <button
+                className="vx-button"
+                disabled={
+                  busy ||
+                  data.rosca.ended ||
+                  !data.capabilities.contributeRoscaRound.allowed ||
+                  data.rosca.contributions.some(
+                    (p: any) =>
+                      p.contributed &&
+                      p.address.toLowerCase() ===
+                        auth.linkedWallet?.address?.toLowerCase(),
+                  )
+                }
+                onClick={() =>
+                  void act(
+                    async () =>
+                      (
+                        await family.depositToVault(
+                          vault.onchainVaultId,
+                          formatEther(
+                            BigInt(data.state.roscaRoundContribution),
+                          ),
+                        )
+                      ).success,
+                  )
+                }
+              >
+                Góp đúng khoản kỳ này
+              </button>
+              <button
+                className="vx-button-secondary"
+                disabled={
+                  busy ||
+                  data.rosca.ended ||
+                  !data.capabilities.payoutRoscaRound.allowed ||
+                  data.rosca.contributions.some((p: any) => !p.contributed) ||
+                  Date.now() < Number(data.rosca.nextPayoutAt) * 1000
+                }
+                onClick={() =>
+                  void act(() =>
+                    family.payoutRoscaRound(vault.onchainVaultId, vault.id),
+                  )
+                }
+              >
+                Giải ngân kỳ này
+              </button>
+              <p className="vx-muted">
+                Điều kiện được kiểm tra lại trên contract trước khi chi.
+              </p>
+            </aside>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
-                Quỹ Góp Vốn Xoay Vòng (ROSCA)
-              </h1>
-              <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-bold font-mono">
-                Họ Hụi Minh Bạch
-              </span>
+          <section className="vx-card">
+            <h2>Thành viên và trạng thái đóng góp</h2>
+            <div className="vx-roster">
+              {data.rosca.contributions.map((person: any, index: number) => (
+                <div key={person.address}>
+                  <span className="vx-avatar">{index + 1}</span>
+                  <span className="vx-address">
+                    {family.members.find(
+                      (p) =>
+                        p.walletAddress?.toLowerCase() ===
+                        person.address.toLowerCase(),
+                    )?.name ||
+                      `${person.address.slice(0, 6)}…${person.address.slice(-4)}`}
+                  </span>
+                  <span>{person.contributed ? "Đã góp" : "Chưa góp"}</span>
+                </div>
+              ))}
             </div>
-            <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-              Tích lũy tài chính cộng đồng, bảo vệ bởi hợp đồng thông minh Avalanche. Không ai có thể gian lận hay thay đổi lượt nhận.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-          <div className="px-3.5 py-2 rounded-2xl bg-white border border-amber-200 text-xs font-mono font-bold text-amber-900 shadow-xs flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-            <span>{roscaVaults.length} Quỹ Đang Hoạt Động</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Nguyên Lý Hoạt Động 3 Bước Cho Mọi Độ Tuổi (Dễ hiểu cho cả Ông Bà & Thanh Niên) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-start gap-3">
-          <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-sm shrink-0">
-            1
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-900">Định Kỳ Góp Đều Đặn</h4>
-            <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-              Mỗi thành viên đóng đúng số AVAX quy định vào hợp đồng một lần mỗi kỳ.
-            </p>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-start gap-3">
-          <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-sm shrink-0">
-            2
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-900">Khóa An Toàn On-Chain</h4>
-            <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-              Tiền nhàn rỗi được bảo lưu an toàn. Chỉ mở khóa chi trả khi tất cả đã góp đủ.
-            </p>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-start gap-3">
-          <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-sm shrink-0">
-            3
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-900">Nhận Tiền Luân Phiên</h4>
-            <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-              Lần lượt từng người nhận toàn bộ quỹ của kỳ theo thứ tự đã cam kết từ ban đầu.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Bàn Điều Khiển Chu Kỳ & Thao Tác Giao Dịch Web3 */}
-      <VaultWorkflowPanel onlyRosca />
+          </section>
+        </>
+      ) : (
+        !errors[vault.id] && <p role="status">Đang đối soát quỹ với mạng…</p>
+      )}
     </div>
   );
-};
+}
+export function RoscaView(_props: { currentMember?: unknown }) {
+  return <VaultExperience kind="ROSCA" legacy={<ContractRosca />} />;
+}
 export default RoscaView;

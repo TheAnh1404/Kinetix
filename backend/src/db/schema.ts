@@ -470,6 +470,37 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
 
 // Backward compatibility alias for families
 export const families = workspaces;
+export const treasuryPolicies = pgTable("treasury_policies", {
+  jarId: uuid("jar_id").references(() => treasuryJars.id).primaryKey(),
+  config: jsonb("config").$type<import("../../../shared/vaultExperience").TreasuryPolicy>().notNull(),
+});
+export const treasuryJobs = pgTable("treasury_jobs", {
+  id: uuid("id").primaryKey(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id).notNull(),
+  jarId: uuid("jar_id").references(() => treasuryJars.id).notNull(),
+  subjectId: uuid("subject_id").references(() => users.id).notNull(),
+  kind: varchar("kind", { length: 20 }).notNull(),
+  title: text("title").notNull(),
+  description: text("description").default("").notNull(),
+  amountWei: decimal("amount_wei", { precision: 78, scale: 0 }).notNull(),
+  recipient: varchar("recipient", { length: 42 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull(),
+  approvals: jsonb("approvals").$type<string[]>().default([]).notNull(),
+  round: integer("round"),
+  transferId: uuid("transfer_id").references(() => treasuryTransfers.id),
+  proof: text("proof"),
+  proofExpiresAt: timestamp("proof_expires_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({ transferUnique: uniqueIndex("treasury_job_transfer").on(table.transferId) }));
+export const treasuryAudit = pgTable("treasury_audit", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id).notNull(),
+  entityId: uuid("entity_id").notNull(),
+  actorId: uuid("actor_id").references(() => users.id),
+  action: text("action").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
 export const treasuryAttempts = pgTable("treasury_attempts", {
   txHash: varchar("tx_hash", { length: 66 }).primaryKey(),
   transferId: uuid("transfer_id").references(() => treasuryTransfers.id).notNull(),

@@ -51,8 +51,8 @@ describe("Project treasury accounting and receipt boundaries", () => {
     };
     const column = (table: string, key: string) => ({ table, key });
     const tables: any = {};
-    state.attempts = [];
-    for (const name of ["jars", "transfers", "entries", "attempts"])
+    state.attempts = []; state.policies = []; state.jobs = [];
+    for (const name of ["jars", "transfers", "entries", "attempts", "policies", "jobs"])
       tables[name] = new Proxy(
         { table: name },
         {
@@ -202,6 +202,8 @@ describe("Project treasury accounting and receipt boundaries", () => {
             treasuryTransfers: tables.transfers,
             treasuryEntries: tables.entries,
             treasuryAttempts: tables.attempts,
+            treasuryPolicies: tables.policies,
+            treasuryJobs: tables.jobs,
           };
         if (name === "../auth/service")
           return {
@@ -448,5 +450,19 @@ describe("Project treasury accounting and receipt boundaries", () => {
       400,
     );
     expect(state.entries).to.have.length(0);
+  });
+  it("blocks generic spending and unallocated ROSCA deposits on policy jars", async () => {
+    state.policies.push({ jarId, config: { kind: "SHIELD", beneficiaries: [], guardians: [] } });
+    await fails(() => service.createTreasuryTransfer(auth, ws, request("INTERNAL")), 403);
+    state.policies[0].config.kind = "ROSCA";
+    await fails(() => service.createTreasuryTransfer(auth, ws, request("DEPOSIT")), 403);
+    expect(state.entries).to.have.length(0);
+  });
+  it("does not expose another child's savings through the generic treasury overview", async () => {
+    state.role = "CHILD";
+    state.policies.push({ jarId: target, config: { kind: "SAVINGS", beneficiaries: ["other-child"], guardians: [] } });
+    const overview = await service.treasuryOverview(auth, ws);
+    expect(overview.jars.map((jar: any) => jar.id)).not.to.include(target);
+    expect(overview.jars.map((jar: any) => jar.id)).to.include(jarId);
   });
 });

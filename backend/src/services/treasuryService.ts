@@ -6,6 +6,8 @@ import {
   treasuryTransfers as transfers,
   treasuryEntries as entries,
   treasuryAttempts as attempts,
+  treasuryPolicies as policies,
+  treasuryJobs as jobs,
 } from "../db";
 import { AuthContext, membership } from "../auth/service";
 import { assert, textInput, uuidInput } from "../auth/security";
@@ -74,6 +76,8 @@ export async function createTreasuryTransfer(
   auth: AuthContext,
   workspaceId: string,
   body: any,
+  context?: { jobId: string },
+  store?: Store,
 ) {
   assert(
     ["DEPOSIT", "WITHDRAW", "INTERNAL"].includes(body.kind),
@@ -87,9 +91,9 @@ export async function createTreasuryTransfer(
     assert(false, 400, (error as Error).message);
   }
   const client = body.kind !== "INTERNAL" ? await treasuryClient() : null;
-  return db.transaction(async (tx) => {
+  const perform = async (tx: Store) => {
     await lock(tx);
-    await access(auth, workspaceId, body.kind !== "DEPOSIT", tx);
+    await access(auth, workspaceId, body.kind !== "DEPOSIT" && !context, tx);
     assert(auth.wallet, 403, "Cần liên kết ví.");
     const requestId = uuidInput(body.requestId);
     const [existing] = await tx
@@ -122,6 +126,39 @@ export async function createTreasuryTransfer(
         ),
       );
     assert(jar, 404, "Không tìm thấy hũ trong không gian này.");
+    const [policy] = await tx
+      .select()
+      .from(policies)
+      .where(eq(policies.jarId, jar.id));
+    if (policy && (body.kind !== "DEPOSIT" || policy.config.kind === "ROSCA")) {
+      assert(
+        context?.jobId,
+        403,
+        "Hũ có chính sách: hãy dùng yêu cầu hỗ trợ, thưởng hoặc kỳ góp tương ứng.",
+      );
+      const [job] = await tx
+        .select()
+        .from(jobs)
+        .where(eq(jobs.id, context.jobId));
+      assert(
+        job &&
+          job.jarId === jar.id &&
+          job.status === "APPROVED" &&
+          !job.transferId &&
+          job.amountWei === amount!.toString(),
+        409,
+        "Nghiệp vụ chưa đủ điều kiện thanh toán.",
+      );
+      assert(
+        body.kind === "DEPOSIT"
+          ? job.kind === "CONTRIBUTION" && job.subjectId === auth.user.id
+          : body.kind === "INTERNAL"
+            ? job.kind === "CHORE"
+            : job.recipient === body.recipient?.toLowerCase(),
+        403,
+        "Khoản chuyển không khớp người nhận đã duyệt.",
+      );
+    }
     const outgoing = body.kind !== "DEPOSIT";
     assert(
       !outgoing || BigInt(jar.balanceWei) - BigInt(jar.reservedWei) >= amount!,
@@ -164,6 +201,21 @@ export async function createTreasuryTransfer(
         "Hũ nhận phải khác hũ nguồn và cùng không gian.",
       );
       destinationJarId = target.id;
+      const [targetPolicy] = await tx
+        .select()
+        .from(policies)
+        .where(eq(policies.jarId, target.id));
+      assert(
+        targetPolicy?.config.kind !== "ROSCA",
+        403,
+        "Góp họ hụi phải gắn với thành viên và kỳ.",
+      );
+      if (targetPolicy?.config.kind === "SAVINGS")
+        assert(
+          context?.jobId,
+          403,
+          "Phân bổ vào heo đất phải qua nghiệp vụ thưởng.",
+        );
     }
     let nonce: bigint | null = null;
     if (client) {
@@ -237,7 +289,8 @@ export async function createTreasuryTransfer(
         .where(eq(jars.id, jar.id));
     }
     return publicTreasuryTransfer(transfer);
-  });
+  };
+  return store ? perform(store) : db.transaction(perform);
 }
 export function publicTreasuryTransfer(row: typeof transfers.$inferSelect) {
   return {
@@ -277,7 +330,9 @@ export async function submitTreasuryHash(
     404,
     "Không tìm thấy yêu cầu chuyển on-chain.",
   );
-  await access(auth, row.workspaceId, row.kind === "WITHDRAW");
+  // Attaching a verified public receipt does not authorize spending; the Core
+  // signer and immutable intent do. Allow members to recover a custody receipt.
+  await access(auth, row.workspaceId);
   assert(
     row.kind === "WITHDRAW" || row.createdBy === auth.user.id,
     403,
@@ -369,6 +424,36 @@ export async function reconcileTreasuryTransfer(id: string) {
       .where(eq(transfers.id, id));
     if (current.status !== "SUBMITTED") return;
     const success = receipt.status === "success" && !cancellation;
+    const [job] = await tx.select().from(jobs).where(eq(jobs.transferId, id));
+    if (job) {
+      await tx
+        .update(jobs)
+        .set({ status: success ? "PAID" : "CANCELLED" })
+        .where(eq(jobs.id, job.id));
+      if (success && job.kind === "PAYOUT") {
+        const [policy] = await tx
+          .select()
+          .from(policies)
+          .where(eq(policies.jarId, job.jarId));
+        assert(
+          policy && policy.config.round === job.round,
+          409,
+          "Kỳ họ hụi đã thay đổi.",
+        );
+        await tx
+          .update(policies)
+          .set({
+            config: {
+              ...policy.config,
+              round: policy.config.round + 1,
+              roundStartedAt: new Date(
+                Number(block.timestamp) * 1000,
+              ).toISOString(),
+            },
+          })
+          .where(eq(policies.jarId, job.jarId));
+      }
+    }
     const amount = row.amountWei;
     if (row.kind === "WITHDRAW")
       await tx
@@ -386,14 +471,12 @@ export async function reconcileTreasuryTransfer(id: string) {
         .set({ balanceWei: sql`${jars.balanceWei} + ${amount}` })
         .where(eq(jars.id, row.jarId));
     if (success)
-      await tx
-        .insert(entries)
-        .values({
-          transferId: id,
-          jarId: row.jarId,
-          deltaWei:
-            row.kind === "DEPOSIT" ? amount : (-BigInt(amount)).toString(),
-        });
+      await tx.insert(entries).values({
+        transferId: id,
+        jarId: row.jarId,
+        deltaWei:
+          row.kind === "DEPOSIT" ? amount : (-BigInt(amount)).toString(),
+      });
     await tx
       .update(transfers)
       .set({
@@ -422,10 +505,31 @@ export async function reconcileTreasury() {
 }
 export async function treasuryOverview(auth: AuthContext, workspaceId: string) {
   const member = await access(auth, workspaceId);
-  const jarRows = await db
+  let jarRows = await db
     .select()
     .from(jars)
     .where(eq(jars.workspaceId, workspaceId));
+  const configured = jarRows.length
+    ? await db
+        .select()
+        .from(policies)
+        .where(
+          inArray(
+            policies.jarId,
+            jarRows.map((jar) => jar.id),
+          ),
+        )
+    : [];
+  jarRows = jarRows.filter((jar) => {
+    const policy = configured.find((row) => row.jarId === jar.id)?.config;
+    return (
+      !policy ||
+      member.role === "ADMIN" ||
+      policy.beneficiaries.includes(auth.user.id) ||
+      (["ADMIN", "GUARDIAN"].includes(member.role) &&
+        policy.guardians.includes(auth.user.id))
+    );
+  });
   const history = await db
     .select()
     .from(transfers)
@@ -444,7 +548,12 @@ export async function treasuryOverview(auth: AuthContext, workspaceId: string) {
   const visibleHistory = [
     ...open,
     ...history.filter((row) => !open.some((pending) => pending.id === row.id)),
-  ];
+  ].filter((transfer) =>
+    jarRows.some(
+      (jar) =>
+        jar.id === transfer.jarId || jar.id === transfer.destinationJarId,
+    ),
+  );
   let reconciliation: null | {
     walletBalance: string;
     allocated: string;

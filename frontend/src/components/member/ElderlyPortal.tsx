@@ -29,8 +29,9 @@ import {
 } from "./MemberPrimitives";
 import { MemberFamily } from "./MemberFamily";
 import { ActivityList } from "./MemberActivity";
+import { VaultExperience } from "@/components/vaults/VaultExperience";
 
-export function ElderlyPortal({ preview = false }: { preview?: boolean }) {
+function ContractElderlyPortal({ preview = false }: { preview?: boolean }) {
   const family = useFamily();
   const auth = useAuth();
   const pathname = usePathname();
@@ -274,6 +275,11 @@ export function ElderlyPortal({ preview = false }: { preview?: boolean }) {
       </div>
     </>
   );
+}
+export function ElderlyPortal({ preview = false }: { preview?: boolean }) {
+  const pathname = usePathname();
+  if (pathname.includes("/family")) return <MemberFamily elderly />;
+  return <VaultExperience kind="SHIELD" legacy={<ContractElderlyPortal preview={preview} />} />;
 }
 
 function RequestList({

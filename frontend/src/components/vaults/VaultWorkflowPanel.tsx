@@ -518,7 +518,7 @@ export function VaultWorkflowPanel({ onlyRosca = false }: { onlyRosca?: boolean 
                   onClick={() =>
                     void act(
                       async () =>
-                        (await family.depositToVault(vault.onchainVaultId, avax(data.state.roscaRoundContribution))).success,
+                        (await family.depositToVault(vault.onchainVaultId, formatEther(BigInt(data.state.roscaRoundContribution)))).success,
                     )
                   }
                   className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-40"

@@ -43,7 +43,10 @@ try {
   });
   server.listen(0, "127.0.0.1", () => {
     server.unref();
-    if (process.argv.includes("--v2")) {
+    if (process.argv.includes("--treasury")) {
+      require("ts-node/register/transpile-only");
+      require("./verify-treasury-integration.ts");
+    } else if (process.argv.includes("--v2")) {
       require("ts-node/register/transpile-only");
       require("./verify-v2-integration.ts");
     } else require("./run-auth-tests.cjs");

@@ -113,6 +113,20 @@
       "when": 1793901000000,
       "tag": "0014_treasury_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1793901100000,
+      "tag": "0015_treasury_workflows",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1793901200000,
+      "tag": "0016_treasury_request_expiry",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,7 @@ import { pool } from "../backend/src/db";
 
 async function main() {
   const schema = await pool.query(
-    "select to_regclass('public.treasury_jars')::text as jars, to_regclass('public.treasury_transfers')::text as transfers, to_regclass('public.treasury_entries')::text as entries, to_regclass('public.treasury_attempts')::text as attempts",
+    "select to_regclass('public.treasury_jars')::text as jars, to_regclass('public.treasury_transfers')::text as transfers, to_regclass('public.treasury_entries')::text as entries, to_regclass('public.treasury_attempts')::text as attempts, to_regclass('public.treasury_policies')::text as policies, to_regclass('public.treasury_jobs')::text as jobs, to_regclass('public.treasury_audit')::text as audit",
   );
   const history = await pool.query(
     "select max(created_at)::text as latest from drizzle.__drizzle_migrations",
