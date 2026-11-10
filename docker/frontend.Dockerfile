@@ -16,9 +16,10 @@ RUN npm ci
 # 3. Builder stage
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/frontend/node_modules ./frontend/node_modules
 COPY shared/ ./shared/
 COPY frontend/ ./frontend/
+COPY --from=deps /app/frontend/node_modules ./frontend/node_modules
+RUN ln -s /app/frontend/node_modules /app/node_modules
 
 WORKDIR /app/frontend
 ENV NEXT_TELEMETRY_DISABLED=1

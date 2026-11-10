@@ -5,6 +5,7 @@ import * as viem from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import * as security from "../backend/src/auth/security";
 import * as permissions from "../shared/workspacePermissions";
+import { vaultCapabilities } from "../shared/vaultCapabilities";
 
 // Run the shipped authorization and admin service; isolate only persistence and session refresh.
 describe("Family creator ownership and signed administration", () => {
@@ -277,6 +278,14 @@ describe("Family creator ownership and signed administration", () => {
     await fails(() => authService.membership(store, auth, otherWs, true), 403);
     await fails(() => service.adminOverview(auth, otherWs), 403);
   });
+  it("separates assigned financial approvals from owner-only chore management", () => {
+    const input = { role: "GUARDIAN", linked: true, allowed: true, guardian: true, beneficiary: false, active: true, paused: false, rule: 1 };
+    const guest = vaultCapabilities(input);
+    expect(guest.createChore.allowed).to.equal(false); expect(guest.cancelChore.allowed).to.equal(false);
+    expect(guest.verifyAndRewardChore.allowed).to.equal(true);
+    expect(vaultCapabilities({ ...input, role: "ADMIN" }).createChore.allowed).to.equal(true);
+    expect(vaultCapabilities({ ...input, role: "ADMIN", guardian: false }).createChore.allowed).to.equal(false);
+  });
   it("fails closed for forged ADMIN rows, missing creator evidence and disabled owners", async () => {
     state.workspaceMembers[1].role = "ADMIN";
     expect((await authService.membership(store, auth, otherWs)).role).to.equal(
@@ -417,6 +426,15 @@ describe("Family creator ownership and signed administration", () => {
     await fails(
       () => prepare("MEMBER_ACCESS", { userId: id(98), disabled: true }),
       403,
+    );
+    expect(state.familyAdminIntents).to.have.length(0);
+  });
+  it("rejects unknown actions and malformed request bodies before creating an intent", async () => {
+    await fails(() => service.prepareAdminIntent(auth, ws, null), 400);
+    await fails(() => prepare("__proto__", { reason: "Invalid action" }), 400);
+    await fails(
+      () => prepare("RENAME", { name: "Family", creatorUserId: guest }),
+      400,
     );
     expect(state.familyAdminIntents).to.have.length(0);
   });

@@ -77,7 +77,8 @@ async function normalize(
     EXPORT: ["from", "to"],
   };
   assert(
-    fields[action] &&
+    typeof action === "string" &&
+      Array.isArray(fields[action]) &&
       input &&
       typeof input === "object" &&
       !Array.isArray(input) &&

@@ -1,5 +1,7 @@
 # Kinetix Family Admin — nghiên cứu và kế hoạch production
 
+> Cập nhật yêu cầu triển khai: quyền quản trị chỉ thuộc người tạo gia đình, trong đúng gia đình đó. Các đề xuất ủy quyền/chuyển giao dưới đây là nội dung nghiên cứu cũ và không được kích hoạt. Xem [phân quyền và chức năng đã triển khai](FAMILY_ADMIN_IMPLEMENTATION.md).
+
 Ngày nghiên cứu: 11/11/2026. Trạng thái: đề xuất, chưa triển khai thay đổi chức năng.
 
 ## 1. Đề xuất chính
