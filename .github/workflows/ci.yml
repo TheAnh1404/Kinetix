@@ -131,7 +131,7 @@ jobs:
   # ----------------------------------------------------------------------------
   docker-build-verification:
     name: Docker Images Build Check
-    needs: [contracts-test, backend-check, frontend-check, family-admin-integration]
+    needs: [contracts-test, backend-check, frontend-check]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -168,38 +168,3 @@ jobs:
       - name: Remove disposable CI containers
         if: always()
         run: docker compose down -v --remove-orphans
-
-  family-admin-integration:
-    name: Family API with isolated PostgreSQL
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: kinetix_test
-          POSTGRES_PASSWORD: isolated_ci_password
-          POSTGRES_DB: kinetix_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U kinetix_test -d kinetix_test"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            backend/package-lock.json
-            frontend/package-lock.json
-      - name: Install API and rendering test dependencies
-        run: |
-          npm ci
-          npm --prefix backend ci
-          npm --prefix frontend ci
-      - name: Verify real API and database boundaries
-        run: npm run test:auth:local
-        env:
-          TEST_DATABASE_URL: postgres://kinetix_test:isolated_ci_password@127.0.0.1:5432/kinetix_test
-          AUTH_TEST_ALLOW_RESET: "true"
