@@ -19,7 +19,8 @@ WORKDIR /app
 COPY shared/ ./shared/
 COPY frontend/ ./frontend/
 COPY --from=deps /app/frontend/node_modules ./frontend/node_modules
-RUN ln -s /app/frontend/node_modules /app/node_modules
+RUN ln -s /app/frontend/node_modules /app/node_modules && \
+    mkdir -p /app/frontend/public
 
 WORKDIR /app/frontend
 ENV NEXT_TELEMETRY_DISABLED=1
