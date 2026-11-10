@@ -703,6 +703,43 @@
   font-size: 14px;
   overflow-wrap: anywhere;
 }
+.account-settings-dialog {
+  background: var(--ac-card);
+  color: var(--ac-text);
+  border: 1px solid var(--ac-border);
+  border-radius: 18px;
+  width: min(1100px, calc(100vw - 24px));
+  max-height: 92dvh;
+  margin: auto;
+  padding: 0;
+  box-shadow: 0 24px 100px #0005;
+}
+.account-settings-dialog::backdrop {
+  background: #0f172a99;
+}
+.account-settings-dialog-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ac-card);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--ac-border);
+}
+.account-settings-dialog-header h2 {
+  font-size: 14px;
+  font-weight: 650;
+}
+.account-settings-dialog-content {
+  padding: 26px;
+}
+.account-settings-dialog:focus-visible {
+  outline: 3px solid var(--ac-primary);
+  outline-offset: 3px;
+}
 .account-intent-review > span {
   font-size: 11px;
   color: var(--ac-muted);

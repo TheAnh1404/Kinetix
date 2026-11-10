@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   Volume2,
   VolumeX,
+  Settings2,
 } from "lucide-react";
 import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,37 +30,50 @@ export const useMemberPreferences = () => useContext(Preferences);
 
 export function RoleNavigation({ elderly }: { elderly: boolean }) {
   const pathname = usePathname();
-  const auth = useAuth(); const family = useFamily();
-  const adult = auth.workspaces.find((item) => item.id === family.currentWorkspace?.id)?.role === "GUARDIAN";
-  const entries = adult ? [
-    { href: "/dashboard/member", label: "Hũ an sinh", Icon: Home },
-    { href: "/dashboard/kids", label: "Heo đất", Icon: Gift },
-    { href: "/settings", label: "Cài đặt", Icon: UserRound },
-  ] : elderly
+  const auth = useAuth();
+  const family = useFamily();
+  const adult =
+    auth.workspaces.find((item) => item.id === family.currentWorkspace?.id)
+      ?.role === "GUARDIAN";
+  const entries = adult
     ? [
-        { href: "/dashboard/elderly", label: "Trang chính", Icon: Home },
-        {
-          href: "/dashboard/elderly/requests",
-          label: "Yêu cầu",
-          Icon: ReceiptText,
-        },
-        {
-          href: "/dashboard/elderly/family",
-          label: "Người thân",
-          Icon: HeartHandshake,
-        },
+        { href: "/dashboard/member", label: "Hũ an sinh", Icon: Home },
+        { href: "/dashboard/kids", label: "Heo đất", Icon: Gift },
+        { href: "/settings", label: "Cài đặt", Icon: UserRound },
       ]
-    : [
-        { href: "/dashboard/kids", label: "Hôm nay", Icon: Home },
-        {
-          href: "/dashboard/kids/chores",
-          label: "Việc của con",
-          Icon: ListChecks,
-        },
-        { href: "/dashboard/kids/rewards", label: "Tiền thưởng", Icon: Gift },
-        { href: "/dashboard/kids/profile", label: "Của con", Icon: UserRound },
-      ];
-  entries.push({ href: "/dashboard/rosca", label: "Góp vốn", Icon: ReceiptText });
+    : elderly
+      ? [
+          { href: "/dashboard/elderly", label: "Trang chính", Icon: Home },
+          {
+            href: "/dashboard/elderly/requests",
+            label: "Yêu cầu",
+            Icon: ReceiptText,
+          },
+          {
+            href: "/dashboard/elderly/family",
+            label: "Người thân",
+            Icon: HeartHandshake,
+          },
+        ]
+      : [
+          { href: "/dashboard/kids", label: "Hôm nay", Icon: Home },
+          {
+            href: "/dashboard/kids/chores",
+            label: "Việc của con",
+            Icon: ListChecks,
+          },
+          { href: "/dashboard/kids/rewards", label: "Tiền thưởng", Icon: Gift },
+          {
+            href: "/dashboard/kids/profile",
+            label: "Của con",
+            Icon: UserRound,
+          },
+        ];
+  entries.push({
+    href: "/dashboard/rosca",
+    label: "Góp vốn",
+    Icon: ReceiptText,
+  });
   return (
     <nav className="role-navigation" aria-label="Điều hướng thành viên">
       {entries.map(({ href, label, Icon }, index) => {
@@ -93,7 +107,9 @@ export function MemberResponsiveShell({
 }) {
   const auth = useAuth();
   const family = useFamily();
-  const adult = auth.workspaces.find((item) => item.id === family.currentWorkspace?.id)?.role === "GUARDIAN";
+  const adult =
+    auth.workspaces.find((item) => item.id === family.currentWorkspace?.id)
+      ?.role === "GUARDIAN";
   const [largeText, setLargeText] = useState(false);
   const [voice, setVoice] = useState(false);
   const [error, setError] = useState("");
@@ -150,7 +166,13 @@ export function MemberResponsiveShell({
         <aside className="member-sidebar">
           <Link
             className="member-brand"
-            href={adult ? "/dashboard/member" : elderly ? "/dashboard/elderly" : "/dashboard/kids"}
+            href={
+              adult
+                ? "/dashboard/member"
+                : elderly
+                  ? "/dashboard/elderly"
+                  : "/dashboard/kids"
+            }
           >
             <span>K</span>kinetix<span className="brand-period">.</span>
           </Link>
@@ -194,13 +216,24 @@ export function MemberResponsiveShell({
               </select>
             </div>
             <div className="member-identity">
+              <Link
+                href="/settings"
+                aria-label="Mở cài đặt tài khoản"
+                className="member-secondary"
+              >
+                <Settings2 size={21} aria-hidden="true" />
+              </Link>
               <span className="member-avatar" aria-hidden="true">
                 {auth.user?.fullName?.charAt(0).toUpperCase()}
               </span>
               <span>
                 {auth.user?.fullName}
                 <small>
-                  {elderly ? "Thành viên · An sinh" : "Thành viên · Việc nhà"}
+                  {adult
+                    ? "Thành viên gia đình"
+                    : elderly
+                      ? "Thành viên · An sinh"
+                      : "Thành viên · Việc nhà"}
                 </small>
               </span>
             </div>

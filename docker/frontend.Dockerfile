@@ -3,7 +3,7 @@
 # ==============================================================================
 
 # 1. Base image
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -29,7 +29,7 @@ ENV KINETIX_CONSTRAINED_BUILD=true
 RUN npm run build
 
 # 4. Runner stage (Production lightweight runtime)
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

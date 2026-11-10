@@ -1,6 +1,7 @@
 name: Kinetix CI Pipeline
 
 on:
+  workflow_call:
   push:
     branches: [main, master, develop]
   pull_request:
@@ -47,7 +48,17 @@ jobs:
         run: npm run sol:lint
 
       - name: Run Hardhat Test Suite (196+ tests)
-        run: npx hardhat test
+        run: |
+          set -o pipefail
+          npx hardhat test 2>&1 | tee test-output.log || {
+            exit_code=$?
+            echo "::error title=Hardhat Test Failure::$(tail -n 20 test-output.log | tr '\r\n' '  ')"
+            echo "### Hardhat Test Failures" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            tail -n 60 test-output.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit $exit_code
+          }
         env:
           NODE_ENV: test
 
@@ -57,6 +68,17 @@ jobs:
   backend-check:
     name: Backend API & Worker Typecheck
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kinetix_test
+          POSTGRES_PASSWORD: isolated_ci_password
+          POSTGRES_DB: kinetix_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U kinetix_test -d kinetix_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -78,6 +100,15 @@ jobs:
       - name: Typecheck Backend Code
         working-directory: backend
         run: npm run typecheck
+
+      - name: Install rendering test dependencies
+        run: npm --prefix frontend ci
+
+      - name: Test API, authentication, ownership and settings boundaries
+        run: npm run test:auth:local
+        env:
+          TEST_DATABASE_URL: postgres://kinetix_test:isolated_ci_password@127.0.0.1:5432/kinetix_test
+          AUTH_TEST_ALLOW_RESET: "true"
 
   # ----------------------------------------------------------------------------
   # 3. Frontend TypeScript Typecheck & Next.js Production Build
@@ -134,7 +165,8 @@ jobs:
           context: .
           file: docker/backend.Dockerfile
           push: false
-          tags: kinetix-backend:ci-test
+          load: true
+          tags: kinetix-backend:local
 
       - name: Build Frontend Docker Image
         uses: docker/build-push-action@v5
@@ -142,4 +174,16 @@ jobs:
           context: .
           file: docker/frontend.Dockerfile
           push: false
-          tags: kinetix-frontend:ci-test
+          load: true
+          tags: kinetix-frontend:local
+
+      - name: Validate and smoke test the complete stack
+        run: |
+          docker compose config --quiet
+          docker compose up -d --no-build --wait --wait-timeout 180
+          curl --fail http://localhost:4000/api/ready
+          curl --fail http://localhost:3000/login
+
+      - name: Remove disposable CI containers
+        if: always()
+        run: docker compose down -v --remove-orphans

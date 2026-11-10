@@ -37,7 +37,8 @@
     "src/**/*.tsx",
     "../shared/**/*.ts",
     ".next/types/**/*.ts",
-    ".next-admin-check/types/**/*.ts"
+    ".next-admin-check/types/**/*.ts",
+    ".auth-build/admin-production/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

@@ -9,6 +9,7 @@ const Mocha = require("mocha");
 const mocha = new Mocha({ timeout: 15000 });
 mocha.addFile("test/auth.test.ts");
 mocha.addFile("test/FamilyAdmin.test.ts");
+mocha.addFile("test/SettingsRender.test.ts");
 mocha.addFile("test/backend.test.ts");
 mocha.addFile("test/Web3AuthGuard.test.ts");
 mocha.addFile("test/BffAuth.test.ts");

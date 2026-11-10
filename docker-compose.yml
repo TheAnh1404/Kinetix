@@ -18,6 +18,7 @@ services:
       - kinetix-net
 
   pgproxy:
+    image: kinetix-backend:local
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
@@ -40,12 +41,13 @@ services:
       - kinetix-net
 
   migrate:
+    image: kinetix-backend:local
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
     container_name: kinetix-migrate
     restart: "no"
-    command: npx tsx backend/src/db/migrate.ts
+    command: ["./node_modules/.bin/tsx", "backend/src/db/migrate.ts"]
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-kinetix}:${POSTGRES_PASSWORD:-kinetix_secret_123}@postgres:5432/${POSTGRES_DB:-kinetix_db}
       LOCAL_PG_WS_PROXY: pgproxy:8080
@@ -56,12 +58,13 @@ services:
       - kinetix-net
 
   backend:
+    image: kinetix-backend:local
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
     container_name: kinetix-backend-api
     restart: unless-stopped
-    command: npx tsx backend/src/server.ts
+    command: ["./node_modules/.bin/tsx", "backend/src/server.ts"]
     environment:
       NODE_ENV: production
       PORT: 4000
@@ -87,12 +90,13 @@ services:
       - kinetix-net
 
   worker:
+    image: kinetix-backend:local
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
     container_name: kinetix-event-worker
     restart: unless-stopped
-    command: npx tsx backend/src/workers/eventListener.ts
+    command: ["./node_modules/.bin/tsx", "backend/src/workers/eventListener.ts"]
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER:-kinetix}:${POSTGRES_PASSWORD:-kinetix_secret_123}@postgres:5432/${POSTGRES_DB:-kinetix_db}
@@ -110,6 +114,7 @@ services:
       - kinetix-net
 
   frontend:
+    image: kinetix-frontend:local
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
@@ -119,6 +124,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       BACKEND_INTERNAL_URL: http://backend:4000
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
       FUJI_RPC_URL: ${FUJI_RPC_URL:-https://api.avax-test.network/ext/bc/C/rpc}
     ports:

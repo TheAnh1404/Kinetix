@@ -588,7 +588,7 @@ export async function treasuryOverview(auth: AuthContext, workspaceId: string) {
     address: TREASURY_ADDRESS,
     chainId: TREASURY_CHAIN_ID,
     canManage: member.role === "ADMIN",
-    jars: jarRows.map((jar) => ({
+    jars: jarRows.filter((jar) => !jar.isArchived).map((jar) => ({
       ...jar,
       balance: formatEther(BigInt(jar.balanceWei)),
       available: formatEther(BigInt(jar.balanceWei) - BigInt(jar.reservedWei)),

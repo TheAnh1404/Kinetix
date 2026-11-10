@@ -35,6 +35,7 @@ export type ExperienceJob = {
   payment: ExperiencePayment | null;
 };
 export type ExperienceJar = {
+  isArchived?: boolean;
   id: string;
   name: string;
   balanceWei: string;

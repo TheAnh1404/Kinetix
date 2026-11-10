@@ -120,6 +120,9 @@ function SettingsAccount({ initialTab, onTabChange }: Props) {
     );
     if (alive.current) {
       setPrefs(response.data.preferences);
+      settings.setPrivacyHideBalance(
+        !!response.data.preferences.privacyHideBalance,
+      );
       setPrefError("");
     }
   };
@@ -530,8 +533,8 @@ function SettingsAccount({ initialTab, onTabChange }: Props) {
                   </button>
                 </div>
                 <div className="account-card-footer">
-                  <Link className="account-text-link" href="/recovery">
-                    Cần khôi phục tài khoản? <ArrowUpRight size={16} />
+                  <Link className="account-text-link" href="/dashboard">
+                    Mở khôi phục ví tại gia đình <ArrowUpRight size={16} />
                   </Link>
                 </div>
               </section>

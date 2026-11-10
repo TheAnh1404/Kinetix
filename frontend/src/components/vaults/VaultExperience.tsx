@@ -99,8 +99,9 @@ export function VaultExperience({
   const jars =
     data?.jars.filter(
       (jar) =>
-        jar.policy.kind === kind ||
-        (kind === "MILESTONE" && jar.policy.kind === "SAVINGS"),
+        !jar.isArchived &&
+        (jar.policy.kind === kind ||
+          (kind === "MILESTONE" && jar.policy.kind === "SAVINGS")),
     ) || [];
   const selected = jars.find((jar) => jar.id === query.get("jar")) || jars[0];
   const theme = themes[kind];
@@ -334,7 +335,8 @@ export function VaultExperience({
                               />
                             )
                           ) : (
-                              selected.reviewer && data.canManage && (
+                            selected.reviewer &&
+                            data.canManage && (
                               <ChoreForm
                                 jar={selected}
                                 data={data}
