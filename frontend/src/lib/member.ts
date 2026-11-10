@@ -21,7 +21,7 @@ export function memberHome(role?: RoleType) {
     ? "/dashboard/elderly"
     : role === "CHILD"
       ? "/dashboard/kids"
-      : "/dashboard/guardian";
+      : role === "ADMIN" ? "/dashboard/admin" : "/dashboard/member";
 }
 export function requestStatus(request: {
   status: string;

@@ -78,6 +78,7 @@ export const workspaces = pgTable("workspaces", {
   workspaceCode: varchar("workspace_code", { length: 16 }).unique(),
   familyCode: varchar("family_code", { length: 16 }),
   name: text("name").notNull(),
+  creatorUserId: uuid("creator_user_id"),
   type: workspaceTypeEnum("type").default("FAMILY").notNull(),
   creatorWallet: varchar("creator_wallet", { length: 42 }),
   adminWallet: varchar("admin_wallet", { length: 42 }),
@@ -470,6 +471,28 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
 
 // Backward compatibility alias for families
 export const families = workspaces;
+export const familyAdminState = pgTable("family_admin_state", {
+  workspaceId: uuid("workspace_id").primaryKey().references(() => workspaces.id),
+  revision: integer("revision").default(0).notNull(),
+  outgoingPaused: boolean("outgoing_paused").default(false).notNull(),
+  pauseReason: text("pause_reason").default("").notNull(),
+  archived: boolean("archived").default(false).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+export const familyAdminIntents = pgTable("family_admin_intents", {
+  id: uuid("id").primaryKey(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id).notNull(),
+  actorId: uuid("actor_id").references(() => users.id).notNull(),
+  sessionId: uuid("session_id").references(() => sessions.id).notNull(),
+  revision: integer("revision").notNull(),
+  action: text("action").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  message: text("message").notNull(),
+  status: text("status").default("PENDING").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});
 export const treasuryPolicies = pgTable("treasury_policies", {
   jarId: uuid("jar_id").references(() => treasuryJars.id).primaryKey(),
   config: jsonb("config").$type<import("../../../shared/vaultExperience").TreasuryPolicy>().notNull(),
@@ -511,6 +534,7 @@ export const treasuryJars = pgTable("treasury_jars", {
   id: uuid("id").defaultRandom().primaryKey(),
   workspaceId: uuid("workspace_id").references(() => workspaces.id).notNull(),
   name: text("name").notNull(),
+  isArchived: boolean("is_archived").default(false).notNull(),
   balanceWei: decimal("balance_wei", { precision: 78, scale: 0 }).default("0").notNull(),
   reservedWei: decimal("reserved_wei", { precision: 78, scale: 0 }).default("0").notNull(),
   createdBy: uuid("created_by").references(() => users.id).notNull(),

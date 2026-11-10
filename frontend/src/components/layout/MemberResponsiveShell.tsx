@@ -29,7 +29,13 @@ export const useMemberPreferences = () => useContext(Preferences);
 
 export function RoleNavigation({ elderly }: { elderly: boolean }) {
   const pathname = usePathname();
-  const entries = elderly
+  const auth = useAuth(); const family = useFamily();
+  const adult = auth.workspaces.find((item) => item.id === family.currentWorkspace?.id)?.role === "GUARDIAN";
+  const entries = adult ? [
+    { href: "/dashboard/member", label: "H? an sinh", Icon: Home },
+    { href: "/dashboard/kids", label: "Heo ??t", Icon: Gift },
+    { href: "/settings", label: "C?i ??t", Icon: UserRound },
+  ] : elderly
     ? [
         { href: "/dashboard/elderly", label: "Trang chính", Icon: Home },
         {
@@ -87,6 +93,7 @@ export function MemberResponsiveShell({
 }) {
   const auth = useAuth();
   const family = useFamily();
+  const adult = auth.workspaces.find((item) => item.id === family.currentWorkspace?.id)?.role === "GUARDIAN";
   const [largeText, setLargeText] = useState(false);
   const [voice, setVoice] = useState(false);
   const [error, setError] = useState("");
@@ -143,7 +150,7 @@ export function MemberResponsiveShell({
         <aside className="member-sidebar">
           <Link
             className="member-brand"
-            href={elderly ? "/dashboard/elderly" : "/dashboard/kids"}
+            href={adult ? "/dashboard/member" : elderly ? "/dashboard/elderly" : "/dashboard/kids"}
           >
             <span>K</span>kinetix<span className="brand-period">.</span>
           </Link>

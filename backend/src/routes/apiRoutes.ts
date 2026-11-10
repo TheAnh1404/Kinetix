@@ -31,6 +31,7 @@ import {
 } from "../services/chainService";
 import { relayForwardRequest } from "../services/relayerService";
 import { FAMILY_HUB_ABI } from "../../../shared/abis";
+import { scopedMembership } from "../../../shared/workspacePermissions";
 import { creationIntent, validateCreationRegistration } from "../services/vaultCreationService";
 import { vaultState } from "../services/vaultStateService";
 import {
@@ -159,7 +160,7 @@ apiRouter.get(
       ].includes(action)
     ) {
       assert(
-        member.role === "ADMIN" || member.role === "GUARDIAN",
+        member.role === "ADMIN",
         403,
         "Chỉ người bảo hộ được thực hiện thao tác này.",
       );
@@ -304,8 +305,7 @@ apiRouter.get(
       success: true,
       workspaces: list.map((row) => ({
         ...row.workspace,
-        role: row.role,
-        canManageMembers: row.role === "ADMIN" || row.canManageMembers,
+        ...scopedMembership(req.auth!.user.id, row.workspace, row),
       })),
     });
   }),
@@ -346,6 +346,7 @@ apiRouter.post(
           workspaceCode: code,
           familyCode: code,
           creatorWallet: auth.wallet!.address,
+          creatorUserId: auth.user.id,
           adminWallet: auth.wallet!.address,
           l1HubAddress: deploymentManifest().enabled
             ? deploymentManifest().contracts.hub!.address.toLowerCase()
@@ -365,7 +366,7 @@ apiRouter.post(
   }),
 );
 async function roster(auth: AuthContext, id: string) {
-  const { member } = await workspace(auth, id);
+  const { ws, member } = await workspace(auth, id);
   const rows = await db
     .select({
       id: users.id,
@@ -384,6 +385,7 @@ async function roster(auth: AuthContext, id: string) {
     .filter((row) => member.role === "ADMIN" || !row.accessDisabledAt)
     .map(({ accessDisabledAt, ...row }) => ({
       ...row,
+      ...scopedMembership(row.id, ws, { ...row, accessDisabledAt }),
       walletAddress: row.walletAddress || "",
       accessDisabled: !!accessDisabledAt,
     }));
@@ -494,7 +496,7 @@ apiRouter.post(
     const auth = req.auth!;
     const { ws, member } = await workspace(auth, req.body.workspaceId || "");
     assert(
-      member.role === "ADMIN" || member.role === "GUARDIAN",
+      member.role === "ADMIN",
       403,
       "Chỉ người bảo hộ được tạo hũ.",
     );
@@ -529,7 +531,7 @@ apiRouter.post(
         .where(eq(workspaces.id, ws.id))
         .for("update");
       const currentMember = await membership(tx, req.auth!, ws.id);
-      assert(["ADMIN", "GUARDIAN"].includes(currentMember.role), 403, "Quyền đăng ký hũ đã thay đổi.");
+      assert(currentMember.role === "ADMIN", 403, "Quyền đăng ký hũ đã thay đổi.");
       const draft = await validateCreationRegistration(tx, auth, ws.id, chainVault, receipt.transactionHash, ws.l1HubAddress!, transaction.input, req.body.draftId);
       const finish = async (vault: typeof vaults.$inferSelect) => {
         if (draft) {

@@ -334,7 +334,7 @@ export function VaultExperience({
                               />
                             )
                           ) : (
-                            selected.reviewer && (
+                              selected.reviewer && data.canManage && (
                               <ChoreForm
                                 jar={selected}
                                 data={data}

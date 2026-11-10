@@ -174,6 +174,7 @@ export function useVaultExperience() {
       /* Manual hash recovery remains available. */
     }
     if (!hash) {
+      if (!cancel) await authRequest(`/api/treasury/transfers/${payment.id}/preflight`, {});
       const provider = getCoreProvider();
       if (!provider) throw new Error("Mở Core Wallet để ký giao dịch.");
       const accounts = await provider.request({
@@ -190,6 +191,7 @@ export function useVaultExperience() {
         scope.current !== scopeKey
       )
         throw new Error("Sai mạng hoặc không gian đã thay đổi.");
+      if (!cancel) await authRequest(`/api/treasury/transfers/${payment.id}/preflight`, {});
       hash = await createWalletClient({
         chain: avalancheFuji,
         transport: custom(provider),

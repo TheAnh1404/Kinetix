@@ -127,6 +127,13 @@
       "when": 1793901200000,
       "tag": "0016_treasury_request_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1793901300000,
+      "tag": "0017_family_owner_admin",
+      "breakpoints": true
     }
   ]
 }

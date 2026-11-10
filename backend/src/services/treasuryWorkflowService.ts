@@ -26,6 +26,7 @@ import { assert, uuidInput, textInput } from "../auth/security";
 import { treasuryAmount } from "../../../shared/treasury";
 import { TreasuryPolicy } from "../../../shared/vaultExperience";
 import { createTreasuryTransfer } from "./treasuryService";
+import { requireWorkspaceWrites } from "./familyAccess";
 
 type Store = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const lock = (tx: Store) =>
@@ -114,6 +115,7 @@ export async function createPolicyJar(
 ) {
   return db.transaction(async (tx) => {
     await lock(tx);
+    await requireWorkspaceWrites(tx, workspaceId);
     assert(
       (await membership(tx, auth, uuidInput(workspaceId))).role === "ADMIN",
       403,
@@ -321,6 +323,7 @@ export async function createWorkflowJob(
   return db.transaction(async (tx) => {
     await lock(tx);
     const { jar, policy, reviewer, people } = await scope(tx, auth, jarId);
+    assert(!jar.isArchived, 409, "Hũ đã được lưu trữ.");
     const id = uuidInput(body.requestId);
     const [previous] = await tx.select().from(jobs).where(eq(jobs.id, id));
     if (previous) {
@@ -356,6 +359,7 @@ export async function createWorkflowJob(
       "Người nhận chưa có ví hoặc không được cấp quyền.",
     );
     const jobRows = await tx.select().from(jobs).where(eq(jobs.jarId, jar.id));
+    await requireWorkspaceWrites(tx, jar.workspaceId, kind !== "CONTRIBUTION");
     let wei =
       kind === "CONTRIBUTION"
         ? policy.contributionWei
@@ -366,7 +370,7 @@ export async function createWorkflowJob(
             ).toString()
           : amount(body.amount);
     if (kind === "CHORE")
-      assert(reviewer, 403, "Chỉ người duyệt của hũ được giao việc.");
+      assert((await membership(tx, auth, jar.workspaceId)).role === "ADMIN", 403, "Chỉ chủ nhà được giao việc.");
     if (kind === "SUPPORT") {
       const today = new Date().toISOString().slice(0, 10);
       const used = jobRows
@@ -598,6 +602,8 @@ export async function actWorkflowJob(auth: AuthContext, id: string, body: any) {
         })
         .where(eq(jobs.id, id));
     } else if (body.action === "pay") {
+      assert(!jar.isArchived, 409, "Hũ đã lưu trữ.");
+      await requireWorkspaceWrites(tx, jar.workspaceId, job.kind !== "CONTRIBUTION");
       assert(
         !(job.kind === "SUPPORT" && job.status === "CANCELLED"),
         409,

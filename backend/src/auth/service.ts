@@ -22,6 +22,7 @@ import {
   workspaceOnboarding,
 } from "../db/schema";
 import { START_FLOW_VERSION, entryRoute, needsStart } from "../../../shared/startFlow";
+import { scopedMembership } from "../../../shared/workspacePermissions";
 import {
   assert,
   digest,
@@ -141,7 +142,7 @@ export async function authenticate(
   return { session: row.sessions, user: row.users, credential, wallet };
 }
 // Sensitive writes serialize on the account and re-read the session after obtaining the lock.
-async function liveAuth(tx: Transaction, auth: AuthContext) {
+export async function liveAuth(tx: Transaction, auth: AuthContext) {
   await tx
     .select({ id: users.id })
     .from(users)
@@ -211,14 +212,15 @@ export async function membership(
       ),
     );
   assert(member, 403, "Bạn không có quyền truy cập không gian này.");
+  const [owner] = member.role === "ADMIN" ? await store.select({ creatorUserId: workspaces.creatorUserId }).from(workspaces).where(eq(workspaces.id, workspaceId)) : [];
+  const scoped = scopedMembership(auth.user.id, owner || {}, member);
   if (manage)
     assert(
-      member.role === "ADMIN" ||
-        (member.role === "GUARDIAN" && member.canManageMembers),
+      scoped.isOwner,
       403,
-      "Bạn chưa được giao quyền quản lý thành viên.",
+      "Chỉ người tạo gia đình được sử dụng chức năng quản trị.",
     );
-  return member;
+  return { ...member, ...scoped, role: scoped.role as typeof member.role };
 }
 export async function managedAccess(
   store: Store,
@@ -293,7 +295,7 @@ export async function me(auth: AuthContext, options: { workspaceId?: string; wor
       id: auth.user.id,
       fullName: auth.user.fullName,
       familyId: family?.workspace.id || "",
-      role: family?.membership.role || auth.user.role,
+      role: family ? scopedMembership(auth.user.id, family.workspace, family.membership).role : "GUARDIAN",
       walletAddress: auth.wallet?.address || "",
       avatarUrl: auth.user.avatarUrl,
       phoneNumber: auth.user.phoneNumber,
@@ -302,8 +304,7 @@ export async function me(auth: AuthContext, options: { workspaceId?: string; wor
     family: family?.workspace || null,
     workspaces: memberships.map(({ workspace, membership: member }) => ({
       ...workspace,
-      role: member.role,
-      canManageMembers: member.role === "ADMIN" || member.canManageMembers,
+      ...scopedMembership(auth.user.id, workspace, member),
       startRequired: state === "READY" && startEnabled && needsStart(progress.find((row) => row.workspaceId === workspace.id)?.status),
       startStatus: progress.find((row) => row.workspaceId === workspace.id)?.status || null,
     })),
@@ -329,7 +330,7 @@ export async function me(auth: AuthContext, options: { workspaceId?: string; wor
       })),
     entryWorkspaceId: family?.workspace.id || null,
     startRequired,
-    redirectUrl: entryRoute(state, family?.workspace.id, family?.membership.role || auth.user.role, presentation?.status, startEnabled),
+    redirectUrl: entryRoute(state, family?.workspace.id, family ? scopedMembership(auth.user.id, family.workspace, family.membership).role : "GUARDIAN", presentation?.status, startEnabled),
   };
 }
 export async function login(usernameInput: unknown, password: unknown) {
@@ -905,6 +906,7 @@ export async function registerGuardian(
       role,
       canManageMembers: !invitation,
     });
+    if (!invitation) await tx.update(workspaces).set({ creatorUserId: user.id }).where(eq(workspaces.id, workspace.id));
     await tx.insert(provisioningRequests).values({
       userId: user.id,
       workspaceId: workspace.id,
@@ -1360,6 +1362,8 @@ async function usableInvitation(
       ),
     );
   assert(issuer, 403, "Người mời không còn quyền quản trị.");
+  const [creator] = await tx.select({ creatorUserId: workspaces.creatorUserId }).from(workspaces).where(eq(workspaces.id, invite.workspaceId));
+  assert(creator?.creatorUserId === invite.createdBy, 403, "Lời mời không được phát hành bởi chủ nhà.");
   return invite;
 }
 export async function createInvitation(
@@ -1456,6 +1460,7 @@ export async function setManagementPermission(
   enabled: unknown,
 ) {
   assert(typeof enabled === "boolean", 400, "Quyền quản lý không hợp lệ.");
+  assert(enabled === false, 403, "Quyền chủ nhà chỉ thuộc người tạo gia đình, không thể cấp cho người được mời.", "FAMILY_OWNER_ONLY");
   return db.transaction(async (tx) => {
     await tx
       .select({ id: users.id })

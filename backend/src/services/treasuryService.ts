@@ -11,6 +11,7 @@ import {
 } from "../db";
 import { AuthContext, membership } from "../auth/service";
 import { assert, textInput, uuidInput } from "../auth/security";
+import { requireWorkspaceWrites } from "./familyAccess";
 import {
   TREASURY_ADDRESS,
   TREASURY_CHAIN_ID,
@@ -61,6 +62,7 @@ export async function createTreasuryJar(
 ) {
   return db.transaction(async (tx) => {
     await access(auth, workspaceId, true, tx);
+    await requireWorkspaceWrites(tx, workspaceId);
     const [jar] = await tx
       .insert(jars)
       .values({
@@ -126,6 +128,8 @@ export async function createTreasuryTransfer(
         ),
       );
     assert(jar, 404, "Không tìm thấy hũ trong không gian này.");
+    assert(!jar.isArchived, 409, "Hũ đã lưu trữ, không nhận giao dịch mới.");
+    await requireWorkspaceWrites(tx, workspaceId, body.kind !== "DEPOSIT");
     const [policy] = await tx
       .select()
       .from(policies)

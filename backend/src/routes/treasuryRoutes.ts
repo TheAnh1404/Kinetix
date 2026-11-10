@@ -1,5 +1,10 @@
 import { Router } from "express";
 import { endpoint } from "./authRoutes";
+import { db, treasuryTransfers } from "../db";
+import { eq } from "drizzle-orm";
+import { membership } from "../auth/service";
+import { assert, uuidInput } from "../auth/security";
+import { requireWorkspaceWrites } from "../services/familyAccess";
 import {
   createTreasuryJar,
   createTreasuryTransfer,
@@ -8,6 +13,13 @@ import {
 } from "../services/treasuryService";
 
 export const treasuryRouter = Router();
+treasuryRouter.post("/treasury/transfers/:id/preflight", endpoint(async (req, res) => {
+  const [transfer] = await db.select().from(treasuryTransfers).where(eq(treasuryTransfers.id, uuidInput(req.params.id)));
+  assert(transfer, 404, "Không tìm thấy giao dịch.");
+  await membership(db, req.auth!, transfer.workspaceId);
+  await requireWorkspaceWrites(db, transfer.workspaceId, transfer.kind !== "DEPOSIT");
+  res.json({ success: true });
+}));
 treasuryRouter.get(
   "/workspaces/:id/treasury",
   endpoint(async (req, res) =>

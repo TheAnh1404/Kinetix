@@ -223,7 +223,7 @@ export async function firstUseVaultCandidates(
   requireFull(auth);
   const { ws, member } = await workspace(auth, uuidInput(workspaceId));
   assert(
-    ["ADMIN", "GUARDIAN"].includes(member.role),
+    member.role === "ADMIN",
     403,
     "Chỉ người bảo hộ được chuẩn bị hũ.",
   );

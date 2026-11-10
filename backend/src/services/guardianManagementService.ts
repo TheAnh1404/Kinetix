@@ -1,6 +1,7 @@
 import { db } from "../db";
 import {
   users,
+  workspaces,
   workspaceMembers,
   userCredentials,
   guardianMemberLinks,
@@ -88,10 +89,8 @@ export class GuardianManagementService {
       "WORKSPACE_ACCESS_DISABLED"
     );
 
-    const hasPermission =
-      membership.canManageMembers ||
-      membership.role === "ADMIN" ||
-      membership.role === "GUARDIAN";
+    const [workspace] = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId));
+    const hasPermission = membership.role === "ADMIN" && workspace?.creatorUserId === actorId;
 
     assert(
       hasPermission,

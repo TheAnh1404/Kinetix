@@ -27,6 +27,7 @@ import { vaultCreationRouter } from "./routes/vaultCreationRoutes";
 import { treasuryRouter } from "./routes/treasuryRoutes";
 import { treasuryWorkflowRouter } from "./routes/treasuryWorkflowRoutes";
 import { pool } from "./db";
+import { familyAdminRouter } from "./routes/familyAdminRoutes";
 import * as dotenv from "dotenv";
 
 dotenv.config();
@@ -51,7 +52,7 @@ app.get("/api/ready", async (_req, res) => {
 });
 app.use("/api/auth", authRouter);
 app.use("/api/settings", authenticated, fullSession, settingsRouter);
-app.use("/api", authenticated, fullSession, treasuryWorkflowRouter, treasuryRouter, vaultCreationRouter, firstUseRouter, operationRouter, memberRouter, apiRouter);
+app.use("/api", authenticated, fullSession, familyAdminRouter, treasuryWorkflowRouter, treasuryRouter, vaultCreationRouter, firstUseRouter, operationRouter, memberRouter, apiRouter);
 app.get("/health", (_req, res) =>
   res.json({ status: "ok", service: "Kinetix API" }),
 );

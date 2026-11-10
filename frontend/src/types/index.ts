@@ -25,6 +25,10 @@ export interface FamilyMember {
 export type Member = FamilyMember;
 
 export interface WorkspaceItem {
+  creatorUserId?: string | null;
+  isOwner?: boolean;
+  canAdminister?: boolean;
+  canManageMembers?: boolean;
   id: string;
   name: string;
   type: "FAMILY" | "SIBLINGS" | "FRIENDS" | "COMMUNITY";

@@ -7,6 +7,7 @@ import {
   ReactNode,
 } from "react";
 import { useFamily } from "./FamilyContext";
+import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import { CreateVaultModal } from "@/components/vaults/CreateVaultModal";
 import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
 import { CreateChoreModal } from "@/components/dashboard/CreateChoreModal";
@@ -17,6 +18,7 @@ const Context = createContext<{ open: (onClose?: () => void) => void } | null>(
 );
 export function VaultCreationProvider({ children }: { children: ReactNode }) {
   const family = useFamily();
+  const { isOwner } = useWorkspaceAccess();
   const [flow, setFlow] = useState<{
     workspaceId: string;
     after?: () => void;
@@ -42,7 +44,7 @@ export function VaultCreationProvider({ children }: { children: ReactNode }) {
     <Context.Provider
       value={{
         open: (after) => {
-          if (family.currentWorkspace) {
+          if (isOwner && family.currentWorkspace) {
             setFollowup(null);
             setFlow({ workspaceId: family.currentWorkspace.id, after });
           }

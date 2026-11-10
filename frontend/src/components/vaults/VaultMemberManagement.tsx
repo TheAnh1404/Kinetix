@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import type { DynamicVaultItem } from "@/types";
 import { useAuth, authRequest } from "@/hooks/useAuth";
 import { useFamily } from "@/context/FamilyContext";
@@ -49,7 +50,7 @@ export function VaultMemberManagement({
   const [error, setError] = useState("");
 
   const permission = auth.workspaces.find((item) => item.id === family.currentWorkspace?.id);
-  const canManageMembers = permission?.role === "ADMIN" || permission?.canManageMembers === true;
+  const { isOwner: canManageMembers } = useWorkspaceAccess();
   const eligible = useMemo(() => candidates.filter((person) => !person.inVault), [candidates]);
   const allowlisted = useMemo(() => eligible.filter((person) => person.walletAddress && person.allowlisted), [eligible]);
   const selectedCandidate = allowlisted.find((person) => person.id === candidateId);

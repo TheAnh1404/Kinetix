@@ -472,7 +472,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       );
       if (
         latest &&
-        (latest.role !== currentWorkspace.role ||
+        (latest.creatorUserId !== currentWorkspace.creatorUserId || latest.role !== currentWorkspace.role ||
           latest.l1HubAddress !== currentWorkspace.l1HubAddress)
       )
         setCurrentWorkspace(latest);
@@ -531,8 +531,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     try {
       const data = await authRequest("/api/workspaces", { name, type });
       await auth.checkSession();
-      setWorkspaces((previous) => [...previous, data.workspace]);
-      setCurrentWorkspace(data.workspace);
+      const owned = { ...data.workspace, role: "ADMIN", userRole: "ADMIN", isOwner: true, canAdminister: true, canManageMembers: true } as WorkspaceItem;
+      setWorkspaces((previous) => [...previous, owned]);
+      setCurrentWorkspace(owned);
       activeWorkspaceRef.current = data.workspace.id;
       setTransactionWorkspace(data.workspace.id);
       document.cookie = `kinetix_workspace=${auth.user!.id}.${data.workspace.id}; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;

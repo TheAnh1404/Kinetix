@@ -13,10 +13,12 @@ import { StartReminder } from "@/components/auth/StartReminder";
 import { MemberResponsiveShell } from "@/components/layout/MemberResponsiveShell";
 import { ElderlyPortal } from "@/components/member/ElderlyPortal";
 import { KidsPortal } from "@/components/member/KidsPortal";
+import { VaultExperience } from "@/components/vaults/VaultExperience";
+import { isWorkspaceOwner } from "../../../../shared/workspacePermissions";
 import { memberHome } from "@/lib/member";
 
 const tabRoutes: Record<string, string> = {
-  "quan-tri-cha-me": "/dashboard/guardian",
+  "quan-tri-cha-me": "/dashboard/admin",
   "kinetix-shield": "/dashboard/elderly",
   "kinetix-kids": "/dashboard/kids",
   "quy-rosca": "/dashboard/rosca",
@@ -31,7 +33,7 @@ function DashboardContent() {
     (item) => item.id === family.currentWorkspace?.id,
   );
   const role = membership?.role as RoleType | undefined;
-  const admin = role === "ADMIN" || role === "GUARDIAN";
+  const admin = isWorkspaceOwner(auth.user?.id, membership);
   const group = pathname.split("/")[2];
   const previousWorkspace = useRef(family.currentWorkspace?.id);
   useEffect(() => {
@@ -58,7 +60,7 @@ function DashboardContent() {
     previousWorkspace.current = family.currentWorkspace?.id;
     if (
       switched ||
-      (!admin && group !== "rosca" && group !== (role === "ELDERLY" ? "elderly" : "kids"))
+      (!admin && !["member", "elderly", "kids", "rosca"].includes(group))
     ) {
       router.replace(memberHome(role));
       return;
@@ -74,10 +76,10 @@ function DashboardContent() {
       chores: "kids/chores",
       chore: "kids/chores",
       hui: "rosca",
-      admin: "guardian",
+      guardian: admin ? "admin" : "member",
     };
     if (aliases[group]) router.replace(`/dashboard/${aliases[group]}`);
-    else if (!["elderly", "kids", "guardian", "rosca"].includes(group))
+    else if (!["elderly", "kids", "admin", "member", "rosca"].includes(group))
       router.replace(memberHome(role));
   }, [
     auth.isLoading,
@@ -126,7 +128,7 @@ function DashboardContent() {
     );
   // Membership của workspace quyết định quyền, không dùng vai trò toàn cục hoặc nút preview.
   if (membership?.startRequired) return <Loading />;
-  if (!group || (!admin && group !== "rosca" && group !== (role === "ELDERLY" ? "elderly" : "kids")))
+  if (!group || (!admin && !["member", "elderly", "kids", "rosca"].includes(group)))
     return <Loading />;
   const notices = (
     <>
@@ -152,7 +154,7 @@ function DashboardContent() {
     </>
   );
   const memberView =
-    group === "rosca" ? <RoscaView /> : group === "elderly" ? (
+    group === "member" ? <VaultExperience kind="SHIELD" legacy={null} /> : group === "rosca" ? <RoscaView /> : group === "elderly" ? (
       <ElderlyPortal preview={admin} />
     ) : (
       <KidsPortal preview={admin} />
@@ -178,7 +180,7 @@ function DashboardContent() {
     <AppShell
       activeTab={activeTab}
       onTabChange={(tab) =>
-        router.push(tabRoutes[tab] || "/dashboard/guardian")
+        router.push(tabRoutes[tab] || "/dashboard/admin")
       }
     >
       {notices}

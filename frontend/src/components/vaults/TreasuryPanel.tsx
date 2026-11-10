@@ -122,6 +122,7 @@ export function TreasuryPanel() {
       return;
     }
     const provider = getCoreProvider();
+    if (!cancel) await api(`treasury/transfers/${transfer.id}/preflight`, {});
     if (!provider) throw new Error("Mở và kết nối Core Wallet để ký.");
     const accounts = await provider.request({ method: "eth_requestAccounts" });
     if (accounts[0]?.toLowerCase() !== transaction.from.toLowerCase())

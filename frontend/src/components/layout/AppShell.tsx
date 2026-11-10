@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFamily } from "@/context/FamilyContext";
@@ -79,7 +80,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   const userRole =
     currentWorkspace?.role || currentWorkspace?.userRole || "CHILD";
-  const isAdmin = userRole === "ADMIN" || userRole === "GUARDIAN";
+  const { isOwner: isAdmin } = useWorkspaceAccess();
   const sidebarAvatar = user?.avatarUrl || currentMember?.avatar;
   const sidebarInitial = (user?.fullName || currentMember?.name || "K")
     .trim()

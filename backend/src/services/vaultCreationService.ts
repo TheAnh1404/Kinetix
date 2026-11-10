@@ -47,7 +47,7 @@ async function actor(auth: AuthContext, workspaceId: string) {
   requireFull(auth);
   const value = await workspace(auth, uuidInput(workspaceId));
   assert(
-    ["ADMIN", "GUARDIAN"].includes(value.member.role),
+    value.member.role === "ADMIN",
     403,
     "Chỉ người bảo hộ được tạo hũ.",
   );
@@ -264,7 +264,7 @@ export async function saveCreationDraft(
   return db.transaction(async (tx) => {
     const member = await membership(tx, auth, workspaceId);
     assert(
-      ["ADMIN", "GUARDIAN"].includes(member.role),
+      member.role === "ADMIN",
       403,
       "Quyền tạo hũ đã thay đổi.",
     );
@@ -442,7 +442,7 @@ export async function preflightCreation(
   return db.transaction(async (tx) => {
     const member = await membership(tx, auth, ws.id);
     assert(
-      ["ADMIN", "GUARDIAN"].includes(member.role),
+      member.role === "ADMIN",
       403,
       "Quyền tạo hũ đã thay đổi.",
     );
@@ -519,7 +519,7 @@ export async function claimCreation(
   return db.transaction(async (tx) => {
     const member = await membership(tx, auth, workspaceId);
     assert(
-      ["ADMIN", "GUARDIAN"].includes(member.role),
+      member.role === "ADMIN",
       403,
       "Quyền tạo hũ đã thay đổi.",
     );
