@@ -24,6 +24,7 @@ import { settingsRouter } from "./routes/settingsRoutes";
 import { firstUseRouter } from "./routes/firstUseRoutes";
 import { START_FLOW_VERSION } from "../../shared/startFlow";
 import { vaultCreationRouter } from "./routes/vaultCreationRoutes";
+import { treasuryRouter } from "./routes/treasuryRoutes";
 import * as dotenv from "dotenv";
 
 dotenv.config();
@@ -44,7 +45,7 @@ app.get("/api/health", (_req, res) =>
 );
 app.use("/api/auth", authRouter);
 app.use("/api/settings", authenticated, fullSession, settingsRouter);
-app.use("/api", authenticated, fullSession, vaultCreationRouter, firstUseRouter, operationRouter, memberRouter, apiRouter);
+app.use("/api", authenticated, fullSession, treasuryRouter, vaultCreationRouter, firstUseRouter, operationRouter, memberRouter, apiRouter);
 app.get("/health", (_req, res) =>
   res.json({ status: "ok", service: "Kinetix API" }),
 );

@@ -155,4 +155,16 @@ async function startWhenReady() {
   await attempt();
 }
 
+// Treasury receipts do not depend on a deployed FamilyHub.
+import { reconcileTreasury } from "../services/treasuryService";
+let treasuryRunning = false;
+const treasuryTick = async () => {
+  if (treasuryRunning) return;
+  treasuryRunning = true;
+  try { await reconcileTreasury(); }
+  catch { console.error("Treasury reconciliation unavailable; retrying next poll."); }
+  finally { treasuryRunning = false; }
+};
+void treasuryTick();
+setInterval(() => void treasuryTick(), 15000);
 void startWhenReady();

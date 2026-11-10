@@ -470,6 +470,49 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
 
 // Backward compatibility alias for families
 export const families = workspaces;
+export const treasuryAttempts = pgTable("treasury_attempts", {
+  txHash: varchar("tx_hash", { length: 66 }).primaryKey(),
+  transferId: uuid("transfer_id").references(() => treasuryTransfers.id).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+// Custodial Fuji jars are deliberately separate from contract-backed vault projections.
+export const treasuryJars = pgTable("treasury_jars", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id).notNull(),
+  name: text("name").notNull(),
+  balanceWei: decimal("balance_wei", { precision: 78, scale: 0 }).default("0").notNull(),
+  reservedWei: decimal("reserved_wei", { precision: 78, scale: 0 }).default("0").notNull(),
+  createdBy: uuid("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+export const treasuryTransfers = pgTable("treasury_transfers", {
+  id: uuid("id").primaryKey(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id).notNull(),
+  jarId: uuid("jar_id").references(() => treasuryJars.id).notNull(),
+  destinationJarId: uuid("destination_jar_id").references(() => treasuryJars.id),
+  kind: varchar("kind", { length: 16 }).notNull(),
+  amountWei: decimal("amount_wei", { precision: 78, scale: 0 }).notNull(),
+  sender: varchar("sender", { length: 42 }).notNull(),
+  recipient: varchar("recipient", { length: 42 }).notNull(),
+  nonce: bigint("nonce", { mode: "bigint" }),
+  chainId: integer("chain_id").default(43113).notNull(),
+  txHash: varchar("tx_hash", { length: 66 }),
+  status: varchar("status", { length: 16 }).default("READY").notNull(),
+  blockNumber: bigint("block_number", { mode: "bigint" }),
+  blockHash: varchar("block_hash", { length: 66 }),
+  createdBy: uuid("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  transactionUnique: uniqueIndex("treasury_tx_unique").on(table.chainId, table.txHash),
+  nonceUnique: uniqueIndex("treasury_nonce_unique").on(table.chainId, table.sender, table.nonce),
+}));
+export const treasuryEntries = pgTable("treasury_entries", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  transferId: uuid("transfer_id").references(() => treasuryTransfers.id).notNull(),
+  jarId: uuid("jar_id").references(() => treasuryJars.id).notNull(),
+  deltaWei: decimal("delta_wei", { precision: 78, scale: 0 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({ entryUnique: uniqueIndex("treasury_entry_unique").on(table.transferId, table.jarId) }));
 export const familiesRelations = workspacesRelations;
 
 // =================================================================

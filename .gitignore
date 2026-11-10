@@ -19,6 +19,7 @@ build/
 .next/
 .next-dev/
 .next-t1-check/
+.next-treasury-check/
 .next-auth/
 out/
 

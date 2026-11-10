@@ -35,7 +35,8 @@
     ".next/types/**/*.ts",
     ".next-dev/types/**/*.ts",
     ".next-auth/types/**/*.ts",
-    ".next-t1-check/types/**/*.ts"
+    ".next-t1-check/types/**/*.ts",
+    ".next-treasury-check/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

@@ -20,6 +20,7 @@ import { CoreDeploymentConsole } from "@/components/dashboard/CoreDeploymentCons
 import { ProvisioningPanel } from "@/components/dashboard/ProvisioningPanel";
 import { requestStatus } from "@/lib/member";
 import { DEPLOYMENT } from "@/contracts/config";
+import { TreasuryPanel } from "@/components/vaults/TreasuryPanel";
 
 export const GuardianView: React.FC = () => {
   const {
@@ -98,6 +99,7 @@ export const GuardianView: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto">
+      <TreasuryPanel />
       {/* 1. THÔNG BÁO FEEDBACK NỔI BẬT */}
       {feedback && (
         <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 flex items-start justify-between gap-3 shadow-sm animate-in fade-in">
