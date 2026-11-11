@@ -1,3 +1,5 @@
+> **Historical engineering note.** See [current project status](docs/STATUS.md) for supported behavior and deployment evidence.
+
 # Rà soát contract và kế hoạch sẵn sàng testnet
 
 Ngày kiểm tra: 04/11/2026. Phạm vi: mã hiện tại trong working tree, RPC cấu hình,

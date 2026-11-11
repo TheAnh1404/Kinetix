@@ -1,3 +1,5 @@
+> **Historical engineering note.** This document may describe superseded plans or validation results. See the [current project status](STATUS.md) for supported behavior and deployment evidence.
+
 # Hũ tiền với ví Core chung trên Fuji
 
 Ví giữ tiền: `0xD1e826De79445C0F7BDB112A98E4114e0F603edD`.

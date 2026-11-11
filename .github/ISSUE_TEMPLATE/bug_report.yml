@@ -1,0 +1,23 @@
+name: Bug report
+description: Report a reproducible, non-sensitive defect.
+body:
+  - type: markdown
+    attributes:
+      value: "For vulnerabilities, follow SECURITY.md and report privately. Never include credentials, personal data, private keys, or real database URLs."
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce with local or testnet data
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Revision and environment
+      description: Include commit, Node version, browser, and network name. Redact sensitive logs.

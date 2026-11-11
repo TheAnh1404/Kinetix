@@ -1,3 +1,5 @@
+> **Historical engineering note.** This document may describe superseded plans or validation results. See the [current project status](STATUS.md) for supported behavior and deployment evidence.
+
 # Kế hoạch thiết kế lại ba giao diện hũ Kinetix
 
 Ngày: 11/11/2026. Trạng thái: đề xuất thiết kế và triển khai, chưa thay đổi giao diện hay nghiệp vụ.

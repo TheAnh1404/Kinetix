@@ -1,3 +1,5 @@
+> **Historical engineering note.** This document may describe superseded plans or validation results. See the [current project status](STATUS.md) for supported behavior and deployment evidence.
+
 # Kinetix — Báo cáo rà soát kiến trúc, bảo mật và mức độ hoàn thiện
 
 Ngày: 04/11/2026. Mốc mã nguồn: `d6fbe4c` và working tree tại thời điểm rà soát.

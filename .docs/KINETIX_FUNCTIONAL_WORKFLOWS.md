@@ -1,3 +1,5 @@
+> **Historical engineering note.** This document may describe superseded plans or validation results. See the [current project status](../docs/STATUS.md) for supported behavior and deployment evidence.
+
 # Kinetix — Workflow chức năng chính
 
 Ngày đối chiếu: 05/11/2026. Phạm vi: working tree hiện tại, gồm nâng cấp T1 chưa deploy.

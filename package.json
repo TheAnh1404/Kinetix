@@ -1,8 +1,10 @@
 {
   "name": "kinetix",
   "version": "1.0.0",
-  "description": "The Multi-Generational Family Finance OS on Avalanche",
+  "description": "Shared finance for families and communities on Avalanche",
   "scripts": {
+    "docs:check": "node scripts/check-public-docs.cjs",
+    "export:abis": "node -r ts-node/register/transpile-only scripts/export-abis.ts",
     "dev": "npm run dev:all",
     "dev:all": "concurrently -k -n \"FRONTEND,BACKEND,WORKER\" -c \"cyan.bold,green.bold,yellow.bold\" \"npm run dev:frontend\" \"npm run dev:server\" \"npm run dev:worker\"",
     "dev:frontend": "npm --prefix frontend run dev",
@@ -37,6 +39,12 @@
   },
   "keywords": [
     "avalanche",
+    "family-finance",
+    "nextjs",
+    "typescript",
+    "defi",
+    "vietnam",
+    "testnet",
     "hackathon",
     "teleporter",
     "multisig",

@@ -1,3 +1,5 @@
+> **Historical engineering note.** This document may describe superseded plans or validation results. See the [current project status](STATUS.md) for supported behavior and deployment evidence.
+
 # Rà soát chức năng và giao diện — 2026-11-11
 
 Đối chiếu App Router, components, hooks, các router Express và hai thế hệ hợp đồng. Phạm vi triển khai giao diện trong đợt này là các nghiệp vụ đã có API xác thực/đối soát; không triển khai hợp đồng hoặc thay đổi dữ liệu tài chính thật.

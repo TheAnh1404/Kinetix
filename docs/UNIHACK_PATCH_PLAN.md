@@ -1,3 +1,5 @@
+> **Historical engineering note.** This document may describe superseded plans or validation results. See the [current project status](STATUS.md) for supported behavior and deployment evidence.
+
 # Kế hoạch vá readiness UniHack
 
 1. Khôi phục receiver Teleporter với xác thực messenger, cấu hình, blockchain ID và Hub; giữ kiểm tra vốn thực nhận, reserve và thanh khoản trước chi. Kiểm thử lỗi và rollback trước khi sửa UI.

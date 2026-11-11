@@ -1,3 +1,5 @@
+> **Historical engineering note.** This document may describe superseded plans or validation results. See the [current project status](STATUS.md) for supported behavior and deployment evidence.
+
 # Phương án thiết kế lại smart contract cho các Hũ Kinetix
 
 Ngày: 09/11/2026  

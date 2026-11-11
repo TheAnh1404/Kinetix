@@ -1,3 +1,5 @@
+> **Historical engineering note.** This document may describe superseded plans or validation results. See the [current project status](../docs/STATUS.md) for supported behavior and deployment evidence.
+
 # Bàn giao nâng cấp T1 Fuji — 05/11/2026
 
 ## Trạng thái thực tế

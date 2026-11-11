@@ -1,3 +1,5 @@
+> **Historical engineering note.** This document may describe superseded plans or validation results. See the [current project status](STATUS.md) for supported behavior and deployment evidence.
+
 # AUTH implementation and cutover runbook
 
 Updated: 2026-11-05. Runbook for the implemented authentication and first-use flows.
