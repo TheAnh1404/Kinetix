@@ -15,6 +15,7 @@
     "sol:lint": "solhint \"contracts/**/*.sol\"",
     "deploy:fuji": "hardhat run scripts/deploy.ts --network fuji",
     "deploy:familyL1": "hardhat run scripts/deploy.ts --network familyL1",
+    "wire:teleporter": "node -r ts-node/register scripts/wire-teleporter.ts",
     "deploy:vault:fuji": "hardhat run scripts/deploy-vault-v1.ts --network fuji",
     "deploy:vault:local": "hardhat run scripts/deploy-vault-v1.ts --network localhost",
     "db:generate": "drizzle-kit generate --config=backend/drizzle.config.ts",
