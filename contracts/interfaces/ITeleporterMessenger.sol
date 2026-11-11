@@ -31,7 +31,7 @@ struct TeleporterMessageInput {
 
 /**
  * @title ITeleporterMessenger
- * @notice Interface chuẩn của giao thức Avalanche Teleporter dùng để truyền thông điệp liên chuỗi (ICM/ICTT)
+ * @notice Minimal Avalanche Teleporter messaging interface (ICM); this does not transfer tokens.
  */
 interface ITeleporterMessenger {
     /**

@@ -26,7 +26,8 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
     // CONSTANTS & IMMUTABLES
     // -------------------------------------------------------------
 
-    /// @notice Lãi suất cố định 8% APY
+    /// @notice Demo-only 8% simple annual accrual rate, paid from an operator-funded reserve.
+    /// @dev Kept as APY_RATE for ABI compatibility; this is not a compounded APY or DeFi return.
     uint256 public constant APY_RATE = 8;
 
     /// @notice Số giây trong một năm (365 ngày)
@@ -58,7 +59,7 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
     bytes32 public familyL1BlockchainId;
     address public familyHubAddress;
 
-    /// @notice Quỹ dự trữ bảo chứng thanh khoản chi trả lãi suất 8% APY
+    /// @notice Operator-funded reserve available for simulated interest payouts.
     uint256 public yieldReservePool;
     uint256 public totalPrincipal;
     mapping(uint256 => uint256) public yieldRemainder;
@@ -149,7 +150,7 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
 
     /**
      * @notice Nạp tiền bảo chứng vào Quỹ dự trữ chi trả lãi suất (Yield Reserve Pool)
-     * Đảm bảo nguồn tiền trả lãi 8% APY được bảo chứng độc lập, không lạm vào vốn gốc của gia đình khác
+     * @dev Reserve funding does not guarantee all nominal future accrual can be redeemed.
      */
     function depositYieldReserve() public payable nonReentrant whenNotPaused {
         if (msg.value == 0) revert ZeroAmount();
@@ -175,7 +176,7 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
     /**
      * @notice Tính toán phần lãi phát sinh từ mốc nạp cuối đến thời điểm block.timestamp hiện tại
      * Công thức: (principal * APY_RATE * timeElapsed) / (100 * 365 days)
-     * TUYỆT ĐỐI dựa trên thời gian thực của mạng Avalanche, không dùng hàm hack/time-travel.
+     * @dev Timestamp-based demo accrual does not generate assets or guarantee a payout.
      * @param vaultId Mã định danh Hũ tiền
      */
     function calculateAccruedYield(uint256 vaultId) public view returns (uint256) {

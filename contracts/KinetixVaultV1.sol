@@ -287,6 +287,8 @@ contract KinetixVaultV1 is IKinetixVault, ReentrancyGuard, Pausable {
         address payable recipient,
         bytes32 memoHash
     ) external override returns (uint256 requestId) {
+        if (ruleTemplate != RuleTemplate.SHIELD && ruleTemplate != RuleTemplate.SHARED_GOAL)
+            revert InvalidTemplate();
         if (!isGuardian[msg.sender] && !isBeneficiary[msg.sender]) revert Unauthorized();
         if (recipient == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
@@ -307,7 +309,7 @@ contract KinetixVaultV1 is IKinetixVault, ReentrancyGuard, Pausable {
         req.memoHash = memoHash;
 
         // Nếu người tạo là Guardian, tự động ghi nhận phiếu duyệt đầu tiên
-        if (isGuardian[msg.sender]) {
+        if (isGuardian[msg.sender] && msg.sender != recipient) {
             req.approvalsCount = 1;
             hasApprovedWithdrawal[requestId][msg.sender] = true;
             emit WithdrawalApproved(requestId, msg.sender, 1, requiredApprovals);
@@ -331,6 +333,7 @@ contract KinetixVaultV1 is IKinetixVault, ReentrancyGuard, Pausable {
         if (req.status != RequestStatus.PENDING) revert InvalidState();
         if (block.timestamp > req.deadline) revert RequestExpired();
         if (req.epoch != membershipEpoch) revert InvalidState();
+        if (msg.sender == req.recipient) revert Unauthorized();
         if (hasApprovedWithdrawal[requestId][msg.sender]) revert AlreadyApproved();
 
         hasApprovedWithdrawal[requestId][msg.sender] = true;
@@ -362,6 +365,8 @@ contract KinetixVaultV1 is IKinetixVault, ReentrancyGuard, Pausable {
 
         uint256 amount = req.amount;
         address payable recipient = req.recipient;
+
+        if (ruleTemplate == RuleTemplate.SHARED_GOAL) _checkGoalWithdrawal();
 
         if (accountedVaultBalance < amount || reservedBalance < amount) revert InsufficientFunds();
 
@@ -555,13 +560,9 @@ contract KinetixVaultV1 is IKinetixVault, ReentrancyGuard, Pausable {
             revert RequestNotApproved();
         }
         if (req.epoch != membershipEpoch) revert InvalidState();
+        if (block.timestamp > req.deadline) revert RequestExpired();
 
-        // Kiểm tra điều kiện: Cán đích mục tiêu HOẶC đã quá hạn thời gian
-        bool goalAchieved = (accountedVaultBalance + req.amount >= targetGoalAmount);
-        bool deadlinePassed = (targetDeadline > 0 && block.timestamp >= targetDeadline);
-        if (!goalAchieved && !deadlinePassed) {
-            revert GoalNotReached(accountedVaultBalance + req.amount, targetGoalAmount);
-        }
+        _checkGoalWithdrawal();
 
         uint256 amount = req.amount;
         address payable recipient = req.recipient;
@@ -574,6 +575,14 @@ contract KinetixVaultV1 is IKinetixVault, ReentrancyGuard, Pausable {
         if (!success) revert TransferFailed();
 
         emit WithdrawalExecuted(requestId, recipient, amount, accountedVaultBalance);
+    }
+
+    /// @dev Reservations remain part of accountedVaultBalance; do not count them twice.
+    function _checkGoalWithdrawal() internal view {
+        if (
+            accountedVaultBalance < targetGoalAmount &&
+            (targetDeadline == 0 || block.timestamp < targetDeadline)
+        ) revert GoalNotReached(accountedVaultBalance, targetGoalAmount);
     }
 
     // -------------------------------------------------------------
@@ -589,6 +598,10 @@ contract KinetixVaultV1 is IKinetixVault, ReentrancyGuard, Pausable {
         bytes32 transferId
     ) external override nonReentrant whenNotPaused {
         if (!isGuardian[msg.sender]) revert NotGuardian();
+        // Multi-approval transfers remain disabled until a quorum-backed workflow is implemented.
+        // ROSCA, task rewards and shared goals cannot be bypassed through a direct transfer.
+        if (ruleTemplate != RuleTemplate.SHIELD) revert InvalidTemplate();
+        if (requiredApprovals > 1) revert QuorumNotMet(1, requiredApprovals);
         if (destinationVault == address(0) || destinationVault == address(this))
             revert InvalidTargetVault();
         if (!IKinetixVaultFactory(factory).isVault(destinationVault)) revert InvalidTargetVault();
@@ -617,6 +630,7 @@ contract KinetixVaultV1 is IKinetixVault, ReentrancyGuard, Pausable {
     }
 
     function addGuardian(address guardian) external onlyGuardian {
+        if (requiredApprovals > 1) revert QuorumNotMet(1, requiredApprovals);
         if (guardian == address(0)) revert ZeroAddress();
         if (isGuardian[guardian]) revert DuplicateMember();
 
@@ -629,6 +643,7 @@ contract KinetixVaultV1 is IKinetixVault, ReentrancyGuard, Pausable {
     }
 
     function removeGuardian(address guardian) external onlyGuardian {
+        if (requiredApprovals > 1) revert QuorumNotMet(1, requiredApprovals);
         if (!isGuardian[guardian]) revert Unauthorized();
         if (_guardians.length <= requiredApprovals) {
             revert QuorumNotMet(_guardians.length - 1, requiredApprovals);
@@ -649,16 +664,20 @@ contract KinetixVaultV1 is IKinetixVault, ReentrancyGuard, Pausable {
     }
 
     function addBeneficiary(address beneficiary) external onlyGuardian {
+        if (requiredApprovals > 1) revert QuorumNotMet(1, requiredApprovals);
         if (beneficiary == address(0)) revert ZeroAddress();
         if (isBeneficiary[beneficiary]) revert DuplicateMember();
 
         isBeneficiary[beneficiary] = true;
         _beneficiaries.push(beneficiary);
+        membershipEpoch++;
+        emit MembershipEpochChanged(membershipEpoch);
 
         emit MemberAdded(beneficiary, false, membershipEpoch);
     }
 
     function removeBeneficiary(address beneficiary) external onlyGuardian {
+        if (requiredApprovals > 1) revert QuorumNotMet(1, requiredApprovals);
         if (!isBeneficiary[beneficiary]) revert Unauthorized();
 
         isBeneficiary[beneficiary] = false;
@@ -669,6 +688,9 @@ contract KinetixVaultV1 is IKinetixVault, ReentrancyGuard, Pausable {
                 break;
             }
         }
+
+        membershipEpoch++;
+        emit MembershipEpochChanged(membershipEpoch);
 
         emit MemberRemoved(beneficiary, false, membershipEpoch);
     }

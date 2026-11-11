@@ -78,6 +78,9 @@ const config: HardhatUserConfig = {
     cache: "./cache",
     artifacts: "./artifacts",
   },
+  mocha: {
+    forbidPending: process.env.FORBID_PENDING_TESTS === "true",
+  },
 };
 
 export default config;

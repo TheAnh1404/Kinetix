@@ -266,6 +266,11 @@ export const FAMILY_HUB_ABI = [
   },
   {
     "inputs": [],
+    "name": "SelfApproval",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "StaleAuthorization",
     "type": "error"
   },

@@ -127,6 +127,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     error RequestAlreadyExecuted();
     error RequestExpired();
     error AlreadyApproved();
+    error SelfApproval();
     error TaskNotFound();
     error TaskNotCompleted();
     error TaskAlreadyRewarded();
@@ -860,6 +861,8 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
             revert NotVaultGuardian();
         }
 
+        if (_msgSender() == req.requester || _msgSender() == req.recipient) revert SelfApproval();
+
         if (hasApprovedRequest[requestId][_msgSender()]) revert AlreadyApproved();
 
         hasApprovedRequest[requestId][_msgSender()] = true;
@@ -921,6 +924,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
             address signer = _recoverSigner(digest, signatures[i]);
             if (signer == address(0)) continue;
             if (!isVaultGuardian[vaultId][signer] || !isAllowlisted[signer]) continue;
+            if (signer == req.requester || signer == req.recipient) continue;
             if (!hasApprovedRequest[requestId][signer]) {
                 hasApprovedRequest[requestId][signer] = true;
                 req.approvalsCount++;
