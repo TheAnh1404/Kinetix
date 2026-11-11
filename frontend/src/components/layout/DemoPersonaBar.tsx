@@ -219,7 +219,7 @@ export function DemoPersonaBar({ onExit }: { onExit?: () => void }) {
                   onChange={(event) => setRatio(Number(event.target.value))}
                 />
                 <p>
-                  Mặc định 10% đệm / 90% Fuji · 8% APY chi từ reserve độc lập.
+                  Mô phỏng 10% đệm / 90% Fuji · Lãi giả định từ reserve, không phải lợi suất DeFi.
                 </p>
                 <button type="submit">+ Tạo Hũ mới trong demo</button>
               </form>

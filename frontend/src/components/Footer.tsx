@@ -34,7 +34,7 @@ export const Footer: React.FC = () => {
               {t("brand.name")}
             </span>
             <span className="px-2 py-0.5 rounded-full font-label-caps text-[10px] bg-surface-container-high text-on-surface font-semibold border border-outline-variant/20">
-              Avalanche L1 • Fuji C-Chain
+              Avalanche Fuji · Testnet
             </span>
           </div>
           <p className="text-xs sm:text-sm text-on-surface-variant max-w-sm">
@@ -81,7 +81,7 @@ export const Footer: React.FC = () => {
           </button>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 font-semibold text-[11px]">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Teleporter ICM Live
+            ICM · Experimental
           </span>
         </div>
 

@@ -61,7 +61,7 @@ export const FamilyStatsCards: React.FC = () => {
         <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Đệm Rút Nhanh L1 (0 Gas)
+              Số Dư Khả Dụng Trên Hub
             </span>
             <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
               <span className="material-symbols-outlined text-[18px]">bolt</span>
@@ -87,7 +87,7 @@ export const FamilyStatsCards: React.FC = () => {
         <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Tích Lũy Lợi Nhuận Fuji
+              Lợi Suất T1 Chưa Bật
             </span>
             <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
               <span className="material-symbols-outlined text-[18px]">trending_up</span>
@@ -101,7 +101,7 @@ export const FamilyStatsCards: React.FC = () => {
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
             <span className="text-slate-500 dark:text-slate-400 font-medium">
-              🌊 Lãi suất ~8% APY Avalanche
+              Không có nguồn lợi suất DeFi tích hợp
             </span>
             <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 font-bold font-mono text-[10px]">
               {yieldPercent}% Quỹ
@@ -137,11 +137,11 @@ export const FamilyStatsCards: React.FC = () => {
           <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              Đệm L1 (Rút ngay 0 gas)
+              Số dư nội bộ đã đối soát
             </span>
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-blue-500" />
-              Fuji C-Chain (Sinh lời 8% APY)
+              Fuji C-Chain · Yield chưa bật
             </span>
           </div>
         </div>

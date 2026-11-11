@@ -915,8 +915,8 @@ export function CreateVaultModal({
                         aria-invalid={!!fields.bufferRatioBps}
                       />
                       <small id="vault-buffer-help">
-                        Khuyến nghị 10% Đệm rút tức thì tại Family L1 / 90% Gửi sinh lời 8% APY trên Fuji C-Chain.
-                        Lãi 8% là mô hình trả từ quỹ dự trữ. Tỷ lệ là chính sách phân bổ; vốn vẫn được giữ tại kho tiền cho tới khi có chuyển tài sản được xác minh.
+                        Tỷ lệ là chính sách thử nghiệm. T1 giữ vốn trên chain Hub; chưa tự chuyển vốn hoặc tạo lợi suất.
+                        Lãi đơn giả định 8%/năm trả từ reserve riêng; chưa bật trong T1.
                       </small>
                       {fields.bufferRatioBps && <small role="alert">{fields.bufferRatioBps}</small>}
                     </label>
@@ -1120,7 +1120,7 @@ export function CreateVaultModal({
                         <dd>
                           AVAX · Avalanche Fuji (43113)
                           <small>
-                            Tài sản chỉ được ghi nhận ở C-Chain sau khi xác minh vốn nhận thực tế. Lãi 8% APY được chi từ reserve độc lập.
+                            Tài sản chỉ được ghi nhận ở C-Chain sau khi xác minh vốn nhận thực tế. Lãi mô phỏng chỉ chi từ reserve độc lập; T1 chưa bật yield.
                           </small>
                         </dd>
                       </div>

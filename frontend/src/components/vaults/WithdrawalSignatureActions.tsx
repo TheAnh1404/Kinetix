@@ -19,6 +19,7 @@ type Request = {
   expired: boolean;
   stale: boolean;
   signed: boolean;
+  selfApproval?: boolean;
 };
 
 export function WithdrawalSignatureActions({
@@ -64,7 +65,7 @@ export function WithdrawalSignatureActions({
       throw new Error("Gia đình hoặc yêu cầu đã thay đổi. Mở lại thao tác.");
   };
   const sign = async () => {
-    if (locked.current || unavailable || !canSign) return;
+    if (locked.current || unavailable || !canSign || request.selfApproval) return;
     locked.current = true;
     setBusy(true);
     setNotice("");
@@ -88,6 +89,7 @@ export function WithdrawalSignatureActions({
         current.executed ||
         current.expired ||
         current.stale ||
+        current.selfApproval ||
         !snapshot.data.capabilities.approveWithdrawal.allowed
       )
         throw new Error(
@@ -219,7 +221,7 @@ export function WithdrawalSignatureActions({
           chữ ký chưa tính là đã duyệt on-chain; đủ chữ ký hợp lệ mới có thể gửi
           khoản chi.
         </p>
-        {canSign && !request.signed && (
+        {canSign && !request.signed && !request.selfApproval && (
           <button
             type="button"
             className="vx-button-secondary"

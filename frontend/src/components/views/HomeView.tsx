@@ -46,7 +46,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
   }, [simulatedDeposit, l1Amount]);
 
   const estYearlyYield = useMemo(() => {
-    // 8% APY cố định trên phần vốn gửi sang C-Chain
+    // Hypothetical simple annual accrual for the reserve-funded simulator.
     return ((cchainAmount * 8) / 100).toFixed(2);
   }, [cchainAmount]);
 
@@ -84,6 +84,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
       {/* SECTION 1: HERO & CORE VALUE PROPOSITION */}
       {/* ========================================================================= */}
       <section id="about" className="relative w-full pt-8 sm:pt-16 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden">
+        <p className="mb-6 text-center text-sm text-slate-600 dark:text-slate-300">
+          {language === "vi"
+            ? "Bản thử nghiệm testnet · Demo dùng dữ liệu mô phỏng · Chưa audit độc lập · Fuji có phí mạng"
+            : "Testnet prototype · Demo activity is simulated · No independent audit · Fuji network fees apply"}
+        </p>
         
         {/* Ambient Glows mờ phía sau */}
         <div className="absolute -top-20 right-1/4 w-80 sm:w-[540px] h-80 sm:h-[540px] bg-red-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
@@ -307,8 +312,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
               />
 
               <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                <span>0% (100% C-Chain sinh lời)</span>
-                <span className="font-bold text-red-600 dark:text-red-400">Khuyến nghị: 10% (Rút nhanh 0 gas)</span>
+                <span>0% (C-Chain giả lập)</span>
+                <span className="font-bold text-red-600 dark:text-red-400">Ví dụ mô phỏng: 10%</span>
                 <span>50% (Đệm tối đa)</span>
               </div>
             </div>
@@ -332,7 +337,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
                     {l1Amount.toFixed(1)} <span className="text-sm font-bold font-sans">AVAX</span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Sẵn sàng giải ngân tức thì <strong>&lt;0.8 giây</strong>, <strong>0 gas fee</strong> cho các chi tiêu an sinh thường nhật của Ông Bà & Con Nhỏ.
+                    Phần đệm giả lập cho chi tiêu. Giao dịch thực cần đủ thanh khoản và xác nhận mạng; Fuji có phí gas.
                   </p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
@@ -357,11 +362,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
                     {cchainAmount.toFixed(1)} <span className="text-sm font-bold font-sans">AVAX</span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Tự động chuyển tiếp qua Avalanche Teleporter để stake vào Vault nhận lợi nhuận thực tế <strong>8.0% APY</strong>.
+                    Mô phỏng lãi đơn <strong>8%/năm</strong> từ reserve của operator. Không có pool DeFi tích hợp; chuyển tài sản và yield chưa bật trong T1.
                   </p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                  <span>Lợi nhuận ước tính:</span>
+                  <span>Lãi giả định từ reserve:</span>
                   <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
                     +{estYearlyYield} AVAX/năm (~{estDailyYield} AVAX/ngày)
                   </span>
@@ -467,7 +472,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
                       onClick={() => alert("Mô phỏng: Ông Bà bấm 1 chạm → Hợp đồng giải ngân tức thì 0.5 AVAX từ đệm L1 về ví trong 0.8 giây, 0 phí gas!")}
                       className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95"
                     >
-                      ⚡ Rút Nhanh 0.5 AVAX (0 Gas)
+                      ⚡ Minh họa rút 0.5 AVAX
                     </button>
                   </div>
                 </div>
@@ -715,11 +720,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
           {/* Sơ đồ 5 bước liên chuỗi tương tác */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3 max-w-6xl mx-auto w-full">
             {[
-              { step: 1, title: "1. Nạp Quỹ L1", desc: "Nạp AVAX vào Hũ trên Family L1 với 0 phí gas." },
-              { step: 2, title: "2. Tách Đệm L1", desc: "Giữ 10% ở đệm L1 phục vụ rút tức thì <0.8s." },
-              { step: 3, title: "3. Teleporter ICM", desc: "Gửi 90% sang Fuji C-Chain không qua bridge trung gian." },
-              { step: 4, title: "4. Yield 8% APY", desc: "Vốn nhàn rỗi tích lũy lãi suất thực theo block.timestamp." },
-              { step: 5, title: "5. Rút Ngược Tự Động", desc: "Khi đệm L1 thiếu, Teleporter tự động rút phần bù về ví." },
+              { step: 1, title: "1. Nạp AVAX", desc: "T1 giữ vốn trên chain Hub sau khi xác minh deployment." },
+              { step: 2, title: "2. Chính sách tỷ lệ", desc: "Mô phỏng tỷ lệ; không tự chuyển vốn giữa các chain." },
+              { step: 3, title: "3. ICM thử nghiệm", desc: "Chỉ truyền thông điệp; cần adapter chuyển tài sản riêng." },
+              { step: 4, title: "4. Lãi mô phỏng", desc: "Lãi đơn giả định trả từ reserve; chưa bật trong T1." },
+              { step: 5, title: "5. Đối soát liên chuỗi", desc: "Retry, xác nhận tài sản và bù thanh khoản còn trong lộ trình." },
             ].map((item) => (
               <button
                 key={item.step}
@@ -752,13 +757,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
           <div className="text-center max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-xs font-bold font-mono uppercase mb-3">
               <span className="material-symbols-outlined text-[16px]">verified</span>
-              Zero-Trust Architecture
+              Testnet Validation
             </div>
             <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Bảo Mật Tối Đa Cho Tài Sản Gia Đình
+              Quyền Truy Cập Và Phê Duyệt Gia Đình
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2.5 leading-relaxed">
-              Kết hợp bảo mật cấp độ doanh nghiệp của mạng Avalanche với trải nghiệm đơn giản hóa cho mọi độ tuổi.
+              Các kiểm soát đang được thử nghiệm; smart contract chưa được audit độc lập.
             </p>
           </div>
 
@@ -767,9 +772,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
               <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center font-bold">
                 <span className="material-symbols-outlined text-[20px]">fingerprint</span>
               </div>
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Passkey & PIN 4 Số</h4>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Tài Khoản Và Ví Cá Nhân</h4>
               <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Ông Bà và Con Trẻ không cần nhớ cụm từ khôi phục phức tạp. Đăng nhập nhanh bằng mã PIN hoặc vân tay trên thiết bị quen thuộc.
+                Đăng nhập bằng tài khoản và liên kết ví cá nhân. PIN đã ngừng sử dụng; passkey chưa triển khai.
               </p>
             </div>
 
