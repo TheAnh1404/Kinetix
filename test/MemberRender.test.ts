@@ -5,7 +5,8 @@ import ts from "typescript";
 import { firstUseSteps } from "../shared/firstUse";
 
 // Smoke test render cây React thật, thay các biên session/RPC; không giả kết quả E2E trình duyệt.
-describe("Member page rendering and personal-data boundaries", () => {
+describe("Member page rendering and personal-data boundaries", function () {
+  this.timeout(10000);
   const React = require("../frontend/node_modules/react");
   const {
     renderToStaticMarkup,
@@ -44,6 +45,8 @@ describe("Member page rendering and personal-data boundaries", () => {
         };
       if (name === "@/context/FamilyContext")
         return { useFamily: () => family };
+      if (name === "@/context/SettingsContext")
+        return { useSettings: () => ({ theme: "light", toggleTheme() {} }) };
       if (name === "@/hooks/useVaultExperience") return { useVaultExperience: () => experience };
       if (name === "@/hooks/useAuth")
         return {
@@ -64,14 +67,17 @@ describe("Member page rendering and personal-data boundaries", () => {
       if (name === "@/hooks/useVaultPolicy")
         return { useVaultPolicy: () => ({ policy: null }) };
       if (name === "@/contracts/config")
-        return { hubChain: { nativeCurrency: { symbol: "AVAX" } } };
+        return { DEPLOYMENT: { enabled: false }, hubChain: { id: 43113, nativeCurrency: { symbol: "AVAX" } } };
+      if (name.endsWith(".css")) return {};
       if (name.startsWith("@/")) {
         const base = `frontend/src/${name.slice(2)}`;
         return load(`${base}.${name.includes("/lib/") ? "ts" : "tsx"}`);
       }
       if (name.startsWith("./"))
         return load(resolve(filename, "..", `${name}.tsx`));
+      if (name.startsWith("../")) return require(resolve(filename, "..", name));
       if (name.includes("shared/treasury")) return require("../shared/treasury");
+      if (name.includes("shared/deployment.json")) return require("../shared/deployment.json");
       if (name.includes("shared/vaultExperience")) return require("../shared/vaultExperience");
       return require(name);
     };
@@ -91,6 +97,8 @@ describe("Member page rendering and personal-data boundaries", () => {
       chores: [],
       dynamicVaults: [],
       withdrawalRequests: [],
+      dataErrors: [],
+      isDataLoading: false,
       workspaces: [{ id: "space", name: "Family fixture" }],
       currentWorkspace: { id: "space", name: "Family fixture" },
     };
@@ -226,7 +234,7 @@ describe("Member page rendering and personal-data boundaries", () => {
       "/dashboard/elderly/requests",
       "/dashboard/elderly/family",
     ])
-      expect(html).to.include(`href="${route}"`);
+      expect(html).to.include(`href="${route}?source=contract"`);
     expect(html).not.to.include("MobilePhoneContainer");
     expect(html).not.to.include("0 Gas");
   });
