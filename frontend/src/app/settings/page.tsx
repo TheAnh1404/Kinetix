@@ -1,5 +1,6 @@
 "use client";
-import { Suspense, useEffect } from "react";
+
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -9,11 +10,15 @@ import {
   SettingsView,
   SettingsSection,
 } from "@/components/settings/SettingsView";
+import { MobileNavBar } from "@/components/navigation/MobileNavBar";
+import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
 
 function SettingsContent() {
   const auth = useAuth();
   const router = useRouter();
   const params = useSearchParams();
+  const [isDepositOpen, setIsDepositOpen] = useState(false);
+
   useEffect(() => {
     if (auth.isLoading) return;
     if (!auth.isAuthenticated && !auth.sessionError)
@@ -27,6 +32,7 @@ function SettingsContent() {
     auth.sessionError,
     router,
   ]);
+
   if (auth.sessionError && !auth.user)
     return (
       <div className="account-empty">
@@ -39,17 +45,21 @@ function SettingsContent() {
         </button>
       </div>
     );
+
   if (auth.isLoading || !auth.isAuthenticated || auth.onboarding !== "READY")
     return (
       <div className="account-empty" role="status">
         Đang mở cài đặt tài khoản…
       </div>
     );
+
   return (
     <div className="account-page">
       <a className="skip-link" href="#account-main">
         Đến nội dung cài đặt
       </a>
+
+      {/* Header thanh điều hướng phía trên của trang Cài Đặt */}
       <header className="account-topbar">
         <Link
           href="/dashboard"
@@ -66,7 +76,9 @@ function SettingsContent() {
           </Link>
         </div>
       </header>
-      <main className="account-main" id="account-main" tabIndex={-1}>
+
+      {/* Nội dung chính với khoảng cách đệm pb-28 trên di động để dock đáy không che khuất */}
+      <main className="account-main pb-28 lg:pb-12" id="account-main" tabIndex={-1}>
         <SettingsView
           initialTab={(params.get("tab") || "profile") as SettingsSection}
           onTabChange={(tab) =>
@@ -75,9 +87,22 @@ function SettingsContent() {
           isStandalonePage
         />
       </main>
+
+      {/* Thanh điều hướng đáy di động (Mobile Floating Glass Dock) trên điện thoại */}
+      <MobileNavBar
+        activeTab="settings"
+        onOpenDeposit={() => setIsDepositOpen(true)}
+      />
+
+      {/* Modal Nạp Quỹ nhanh cho phép nạp tiền trực tiếp từ trang Cài Đặt trên di động */}
+      <DepositVaultModal
+        isOpen={isDepositOpen}
+        onClose={() => setIsDepositOpen(false)}
+      />
     </div>
   );
 }
+
 export default function SettingsPage() {
   return (
     <Suspense

@@ -225,6 +225,17 @@ export const Header: React.FC<HeaderProps> = ({
                   </Link>
                 )}
 
+                {/* Settings Button */}
+                <Link
+                  href="/settings"
+                  title={language === "vi" ? "Cài đặt tài khoản" : "Account Settings"}
+                  className="w-8 h-8 rounded-xl bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[17px]">
+                    settings
+                  </span>
+                </Link>
+
                 {/* Logout Button */}
                 <button
                   onClick={logout}
@@ -389,6 +400,15 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   <span className="material-symbols-outlined text-[20px]">space_dashboard</span>
                   <span>{t("nav.dashboard")}</span>
+                </Link>
+
+                <Link
+                  href="/settings"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-full py-3 rounded-2xl bg-surface-container hover:bg-surface-container-high text-on-surface font-bold text-sm flex items-center justify-center gap-2 border border-outline-variant/30 transition-all"
+                >
+                  <span className="material-symbols-outlined text-[18px]">settings</span>
+                  <span>{language === "vi" ? "Cài Đặt Tài Khoản" : "Account Settings"}</span>
                 </Link>
               </div>
             ) : (

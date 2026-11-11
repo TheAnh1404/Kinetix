@@ -74,6 +74,14 @@ export function RoleNavigation({ elderly }: { elderly: boolean }) {
     label: "Góp vốn",
     Icon: ReceiptText,
   });
+  // Bổ sung mục Cài đặt vào thanh điều hướng cho các vai trò thành viên còn lại
+  if (!adult) {
+    entries.push({
+      href: "/settings",
+      label: "Cài đặt",
+      Icon: Settings2,
+    });
+  }
   return (
     <nav className="role-navigation" aria-label="Điều hướng thành viên">
       {entries.map(({ href, label, Icon }, index) => {
