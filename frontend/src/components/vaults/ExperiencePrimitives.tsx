@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useId, useRef } from "react";
 import {
   ArrowUpRight,
   ShieldCheck,
@@ -93,6 +93,7 @@ export function ReviewDialog({
   busy: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   const [error, setError] = React.useState("");
   useEffect(() => {
     setError("");
@@ -108,11 +109,11 @@ export function ReviewDialog({
         else close();
       }}
       onClose={close}
-      aria-labelledby="vx-review-title"
+      aria-labelledby={titleId}
     >
       <div className="vx-dialog-body">
         <div className="vx-heading">
-          <h2 id="vx-review-title">{review?.title}</h2>
+          <h2 id={titleId}>{review?.title}</h2>
           <button
             type="button"
             className="vx-icon-button"

@@ -78,7 +78,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
   };
 
   return (
-    <div className="flex flex-col w-full text-slate-900 overflow-x-hidden bg-[#F8FAFC]">
+    <div className="flex flex-col w-full text-slate-900 dark:text-slate-100 overflow-x-hidden bg-[#F8FAFC] dark:bg-[#0b111d] transition-colors duration-200">
       
       {/* ========================================================================= */}
       {/* SECTION 1: HERO & CORE VALUE PROPOSITION */}
@@ -91,22 +91,22 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
 
         {/* Live Network Pill Strip */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 sm:pb-0 sm:flex-wrap sm:justify-center sm:gap-3 mb-6 sm:mb-8">
-          <div className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200/90 shadow-xs text-xs font-semibold text-slate-700">
+          <div className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs text-xs font-semibold text-slate-700 dark:text-slate-200">
             <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
             <span>{t("hero.badge.subnet")}</span>
           </div>
 
-          <div className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200/90 shadow-xs text-xs font-semibold text-slate-700">
+          <div className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs text-xs font-semibold text-slate-700 dark:text-slate-200">
             <span className="material-symbols-outlined text-[16px] text-amber-500">bolt</span>
             <span>{t("hero.badge.gas")}</span>
           </div>
 
-          <div className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200/90 shadow-xs text-xs font-semibold text-slate-700">
+          <div className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs text-xs font-semibold text-slate-700 dark:text-slate-200">
             <span className="material-symbols-outlined text-[16px] text-red-600">verified_user</span>
             <span>{t("hero.badge.multisig")}</span>
           </div>
 
-          <div className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200/90 shadow-xs text-xs font-semibold text-slate-700">
+          <div className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs text-xs font-semibold text-slate-700 dark:text-slate-200">
             <span className="material-symbols-outlined text-[16px] text-emerald-600">sync_alt</span>
             <span>{t("hero.badge.teleporter")}</span>
           </div>
@@ -114,14 +114,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
 
         {/* Hero Title & Subtitle */}
         <div className="text-center max-w-4xl mx-auto mb-10 sm:mb-14">
-          <h1 className="text-3xl min-[400px]:text-4xl sm:text-6xl lg:text-[62px] lg:leading-[70px] font-black tracking-tight text-slate-900 mb-5 sm:mb-6">
+          <h1 className="text-3xl min-[400px]:text-4xl sm:text-6xl lg:text-[62px] lg:leading-[70px] font-black tracking-tight text-slate-900 dark:text-white mb-5 sm:mb-6">
             {t("hero.title")}{" "}
             <span className="bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 bg-clip-text text-transparent">
               Avalanche
             </span>
           </h1>
 
-          <p className="text-sm min-[400px]:text-base sm:text-lg lg:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed px-2 font-normal">
+          <p className="text-sm min-[400px]:text-base sm:text-lg lg:text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed px-2 font-normal">
             {t("hero.subtitle")}
           </p>
 
@@ -148,7 +148,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
 
             <button
               onClick={() => scrollToSection("simulator")}
-              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-sm sm:text-base shadow-xs border border-slate-200 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold text-sm sm:text-base shadow-xs border border-slate-200 dark:border-slate-800 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               type="button"
             >
               <span className="material-symbols-outlined text-[20px] text-red-600">tune</span>
@@ -159,70 +159,70 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
 
         {/* 4 Core Pillars Bento Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-5xl mx-auto">
-          <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex flex-col gap-1 text-left hover:border-slate-300 transition-all">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#131c2e] border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col gap-1 text-left hover:border-slate-300 dark:hover:border-slate-700 transition-all">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 {t("hero.stat.gas")}
               </span>
               <span className="material-symbols-outlined text-[18px] text-red-600">
                 local_gas_station
               </span>
             </div>
-            <span className="text-lg sm:text-2xl font-black text-slate-900 font-mono">
+            <span className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white font-mono">
               {t("hero.stat.gasVal")}
             </span>
-            <span className="text-[11px] text-slate-500 font-medium truncate">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
               ⚡ Phí mạng 0 Gwei (Family L1)
             </span>
           </div>
 
-          <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex flex-col gap-1 text-left hover:border-slate-300 transition-all">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#131c2e] border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col gap-1 text-left hover:border-slate-300 dark:hover:border-slate-700 transition-all">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 {t("hero.stat.speed")}
               </span>
               <span className="material-symbols-outlined text-[18px] text-emerald-600">
                 bolt
               </span>
             </div>
-            <span className="text-lg sm:text-2xl font-black text-emerald-600 font-mono">
+            <span className="text-lg sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
               {t("hero.stat.speedVal")}
             </span>
-            <span className="text-[11px] text-slate-500 font-medium truncate">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
               Chạm là nhận từ đệm L1
             </span>
           </div>
 
-          <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex flex-col gap-1 text-left hover:border-slate-300 transition-all">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#131c2e] border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col gap-1 text-left hover:border-slate-300 dark:hover:border-slate-700 transition-all">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 {t("hero.stat.multisig")}
               </span>
               <span className="material-symbols-outlined text-[18px] text-blue-600">
                 group_add
               </span>
             </div>
-            <span className="text-lg sm:text-2xl font-black text-slate-900 font-mono">
+            <span className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white font-mono">
               {t("hero.stat.multisigVal")}
             </span>
-            <span className="text-[11px] text-slate-500 font-medium truncate">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
               Phân tầng độc lập theo từng hũ
             </span>
           </div>
 
-          <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex flex-col gap-1 text-left hover:border-slate-300 transition-all">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#131c2e] border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col gap-1 text-left hover:border-slate-300 dark:hover:border-slate-700 transition-all">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 {t("hero.stat.yield")}
               </span>
               <span className="material-symbols-outlined text-[18px] text-amber-600">
                 trending_up
               </span>
             </div>
-            <span className="text-lg sm:text-2xl font-black text-amber-600 font-mono">
+            <span className="text-lg sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono">
               {t("hero.stat.yieldVal")}
             </span>
-            <span className="text-[11px] text-slate-500 font-medium truncate">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
               Fuji C-Chain Yield Engine
             </span>
           </div>
@@ -232,33 +232,33 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
       {/* ========================================================================= */}
       {/* SECTION 2: BỘ MÔ PHỎNG ĐỆM THANH KHOẢN TƯƠNG TÁC (INTERACTIVE SIMULATOR) */}
       {/* ========================================================================= */}
-      <section id="simulator" className="w-full py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-white border-y border-slate-200/80">
+      <section id="simulator" className="w-full py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-white dark:bg-[#0e1626] border-y border-slate-200/80 dark:border-slate-800 transition-colors duration-200">
         <div className="max-w-6xl mx-auto flex flex-col gap-8 sm:gap-12">
           
           <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-bold font-mono uppercase mb-3">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs font-bold font-mono uppercase mb-3">
               <span className="material-symbols-outlined text-[16px]">calculate</span>
               Interactive Liquidity Engine
             </div>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {t("arch.calc.title")}
             </h2>
-            <p className="text-xs sm:text-sm text-slate-600 mt-2.5 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2.5 leading-relaxed">
               {t("arch.calc.subtitle")}
             </p>
           </div>
 
           {/* Hộp điều khiển mô phỏng Bento Card */}
-          <div className="p-6 sm:p-8 rounded-3xl bg-slate-50 border border-slate-200 shadow-sm flex flex-col gap-8">
+          <div className="p-6 sm:p-8 rounded-3xl bg-slate-50 dark:bg-[#131c2e] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-8">
             
             {/* 1. Chọn số tiền nạp giả lập (Quick Amount Chips) */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-slate-200/80">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-slate-200/80 dark:border-slate-800">
               <div>
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
                   {t("arch.calc.deposit")}
                 </span>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-3xl sm:text-4xl font-black text-slate-900 font-mono" suppressHydrationWarning>
+                  <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white font-mono" suppressHydrationWarning>
                     {simulatedDeposit.toLocaleString("en-US")}
                   </span>
                   <span className="text-base font-bold text-red-600 font-mono">AVAX</span>
@@ -273,8 +273,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
                     onClick={() => setSimulatedDeposit(amt)}
                     className={`px-3.5 py-1.5 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
                       simulatedDeposit === amt
-                        ? "bg-slate-900 text-white shadow-xs"
-                        : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                        ? "bg-slate-900 dark:bg-red-600 text-white shadow-xs"
+                        : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/80"
                     }`}
                     suppressHydrationWarning
                   >
@@ -287,11 +287,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
             {/* 2. Thanh kéo tỷ lệ đệm thanh khoản L1 (Buffer Slider) */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between text-xs sm:text-sm font-bold">
-                <span className="text-slate-800 flex items-center gap-1.5">
+                <span className="text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[18px] text-red-600">tune</span>
                   {t("arch.calc.slider")} (bufferRatioBps):
                 </span>
-                <span className="px-3 py-1 rounded-xl bg-red-100 text-red-900 font-mono text-xs font-extrabold">
+                <span className="px-3 py-1 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-900 dark:text-red-200 font-mono text-xs font-extrabold">
                   {bufferRatio}% L1 ({bufferRatio * 100} BPS) / {100 - bufferRatio}% C-Chain
                 </span>
               </div>
@@ -303,12 +303,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
                 step="1"
                 value={bufferRatio}
                 onChange={(e) => setBufferRatio(Number(e.target.value))}
-                className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-red-600"
+                className="w-full h-3 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-red-600"
               />
 
-              <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
+              <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400">
                 <span>0% (100% C-Chain sinh lời)</span>
-                <span className="font-bold text-red-600">Khuyến nghị: 10% (Rút nhanh 0 gas)</span>
+                <span className="font-bold text-red-600 dark:text-red-400">Khuyến nghị: 10% (Rút nhanh 0 gas)</span>
                 <span>50% (Đệm tối đa)</span>
               </div>
             </div>
@@ -317,52 +317,52 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
               {/* Bình L1 Instant Buffer */}
-              <div className="p-5 rounded-2xl bg-white border border-emerald-200 shadow-xs flex flex-col justify-between">
+              <div className="p-5 rounded-2xl bg-white dark:bg-[#111927] border border-emerald-200 dark:border-emerald-900/50 shadow-xs flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
                       <span className="material-symbols-outlined text-[16px] text-emerald-600">bolt</span>
                       Family L1 Instant Cushion
                     </span>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-mono font-bold">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-mono font-bold">
                       {bufferRatio}%
                     </span>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-black text-emerald-700 font-mono my-2">
+                  <div className="text-2xl sm:text-3xl font-black text-emerald-700 dark:text-emerald-400 font-mono my-2">
                     {l1Amount.toFixed(1)} <span className="text-sm font-bold font-sans">AVAX</span>
                   </div>
-                  <p className="text-xs text-slate-500 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                     Sẵn sàng giải ngân tức thì <strong>&lt;0.8 giây</strong>, <strong>0 gas fee</strong> cho các chi tiêu an sinh thường nhật của Ông Bà & Con Nhỏ.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                   <span>Phí rút tiền:</span>
-                  <span className="font-mono font-bold text-emerald-600">0.00đ Miễn phí</span>
+                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">0.00đ Miễn phí</span>
                 </div>
               </div>
 
               {/* Bình C-Chain Yield Engine */}
-              <div className="p-5 rounded-2xl bg-white border border-blue-200 shadow-xs flex flex-col justify-between">
+              <div className="p-5 rounded-2xl bg-white dark:bg-[#111927] border border-blue-200 dark:border-blue-900/50 shadow-xs flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-blue-800 uppercase tracking-wider flex items-center gap-1">
+                    <span className="text-xs font-bold text-blue-800 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1">
                       <span className="material-symbols-outlined text-[16px] text-blue-600">trending_up</span>
                       Fuji C-Chain Yield Engine
                     </span>
-                    <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-mono font-bold">
+                    <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-mono font-bold">
                       {100 - bufferRatio}%
                     </span>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-black text-blue-700 font-mono my-2">
+                  <div className="text-2xl sm:text-3xl font-black text-blue-700 dark:text-blue-400 font-mono my-2">
                     {cchainAmount.toFixed(1)} <span className="text-sm font-bold font-sans">AVAX</span>
                   </div>
-                  <p className="text-xs text-slate-500 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                     Tự động chuyển tiếp qua Avalanche Teleporter để stake vào Vault nhận lợi nhuận thực tế <strong>8.0% APY</strong>.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                   <span>Lợi nhuận ước tính:</span>
-                  <span className="font-mono font-bold text-blue-600">
+                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
                     +{estYearlyYield} AVAX/năm (~{estDailyYield} AVAX/ngày)
                   </span>
                 </div>
@@ -382,14 +382,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
         <div className="flex flex-col gap-10 sm:gap-14">
           
           <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-bold font-mono uppercase mb-3">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs font-bold font-mono uppercase mb-3">
               <span className="material-symbols-outlined text-[16px]">widgets</span>
               4 Composable Rule Templates
             </div>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {t("rules.title")}
             </h2>
-            <p className="text-xs sm:text-sm text-slate-600 mt-2.5 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2.5 leading-relaxed">
               {t("rules.desc")}
             </p>
           </div>
@@ -410,8 +410,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
                   onClick={() => setActiveRuleTab(rule.id)}
                   className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
                     active
-                      ? "bg-white border-red-500 shadow-md ring-2 ring-red-500/10"
-                      : "bg-slate-50 border-slate-200 hover:bg-white text-slate-700"
+                      ? "bg-white dark:bg-[#131c2e] border-red-500 shadow-md ring-2 ring-red-500/10"
+                      : "bg-slate-50 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -420,44 +420,44 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
                     </span>
                     <span className="font-mono text-xs font-extrabold">{rule.label}</span>
                   </div>
-                  <span className="text-[11px] text-slate-500 truncate">{rule.desc}</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{rule.desc}</span>
                 </button>
               );
             })}
           </div>
 
           {/* Visual Interactive Preview Cho Quy Tắc Đang Chọn */}
-          <div className="max-w-4xl mx-auto w-full p-6 sm:p-8 rounded-3xl bg-white border border-slate-200 shadow-sm">
+          <div className="max-w-4xl mx-auto w-full p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#131c2e] border border-slate-200 dark:border-slate-800 shadow-sm">
             
             {/* 1. SHIELD PREVIEW */}
             {activeRuleTab === 0 && (
               <div className="flex flex-col gap-6 animate-in fade-in duration-300">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
                   <div>
-                    <span className="text-xs font-bold text-emerald-700 uppercase font-mono">
+                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase font-mono">
                       Quy Tắc 0 • SHIELD
                     </span>
-                    <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">
                       {t("rules.shield.title")}
                     </h3>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold font-mono self-start sm:self-auto">
+                  <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold font-mono self-start sm:self-auto">
                     Dành cho Ông Bà & Người Cao Tuổi
                   </span>
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed">
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                   {t("rules.shield.desc")}
                 </p>
 
                 {/* Mockup Thao Tác Của Ông Bà */}
-                <div className="p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="p-5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/40 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xl shadow-sm">
                       👵
                     </div>
                     <div>
-                      <span className="text-xs font-bold text-emerald-900">Bà Nội (Thụ hưởng)</span>
-                      <p className="text-xs text-slate-500">Đệm L1 khả dụng: <strong>15.00 AVAX</strong> · Rút nhanh &le; 1.0 AVAX</p>
+                      <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200">Bà Nội (Thụ hưởng)</span>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Đệm L1 khả dụng: <strong>15.00 AVAX</strong> · Rút nhanh &le; 1.0 AVAX</p>
                     </div>
                   </div>
 
@@ -477,32 +477,32 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
             {/* 2. MILESTONE PREVIEW */}
             {activeRuleTab === 1 && (
               <div className="flex flex-col gap-6 animate-in fade-in duration-300">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
                   <div>
-                    <span className="text-xs font-bold text-purple-700 uppercase font-mono">
+                    <span className="text-xs font-bold text-purple-700 dark:text-purple-400 uppercase font-mono">
                       Quy Tắc 1 • MILESTONE
                     </span>
-                    <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">
                       {t("rules.milestone.title")}
                     </h3>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-purple-50 text-purple-800 text-xs font-bold font-mono self-start sm:self-auto">
+                  <span className="px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 text-xs font-bold font-mono self-start sm:self-auto">
                     Dành cho Con Trẻ (Chore-to-Earn)
                   </span>
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed">
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                   {t("rules.milestone.desc")}
                 </p>
 
                 {/* Mockup Việc Nhà & Thưởng Heo Đất */}
-                <div className="p-5 rounded-2xl bg-purple-50/60 border border-purple-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="p-5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-800/40 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-bold text-xl shadow-sm">
                       🧒
                     </div>
                     <div>
-                      <span className="text-xs font-bold text-purple-900">Bé Na · Nhiệm vụ: Rửa bát & dọn phòng</span>
-                      <p className="text-xs text-slate-500">Phần thưởng giữ chỗ trong Hũ: <strong>+0.20 AVAX</strong></p>
+                      <span className="text-xs font-bold text-purple-900 dark:text-purple-200">Bé Na · Nhiệm vụ: Rửa bát & dọn phòng</span>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Phần thưởng giữ chỗ trong Hũ: <strong>+0.20 AVAX</strong></p>
                     </div>
                   </div>
 
@@ -522,32 +522,32 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
             {/* 3. ROSCA PREVIEW */}
             {activeRuleTab === 2 && (
               <div className="flex flex-col gap-6 animate-in fade-in duration-300">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
                   <div>
-                    <span className="text-xs font-bold text-amber-700 uppercase font-mono">
+                    <span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase font-mono">
                       Quy Tắc 2 • ROSCA
                     </span>
-                    <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">
                       {t("rules.rosca.title")}
                     </h3>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-bold font-mono self-start sm:self-auto">
+                  <span className="px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-xs font-bold font-mono self-start sm:self-auto">
                     Hội Anh Em & Bạn Thân (Họ Hụi Minh Bạch)
                   </span>
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed">
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                   {t("rules.rosca.desc")}
                 </p>
 
                 {/* Mockup Chu Kỳ Góp Vốn */}
-                <div className="p-5 rounded-2xl bg-amber-50/60 border border-amber-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="p-5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/40 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-amber-600 text-white flex items-center justify-center font-bold text-xl shadow-sm">
                       🔄
                     </div>
                     <div>
-                      <span className="text-xs font-bold text-amber-950">Kỳ 2/4 · Mỗi người góp: 2.0 AVAX</span>
-                      <p className="text-xs text-slate-500">Người nhận kỳ này: <strong>Ví Bác Ba (0x7099...79C8)</strong></p>
+                      <span className="text-xs font-bold text-amber-950 dark:text-amber-200">Kỳ 2/4 · Mỗi người góp: 2.0 AVAX</span>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Người nhận kỳ này: <strong>Ví Bác Ba (0x7099...79C8)</strong></p>
                     </div>
                   </div>
 
@@ -567,33 +567,33 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
             {/* 4. SHARED_GOAL PREVIEW */}
             {activeRuleTab === 3 && (
               <div className="flex flex-col gap-6 animate-in fade-in duration-300">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
                   <div>
-                    <span className="text-xs font-bold text-blue-700 uppercase font-mono">
+                    <span className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase font-mono">
                       Quy Tắc 3 • SHARED_GOAL
                     </span>
-                    <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">
                       {t("rules.goal.title")}
                     </h3>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-800 text-xs font-bold font-mono self-start sm:self-auto">
+                  <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 text-xs font-bold font-mono self-start sm:self-auto">
                     Quỹ Du Lịch & Mua Sắm Gia Đình
                   </span>
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed">
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                   {t("rules.goal.desc")}
                 </p>
 
                 {/* Mockup Tiến Trình Mục Tiêu */}
-                <div className="p-5 rounded-2xl bg-blue-50/60 border border-blue-200/80 flex flex-col gap-3">
+                <div className="p-5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800/40 flex flex-col gap-3">
                   <div className="flex items-center justify-between text-xs font-bold">
-                    <span className="text-blue-900">Mục tiêu: Chuyến du lịch Đà Lạt cả nhà (50 AVAX)</span>
-                    <span className="font-mono text-blue-700">85% Hoàn Thành (42.5 / 50 AVAX)</span>
+                    <span className="text-blue-900 dark:text-blue-200">Mục tiêu: Chuyến du lịch Đà Lạt cả nhà (50 AVAX)</span>
+                    <span className="font-mono text-blue-700 dark:text-blue-400">85% Hoàn Thành (42.5 / 50 AVAX)</span>
                   </div>
-                  <div className="w-full h-3 bg-blue-200 rounded-full overflow-hidden">
+                  <div className="w-full h-3 bg-blue-200 dark:bg-blue-900/40 rounded-full overflow-hidden">
                     <div className="bg-blue-600 h-full w-[85%] rounded-full" />
                   </div>
-                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                     <span>Sinh lời C-Chain liên tục đến ngày mở quỹ</span>
                     <span>Cần 2/3 Guardians ký duyệt giải ngân</span>
                   </div>
@@ -609,18 +609,18 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
       {/* ========================================================================= */}
       {/* SECTION 4: ĐA KHÔNG GIAN QUẢN TRỊ (MULTI-SPACE WORKSPACES) */}
       {/* ========================================================================= */}
-      <section id="workspaces" className="w-full py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-white border-y border-slate-200/80">
+      <section id="workspaces" className="w-full py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-white dark:bg-[#0e1626] border-y border-slate-200/80 dark:border-slate-800 transition-colors duration-200">
         <div className="max-w-7xl mx-auto flex flex-col gap-10 sm:gap-14">
           
           <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-bold font-mono uppercase mb-3">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs font-bold font-mono uppercase mb-3">
               <span className="material-symbols-outlined text-[16px]">domain</span>
               {t("ws.badge")}
             </div>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {t("ws.title")}
             </h2>
-            <p className="text-xs sm:text-sm text-slate-600 mt-2.5 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2.5 leading-relaxed">
               {t("ws.desc")}
             </p>
           </div>
@@ -628,62 +628,62 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
           {/* 4 Card Bento Grid cho các Không Gian */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             
-            <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200/90 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all flex flex-col justify-between">
+            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-[#131c2e] border border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm transition-all flex flex-col justify-between">
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center font-bold mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center font-bold mb-4">
                   <span className="material-symbols-outlined text-[26px]">family_restroom</span>
                 </div>
-                <h3 className="text-base font-bold text-slate-900">{t("ws.family.title")}</h3>
-                <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">{t("ws.family.title")}</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
                   {t("ws.family.desc")}
                 </p>
               </div>
-              <div className="mt-5 pt-3 border-t border-slate-200/80 text-[11px] font-mono text-slate-500 font-bold">
+              <div className="mt-5 pt-3 border-t border-slate-200/80 dark:border-slate-800 text-[11px] font-mono text-slate-500 dark:text-slate-400 font-bold">
                 Quy tắc khuyên dùng: SHIELD & MILESTONE
               </div>
             </div>
 
-            <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200/90 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all flex flex-col justify-between">
+            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-[#131c2e] border border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm transition-all flex flex-col justify-between">
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold mb-4">
                   <span className="material-symbols-outlined text-[26px]">diversity_1</span>
                 </div>
-                <h3 className="text-base font-bold text-slate-900">{t("ws.siblings.title")}</h3>
-                <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">{t("ws.siblings.title")}</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
                   {t("ws.siblings.desc")}
                 </p>
               </div>
-              <div className="mt-5 pt-3 border-t border-slate-200/80 text-[11px] font-mono text-slate-500 font-bold">
+              <div className="mt-5 pt-3 border-t border-slate-200/80 dark:border-slate-800 text-[11px] font-mono text-slate-500 dark:text-slate-400 font-bold">
                 Quy tắc khuyên dùng: SHIELD & SHARED_GOAL
               </div>
             </div>
 
-            <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200/90 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all flex flex-col justify-between">
+            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-[#131c2e] border border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm transition-all flex flex-col justify-between">
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold mb-4">
                   <span className="material-symbols-outlined text-[26px]">group</span>
                 </div>
-                <h3 className="text-base font-bold text-slate-900">{t("ws.friends.title")}</h3>
-                <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">{t("ws.friends.title")}</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
                   {t("ws.friends.desc")}
                 </p>
               </div>
-              <div className="mt-5 pt-3 border-t border-slate-200/80 text-[11px] font-mono text-slate-500 font-bold">
+              <div className="mt-5 pt-3 border-t border-slate-200/80 dark:border-slate-800 text-[11px] font-mono text-slate-500 dark:text-slate-400 font-bold">
                 Quy tắc khuyên dùng: ROSCA & SHARED_GOAL
               </div>
             </div>
 
-            <div className="p-6 rounded-3xl bg-slate-50 border border-slate-200/90 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all flex flex-col justify-between">
+            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-[#131c2e] border border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm transition-all flex flex-col justify-between">
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold mb-4">
                   <span className="material-symbols-outlined text-[26px]">hub</span>
                 </div>
-                <h3 className="text-base font-bold text-slate-900">{t("ws.community.title")}</h3>
-                <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">{t("ws.community.title")}</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
                   {t("ws.community.desc")}
                 </p>
               </div>
-              <div className="mt-5 pt-3 border-t border-slate-200/80 text-[11px] font-mono text-slate-500 font-bold">
+              <div className="mt-5 pt-3 border-t border-slate-200/80 dark:border-slate-800 text-[11px] font-mono text-slate-500 dark:text-slate-400 font-bold">
                 Quy tắc khuyên dùng: SHARED_GOAL & ROSCA
               </div>
             </div>
@@ -700,14 +700,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
         <div className="flex flex-col gap-10 sm:gap-14">
           
           <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-bold font-mono uppercase mb-3">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs font-bold font-mono uppercase mb-3">
               <span className="material-symbols-outlined text-[16px]">account_tree</span>
               Avalanche Dual-Chain Teleporter Flow
             </div>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {t("arch.title")}
             </h2>
-            <p className="text-xs sm:text-sm text-slate-600 mt-2.5 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2.5 leading-relaxed">
               {t("arch.desc")}
             </p>
           </div>
@@ -727,15 +727,15 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
                 onClick={() => setActiveTeleporterStep(item.step)}
                 className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-2 ${
                   activeTeleporterStep === item.step
-                    ? "bg-white border-red-500 shadow-md ring-2 ring-red-500/10"
-                    : "bg-slate-50 border-slate-200 hover:bg-white text-slate-700"
+                    ? "bg-white dark:bg-[#131c2e] border-red-500 shadow-md ring-2 ring-red-500/10"
+                    : "bg-slate-50 dark:bg-[#111927] border-slate-200 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
                 }`}
               >
-                <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 font-bold font-mono flex items-center justify-center text-sm">
+                <div className="w-8 h-8 rounded-xl bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 font-bold font-mono flex items-center justify-center text-sm">
                   {item.step}
                 </div>
-                <h4 className="text-xs font-bold text-slate-900">{item.title}</h4>
-                <p className="text-[11px] text-slate-500 leading-relaxed">{item.desc}</p>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">{item.title}</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{item.desc}</p>
               </button>
             ))}
           </div>
@@ -746,49 +746,49 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
       {/* ========================================================================= */}
       {/* SECTION 6: BẢO MẬT & ĐA CHỮ KÝ (SECURITY & TRUST) */}
       {/* ========================================================================= */}
-      <section id="security" className="w-full py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-white border-t border-slate-200/80">
+      <section id="security" className="w-full py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-white dark:bg-[#0e1626] border-t border-slate-200/80 dark:border-slate-800 transition-colors duration-200">
         <div className="max-w-6xl mx-auto flex flex-col gap-10">
           
           <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold font-mono uppercase mb-3">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-xs font-bold font-mono uppercase mb-3">
               <span className="material-symbols-outlined text-[16px]">verified</span>
               Zero-Trust Architecture
             </div>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               Bảo Mật Tối Đa Cho Tài Sản Gia Đình
             </h2>
-            <p className="text-xs sm:text-sm text-slate-600 mt-2.5 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2.5 leading-relaxed">
               Kết hợp bảo mật cấp độ doanh nghiệp của mạng Avalanche với trải nghiệm đơn giản hóa cho mọi độ tuổi.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
+            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-[#131c2e] border border-slate-200 dark:border-slate-800 flex flex-col gap-2">
+              <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center font-bold">
                 <span className="material-symbols-outlined text-[20px]">fingerprint</span>
               </div>
-              <h4 className="text-sm font-bold text-slate-900">Passkey & PIN 4 Số</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Passkey & PIN 4 Số</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                 Ông Bà và Con Trẻ không cần nhớ cụm từ khôi phục phức tạp. Đăng nhập nhanh bằng mã PIN hoặc vân tay trên thiết bị quen thuộc.
               </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-[#131c2e] border border-slate-200 dark:border-slate-800 flex flex-col gap-2">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
                 <span className="material-symbols-outlined text-[20px]">security</span>
               </div>
-              <h4 className="text-sm font-bold text-slate-900">Avalanche Core & SIWE</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Avalanche Core & SIWE</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                 Tương thích hoàn toàn với Avalanche Core Wallet chuẩn EIP-4361 (Sign-In with Ethereum). Chữ ký EIP-712 chống tấn công phát lại.
               </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-[#131c2e] border border-slate-200 dark:border-slate-800 flex flex-col gap-2">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
                 <span className="material-symbols-outlined text-[20px]">lock_reset</span>
               </div>
-              <h4 className="text-sm font-bold text-slate-900">Khôi Phục Ví Đa Bảo Hộ</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Khôi Phục Ví Đa Bảo Hộ</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                 Nếu người thân làm mất điện thoại hoặc quên mật khẩu, các Guardians có thể biểu quyết on-chain để gắn ví mới an toàn.
               </p>
             </div>
@@ -801,7 +801,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onOpenDeposit })
       {/* SECTION 7: FINAL CTA BANNER */}
       {/* ========================================================================= */}
       <section className="w-full py-16 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
-        <div className="p-8 sm:p-12 rounded-3xl bg-slate-900 text-white relative overflow-hidden shadow-2xl flex flex-col items-center text-center">
+        <div className="p-8 sm:p-12 rounded-3xl bg-slate-900 dark:bg-[#131c2e] border border-transparent dark:border-slate-800 text-white relative overflow-hidden shadow-2xl flex flex-col items-center text-center">
           
           {/* Subtle Ambient Background Light */}
           <div className="absolute -top-24 -right-24 w-80 h-80 bg-red-600/25 rounded-full blur-3xl pointer-events-none" />

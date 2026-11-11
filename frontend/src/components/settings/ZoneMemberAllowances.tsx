@@ -181,7 +181,7 @@ export const ZoneMemberAllowances: React.FC<ZoneMemberAllowancesProps> = ({
                     {member.fullName}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono mt-1">
+                <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-1">
                   <span>{member.role}</span>
                   <span className="font-bold text-slate-700 dark:text-slate-300">
                     {pol?.dailyLimitAmount || "50"} AVAX/ngày

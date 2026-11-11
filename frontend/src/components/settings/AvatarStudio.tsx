@@ -274,13 +274,13 @@ export const AvatarStudio: React.FC<AvatarStudioProps> = ({
                 <span className="text-xs font-bold text-slate-800 dark:text-white block">
                   {isCompressing ? 'Đang xử lý và tối ưu ảnh...' : 'Nhấn để chọn ảnh từ máy tính của bạn'}
                 </span>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Hỗ trợ định dạng PNG, JPG, WEBP. Ảnh sẽ được tự động tối ưu hóa tròn và sắc nét.
                 </p>
               </div>
               <button
                 type="button"
-                className="px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition-all shadow-xs"
+                className="px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-black dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
               >
                 Chọn tệp từ máy
               </button>
@@ -300,7 +300,7 @@ export const AvatarStudio: React.FC<AvatarStudioProps> = ({
                 value={customUrlInput}
                 onChange={(e) => setCustomUrlInput(e.target.value)}
                 placeholder="https://example.com/avatar.jpg"
-                className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-red-500 text-slate-900 dark:text-white"
               />
               <button
                 type="submit"
@@ -310,7 +310,7 @@ export const AvatarStudio: React.FC<AvatarStudioProps> = ({
               </button>
             </div>
             {urlError && <p className="text-xs text-red-600 font-medium">{urlError}</p>}
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
               Bạn có thể dán link ảnh từ bất kỳ dịch vụ lưu trữ nào (Imgur, Cloudinary, GitHub, Unsplash...).
             </p>
           </form>

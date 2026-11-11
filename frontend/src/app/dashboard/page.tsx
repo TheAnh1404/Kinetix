@@ -16,6 +16,7 @@ import { KidsPortal } from "@/components/member/KidsPortal";
 import { VaultExperience } from "@/components/vaults/VaultExperience";
 import { isWorkspaceOwner } from "../../../../shared/workspacePermissions";
 import { memberHome } from "@/lib/member";
+import { WorkspaceTools, WorkspaceToolsLinks } from "@/components/member/WorkspaceTools";
 
 const tabRoutes: Record<string, string> = {
   "quan-tri-cha-me": "/dashboard/admin",
@@ -60,7 +61,7 @@ function DashboardContent() {
     previousWorkspace.current = family.currentWorkspace?.id;
     if (
       switched ||
-      (!admin && !["member", "elderly", "kids", "rosca"].includes(group))
+      (!admin && !["member", "elderly", "kids", "rosca", "tools"].includes(group))
     ) {
       router.replace(memberHome(role));
       return;
@@ -79,7 +80,7 @@ function DashboardContent() {
       guardian: admin ? "admin" : "member",
     };
     if (aliases[group]) router.replace(`/dashboard/${aliases[group]}`);
-    else if (!["elderly", "kids", "admin", "member", "rosca"].includes(group))
+    else if (!["elderly", "kids", "admin", "member", "rosca", "tools"].includes(group))
       router.replace(memberHome(role));
   }, [
     auth.isLoading,
@@ -128,7 +129,7 @@ function DashboardContent() {
     );
   // Membership của workspace quyết định quyền, không dùng vai trò toàn cục hoặc nút preview.
   if (membership?.startRequired) return <Loading />;
-  if (!group || (!admin && !["member", "elderly", "kids", "rosca"].includes(group)))
+  if (!group || (!admin && !["member", "elderly", "kids", "rosca", "tools"].includes(group)))
     return <Loading />;
   const notices = (
     <>
@@ -154,7 +155,7 @@ function DashboardContent() {
     </>
   );
   const memberView =
-    group === "member" ? <VaultExperience kind="SHIELD" legacy={null} /> : group === "rosca" ? <RoscaView /> : group === "elderly" ? (
+    group === "tools" ? <WorkspaceTools /> : group === "member" ? <VaultExperience kind="SHIELD" legacy={null} /> : group === "rosca" ? <RoscaView /> : group === "elderly" ? (
       <ElderlyPortal preview={admin} />
     ) : (
       <KidsPortal preview={admin} />
@@ -184,7 +185,8 @@ function DashboardContent() {
       }
     >
       {notices}
-      {activeTab === "quan-tri-cha-me" ? (
+      {group !== "tools" && <WorkspaceToolsLinks />}
+      {group === "tools" ? <WorkspaceTools key={`${auth.user?.id}:${family.currentWorkspace.id}`} /> : activeTab === "quan-tri-cha-me" ? (
         <AdminConsole key={`${auth.user?.id}:${family.currentWorkspace.id}`} />
       ) : activeTab === "quy-rosca" ? (
         <RoscaView currentMember={family.currentMember} />

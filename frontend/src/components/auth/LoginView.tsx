@@ -281,7 +281,7 @@ export function LoginView() {
                 </button>
                 {invitationPreview && (
                   <div
-                    className="rounded-xl bg-slate-50 p-3 text-sm break-words"
+                    className="rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3 text-sm break-words text-slate-800 dark:text-slate-200"
                     role="status"
                   >
                     <strong>Tham gia {invitationPreview.workspaceName}</strong>

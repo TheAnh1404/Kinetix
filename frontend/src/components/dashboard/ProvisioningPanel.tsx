@@ -80,15 +80,15 @@ export function ProvisioningPanel({
     <details
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
-      className="border rounded-2xl bg-white p-5 space-y-3"
+      className="border border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900/90 p-5 space-y-3 text-slate-900 dark:text-slate-100 transition-colors"
     >
-      <summary className="min-h-12 font-bold">
+      <summary className="min-h-12 font-bold cursor-pointer text-slate-900 dark:text-white">
         Cấp quyền giao dịch trên Hub
       </summary>
-      <p className="break-all">
+      <p className="break-all text-xs text-slate-600 dark:text-slate-400">
         Operator cần ký: {data?.operator || "Đang đối soát"}
       </p>
-      <button className="underline min-h-12" onClick={() => void load()}>
+      <button className="underline min-h-12 text-xs font-semibold text-emerald-600 dark:text-emerald-400 cursor-pointer" onClick={() => void load()}>
         Đối soát trạng thái
       </button>
       <div className="flex gap-2 flex-wrap">
@@ -103,7 +103,7 @@ export function ProvisioningPanel({
             <button
               key={member.id}
               disabled={busy}
-              className="border min-h-12 rounded-xl p-2"
+              className="border border-slate-300 dark:border-slate-700 min-h-12 rounded-xl p-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 cursor-pointer"
               onClick={() => {
                 setBusy(true);
                 void authRequest(`/api/workspaces/${id}/provisioning/refresh`, {
@@ -118,26 +118,26 @@ export function ProvisioningPanel({
             </button>
           ))}
       </div>
-      {data?.requests.map((request: any) => (
-        <div key={request.id} className="border rounded-xl p-3 space-y-2">
-          <p>
+      {data?.requests?.map((request: any) => (
+        <div key={request.id} className="border border-slate-200 dark:border-slate-800 rounded-xl p-3 space-y-2 bg-slate-50/50 dark:bg-slate-800/50">
+          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
             {request.fullName}: {request.status} · Live:{" "}
             {request.liveAllowed ? "Đã allowlist" : "Chưa allowlist"}
           </p>
-          <p className="break-all">{request.address}</p>
+          <p className="break-all font-mono text-xs text-slate-500 dark:text-slate-400">{request.address}</p>
           {data.canSign && request.status !== "CONFIRMED" && (
             <button
               disabled={busy || !auth.walletMatches}
-              className="border rounded-xl min-h-12 px-3"
+              className="border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 rounded-xl min-h-12 px-3 text-xs font-bold cursor-pointer hover:bg-emerald-100"
               onClick={() => void process(request, true)}
             >
               Ký cấp quyền trong Core
             </button>
           )}
-          <label className="block">
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
             Receipt operator đã ký
             <input
-              className="border rounded-xl p-3 w-full"
+              className="border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl p-3 w-full text-xs font-mono text-slate-900 dark:text-white mt-1"
               value={hashes[request.id] || ""}
               onChange={(event) =>
                 setHashes((previous) => ({
@@ -151,14 +151,14 @@ export function ProvisioningPanel({
             disabled={
               busy || !/^0x[0-9a-f]{64}$/i.test(hashes[request.id] || "")
             }
-            className="border rounded-xl min-h-12 px-3"
+            className="border border-slate-300 dark:border-slate-700 rounded-xl min-h-12 px-3 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer disabled:opacity-50"
             onClick={() => void process(request, false)}
           >
             Đối soát receipt
           </button>
         </div>
       ))}
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{error}</p>}
     </details>
   );
 }

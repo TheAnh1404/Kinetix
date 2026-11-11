@@ -60,7 +60,7 @@ export function ChoreCard({ chore }: { chore: ChoreItem }) {
       </p>
       <Link
         className="member-secondary"
-        href={`/dashboard/kids/chores/${chore.id}?status=${chore.status}`}
+        href={`/dashboard/kids/chores/${chore.id}?source=contract&status=${chore.status}`}
       >
         Xem việc
         <ArrowRight size={20} />
@@ -181,7 +181,7 @@ function ContractKidsPortal({ preview = false }: { preview?: boolean }) {
               key={value}
               aria-pressed={filter === value}
               onClick={() =>
-                router.push(`/dashboard/kids/chores?status=${value}`, {
+                router.push(`/dashboard/kids/chores?source=contract&status=${value}`, {
                   scroll: false,
                 })
               }
@@ -234,7 +234,7 @@ function ContractKidsPortal({ preview = false }: { preview?: boolean }) {
             {chores.filter((item) => item.status === "REWARDED").length} việc
             được nhận thưởng.
           </p>
-          <Link className="member-primary" href="/dashboard/kids/chores">
+          <Link className="member-primary" href="/dashboard/kids/chores?source=contract">
             Khám phá việc của con
             <ArrowRight size={20} />
           </Link>
@@ -285,7 +285,7 @@ function ContractKidsPortal({ preview = false }: { preview?: boolean }) {
           <Sparkles size={24} />
           Việc tiếp theo
         </h2>
-        <Link href="/dashboard/kids/chores">
+        <Link href="/dashboard/kids/chores?source=contract">
           Xem tất cả
           <ArrowRight size={18} />
         </Link>
@@ -321,7 +321,7 @@ function ChoreDetail({ chore }: { chore: ChoreItem }) {
       <PageHeader
         eyebrow="VIỆC CỦA CON"
         title={chore.title}
-        back={`/dashboard/kids/chores?status=${encodeURIComponent(filter)}`}
+        back={`/dashboard/kids/chores?source=contract&status=${encodeURIComponent(filter)}`}
       />
       <div className="transaction-layout">
         <section className="member-card">

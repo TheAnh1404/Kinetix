@@ -12,6 +12,7 @@ import {
   ArrowUpRight,
   LogOut,
   Sun,
+  Moon,
   Bell,
   EyeOff,
   Volume2,
@@ -629,15 +630,11 @@ function SettingsAccount({ initialTab, onTabChange }: Props) {
                   description="Những tùy chọn này được lưu trên thiết bị bạn đang dùng."
                 />
                 <ToggleRow
-                  Icon={Sun}
+                  Icon={settings.theme === "dark" ? Moon : Sun}
                   title="Giao diện tối"
-                  description="Giảm độ sáng khi sử dụng vào buổi tối."
+                  description="Tối ưu độ tương phản cho ban đêm và màn hình OLED."
                   value={settings.theme === "dark"}
-                  onChange={() =>
-                    settings.setTheme(
-                      settings.theme === "dark" ? "light" : "dark",
-                    )
-                  }
+                  onChange={() => settings.toggleTheme()}
                 />
                 <ToggleRow
                   Icon={Volume2}

@@ -100,7 +100,7 @@ export const ZoneSecurityWalletsGas: React.FC<ZoneSecurityWalletsGasProps> = ({
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 Điểm An Toàn Bảo Mật (Security Health Score)
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Đánh giá mức độ an toàn quỹ và khả năng chống gian lận
               </p>
             </div>
@@ -110,7 +110,7 @@ export const ZoneSecurityWalletsGas: React.FC<ZoneSecurityWalletsGasProps> = ({
             <span className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
               {securityScore.score}/100
             </span>
-            <span className="block text-[10px] font-bold text-slate-500 uppercase">
+            <span className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">
               Mức độ: {securityScore.level}
             </span>
           </div>
@@ -157,7 +157,7 @@ export const ZoneSecurityWalletsGas: React.FC<ZoneSecurityWalletsGasProps> = ({
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 Bộ Chuyển Đổi Ví Lai (Hybrid Wallet Switcher)
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Kết hợp song song Ví tích hợp (Passkey) và Ví ngoài (Core/MetaMask)
               </p>
             </div>
@@ -304,7 +304,7 @@ export const ZoneSecurityWalletsGas: React.FC<ZoneSecurityWalletsGasProps> = ({
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               Cấu Hình Trả Phí Mạng (Gas Tank & Paymaster)
             </h3>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
               Chọn cơ chế thanh toán phí giao dịch khi thành viên thực hiện thao tác
             </p>
           </div>
@@ -344,7 +344,7 @@ export const ZoneSecurityWalletsGas: React.FC<ZoneSecurityWalletsGasProps> = ({
                 className={`p-4 rounded-2xl border text-left transition-all relative flex flex-col justify-between cursor-pointer ${
                   isSelected
                     ? `${item.color} ring-2 ring-red-500 shadow-xs`
-                    : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 hover:bg-slate-100"
+                    : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/60"
                 }`}
               >
                 <div className="space-y-1">

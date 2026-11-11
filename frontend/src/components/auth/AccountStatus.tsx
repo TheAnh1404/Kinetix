@@ -52,17 +52,17 @@ export function AccountStatus() {
         </p>
       )}
       {(!auth.connectedAddress || !auth.walletMatches) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-4 transition-colors">
           <div className="flex items-center gap-3">
-            <Wallet size={20} className="text-slate-400" />
-            <p className="text-xs text-slate-600">
+            <Wallet size={20} className="text-slate-400 dark:text-slate-500" />
+            <p className="text-xs text-slate-600 dark:text-slate-300">
               {auth.connectedAddress
                 ? "Ví đang kết nối chưa khớp ví đã liên kết. Đổi tài khoản trong Core để giao dịch."
                 : "Bạn có thể xem dữ liệu. Khi giao dịch, hãy kết nối ví Core đã liên kết."}
             </p>
           </div>
           <button
-            className="text-xs font-bold text-red-600"
+            className="text-xs font-bold text-red-600 dark:text-red-400 cursor-pointer"
             onClick={() =>
               void auth.connectWallet().catch((err) => setError(err.message))
             }
@@ -79,7 +79,7 @@ export function AccountStatus() {
       {auth.onchainPermissions.some(
         (request) => request.workspaceId === currentWorkspace?.id && request.status !== "CONFIRMED",
       ) && (
-        <p className="rounded-xl bg-slate-100 p-4 text-xs text-slate-600">
+        <p className="rounded-xl bg-slate-100 dark:bg-slate-800/80 p-4 text-xs text-slate-600 dark:text-slate-300">
           Một số quyền giao dịch chưa có xác nhận cấp quyền. Người bảo hộ hoặc
           operator cần hoàn tất trên đúng mạng; quyền của từng hũ được kiểm lại
           trước khi gửi giao dịch.
@@ -92,24 +92,24 @@ export function AccountStatus() {
         </p>
       )}
       {pending.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="flex gap-2 items-center text-xs font-bold text-amber-900">
+        <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 p-4">
+          <p className="flex gap-2 items-center text-xs font-bold text-amber-900 dark:text-amber-200">
             <Clock3 size={16} /> {pending.length} giao dịch đang chờ xác nhận
           </p>
           <details>
-            <summary className="min-h-12 py-3 text-amber-900">
+            <summary className="min-h-12 py-3 text-amber-900 dark:text-amber-200 cursor-pointer font-semibold">
               Chi tiết giao dịch để hỗ trợ
             </summary>
             {pending.map((transaction) => (
               <p
                 key={transaction.hash}
-                className="text-[11px] text-amber-800 mt-2 break-all"
+                className="text-[11px] text-amber-800 dark:text-amber-300 mt-2 break-all"
               >
                 Mạng {transaction.chainId} · {transaction.hash}
               </p>
             ))}
           </details>
-          <p className="text-[11px] text-amber-800 mt-2">
+          <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-2">
             Tiếp tục theo dõi theo mã giao dịch khi đổi tài khoản hoặc ngắt
             Core. Không cần gửi lại.
           </p>

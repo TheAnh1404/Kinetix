@@ -126,80 +126,80 @@ export function VaultMemberManagement({
   const nameFor = (address: string) => candidates.find((person) => person.walletAddress.toLowerCase() === address.toLowerCase())?.fullName || address;
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4" aria-labelledby={`vault-members-${vault.id}`}>
+    <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-5 shadow-xs space-y-4 text-slate-900 dark:text-slate-100 transition-colors" aria-labelledby={`vault-members-${vault.id}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 id={`vault-members-${vault.id}`} className="text-sm font-extrabold text-slate-900">Thành viên Hũ</h3>
-          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-600">Guardian hiện tại phê duyệt bằng quorum M/N. Người được thêm cần là thành viên workspace, đã liên kết ví Core và được allowlist. Hũ ROSCA chỉ nhận thêm Guardian để giữ nguyên thứ tự nhận tiền.</p>
+          <h3 id={`vault-members-${vault.id}`} className="text-sm font-extrabold text-slate-900 dark:text-white">Thành viên Hũ</h3>
+          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-600 dark:text-slate-400">Guardian hiện tại phê duyệt bằng quorum M/N. Người được thêm cần là thành viên workspace, đã liên kết ví Core và được allowlist. Hũ ROSCA chỉ nhận thêm Guardian để giữ nguyên thứ tự nhận tiền.</p>
         </div>
-        <button type="button" onClick={() => void load()} disabled={loading} className="min-h-10 rounded-xl border border-slate-300 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Làm mới</button>
+        <button type="button" onClick={() => void load()} disabled={loading} className="min-h-10 rounded-xl border border-slate-300 dark:border-slate-700 px-3 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 cursor-pointer">Làm mới</button>
       </div>
 
-      <div className="flex flex-wrap gap-2 text-xs text-slate-600">
-        <span className="rounded-full bg-emerald-50 px-3 py-1">{guardians.length} Guardian hiện tại</span>
-        <span className="rounded-full bg-blue-50 px-3 py-1">{beneficiaries.length} Beneficiary hiện tại</span>
-        {!canApprove && <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-800">Chỉ ví Guardian hiện tại mới ký được</span>}
+      <div className="flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-400">
+        <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 text-emerald-800 dark:text-emerald-300">{guardians.length} Guardian hiện tại</span>
+        <span className="rounded-full bg-blue-50 dark:bg-blue-950/60 px-3 py-1 text-blue-800 dark:text-blue-300">{beneficiaries.length} Beneficiary hiện tại</span>
+        {!canApprove && <span className="rounded-full bg-amber-50 dark:bg-amber-950/60 px-3 py-1 text-amber-800 dark:text-amber-300">Chỉ ví Guardian hiện tại mới ký được</span>}
       </div>
 
       {canApprove && (
-        <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-[minmax(0,1fr)_180px_auto] md:items-end">
-          <label className="space-y-1 text-xs font-semibold text-slate-700">
+        <div className="grid gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 p-4 md:grid-cols-[minmax(0,1fr)_180px_auto] md:items-end">
+          <label className="space-y-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
             <span>Thành viên workspace</span>
             <select value={candidateId} onChange={(event) => {
               const next = allowlisted.find((person) => person.id === event.target.value);
               setCandidateId(event.target.value);
               setGuardianRole(!next || ["ADMIN", "GUARDIAN"].includes(next.role));
-            }} disabled={transaction.blocked || loading} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm">
-              <option value="">Chọn người cần thêm…</option>
-              {eligible.map((person) => <option key={person.id} value={person.id} disabled={!person.walletAddress || !person.allowlisted || (vault.ruleTemplate === "ROSCA" && !["ADMIN", "GUARDIAN"].includes(person.role))}>{person.fullName} · {person.role}{!person.walletAddress ? " · chưa liên kết ví" : person.allowlisted ? "" : " · chưa allowlist"}</option>)}
+            }} disabled={transaction.blocked || loading} className="min-h-11 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-white">
+              <option value="" className="dark:bg-slate-900 dark:text-white">Chọn người cần thêm…</option>
+              {eligible.map((person) => <option key={person.id} value={person.id} disabled={!person.walletAddress || !person.allowlisted || (vault.ruleTemplate === "ROSCA" && !["ADMIN", "GUARDIAN"].includes(person.role))} className="dark:bg-slate-900 dark:text-white">{person.fullName} · {person.role}{!person.walletAddress ? " · chưa liên kết ví" : person.allowlisted ? "" : " · chưa allowlist"}</option>)}
             </select>
           </label>
           {vault.ruleTemplate !== "ROSCA" ? (
-            <label className="space-y-1 text-xs font-semibold text-slate-700">
+            <label className="space-y-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
               <span>Vai trò trong Hũ</span>
-              <select value={guardianRole ? "GUARDIAN" : "BENEFICIARY"} onChange={(event) => setGuardianRole(event.target.value === "GUARDIAN")} disabled={transaction.blocked} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm">
-                {canBeGuardian && <option value="GUARDIAN">Guardian · ký duyệt</option>}
-                <option value="BENEFICIARY">Beneficiary · thụ hưởng</option>
+              <select value={guardianRole ? "GUARDIAN" : "BENEFICIARY"} onChange={(event) => setGuardianRole(event.target.value === "GUARDIAN")} disabled={transaction.blocked} className="min-h-11 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-white">
+                {canBeGuardian && <option value="GUARDIAN" className="dark:bg-slate-900 dark:text-white">Guardian · ký duyệt</option>}
+                <option value="BENEFICIARY" className="dark:bg-slate-900 dark:text-white">Beneficiary · thụ hưởng</option>
               </select>
             </label>
-          ) : <p className="text-xs font-semibold text-slate-700">Vai trò: Guardian</p>}
-          <button type="button" disabled={!candidateId || transaction.blocked || loading} onClick={() => void propose()} className="min-h-11 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-50">Gửi đề nghị</button>
+          ) : <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Vai trò: Guardian</p>}
+          <button type="button" disabled={!candidateId || transaction.blocked || loading} onClick={() => void propose()} className="min-h-11 rounded-xl bg-slate-900 hover:bg-black dark:bg-red-600 dark:hover:bg-red-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer">Gửi đề nghị</button>
         </div>
       )}
 
       {canManageMembers && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/70 p-4">
-          <p className="flex-1 text-xs leading-relaxed text-blue-900">Tạo hồ sơ trẻ em hoặc người cao tuổi tại workspace này. Người đó cần đăng nhập, liên kết ví và được cấp allowlist trước khi có thể tham gia Hũ.</p>
-          <button type="button" onClick={() => setMemberModalOpen(true)} className="min-h-10 rounded-xl border border-blue-300 bg-white px-3 text-xs font-bold text-blue-800 hover:bg-blue-100">Tạo hồ sơ thành viên</button>
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-blue-100 dark:border-blue-900/60 bg-blue-50/70 dark:bg-blue-950/40 p-4">
+          <p className="flex-1 text-xs leading-relaxed text-blue-900 dark:text-blue-200">Tạo hồ sơ trẻ em hoặc người cao tuổi tại workspace này. Người đó cần đăng nhập, liên kết ví và được cấp allowlist trước khi có thể tham gia Hũ.</p>
+          <button type="button" onClick={() => setMemberModalOpen(true)} className="min-h-10 rounded-xl border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 px-3 text-xs font-bold text-blue-800 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-slate-800 cursor-pointer">Tạo hồ sơ thành viên</button>
         </div>
       )}
 
-      {eligible.length > 0 && allowlisted.length === 0 && <p className="text-xs text-amber-800">Có hồ sơ workspace chưa đủ điều kiện. Thành viên cần đăng nhập, liên kết ví riêng và hoàn tất cấp quyền on-chain tại mục Thiết lập gia đình trước.</p>}
+      {eligible.length > 0 && allowlisted.length === 0 && <p className="text-xs text-amber-800 dark:text-amber-300">Có hồ sơ workspace chưa đủ điều kiện. Thành viên cần đăng nhập, liên kết ví riêng và hoàn tất cấp quyền on-chain tại mục Thiết lập gia đình trước.</p>}
 
       {proposals.length > 0 ? (
         <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">Đề nghị đang chờ chữ ký</h4>
+          <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Đề nghị đang chờ chữ ký</h4>
           {proposals.map((proposal) => {
             const expired = proposal.deadline > 0 && proposal.deadline * 1000 < Date.now();
             return (
-              <article key={`${proposal.proposalId}:${proposal.memberAddress}`} className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <article key={`${proposal.proposalId}:${proposal.memberAddress}`} className="flex flex-col gap-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/30 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-slate-900">{nameFor(proposal.memberAddress)} <span className="font-normal text-slate-600">· {proposal.guardianRole ? "Guardian" : "Beneficiary"}</span></p>
-                  <p className="mt-1 text-xs text-slate-600">Đã ký {proposal.approvalsCount}/{proposal.requiredApprovals} Guardian · hạn {proposal.deadline ? new Date(proposal.deadline * 1000).toLocaleString("vi-VN") : "—"}</p>
-                  {proposal.approvedByCaller && <p className="mt-1 text-xs font-semibold text-emerald-700">Ví hiện tại đã ký</p>}
+                  <p className="truncate text-sm font-bold text-slate-900 dark:text-white">{nameFor(proposal.memberAddress)} <span className="font-normal text-slate-600 dark:text-slate-300">· {proposal.guardianRole ? "Guardian" : "Beneficiary"}</span></p>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Đã ký {proposal.approvalsCount}/{proposal.requiredApprovals} Guardian · hạn {proposal.deadline ? new Date(proposal.deadline * 1000).toLocaleString("vi-VN") : "—"}</p>
+                  {proposal.approvedByCaller && <p className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">Ví hiện tại đã ký</p>}
                 </div>
-                <button type="button" disabled={!canApprove || proposal.approvedByCaller || expired || transaction.blocked} onClick={() => void approve(proposal)} className="min-h-10 shrink-0 rounded-xl bg-amber-700 px-4 text-xs font-bold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-45">{expired ? "Đã hết hạn" : proposal.approvedByCaller ? "Đã ký" : "Ký duyệt"}</button>
+                <button type="button" disabled={!canApprove || proposal.approvedByCaller || expired || transaction.blocked} onClick={() => void approve(proposal)} className="min-h-10 shrink-0 rounded-xl bg-amber-700 dark:bg-amber-600 px-4 text-xs font-bold text-white hover:bg-amber-800 dark:hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-45 cursor-pointer">{expired ? "Đã hết hạn" : proposal.approvedByCaller ? "Đã ký" : "Ký duyệt"}</button>
               </article>
             );
           })}
         </div>
-      ) : <p className="text-xs text-slate-500">Chưa có đề nghị thêm thành viên đang chờ.</p>}
+      ) : <p className="text-xs text-slate-500 dark:text-slate-400">Chưa có đề nghị thêm thành viên đang chờ.</p>}
 
-      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      {notice && <p role="status" className="text-sm text-emerald-700">{notice}</p>}
-      {transaction.state === "tracking" && <p role="status" className="break-all text-xs text-amber-800">Giao dịch đang được theo dõi: {transaction.hash || transaction.message}</p>}
-      {transaction.state === "error" && transaction.message && <p role="alert" className="text-sm text-red-700">{transaction.message}</p>}
-      {loading && <p role="status" className="text-xs text-slate-500">Đang tải thành viên và đề nghị…</p>}
+      {error && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>}
+      {notice && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">{notice}</p>}
+      {transaction.state === "tracking" && <p role="status" className="break-all text-xs text-amber-800 dark:text-amber-300">Giao dịch đang được theo dõi: {transaction.hash || transaction.message}</p>}
+      {transaction.state === "error" && transaction.message && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{transaction.message}</p>}
+      {loading && <p role="status" className="text-xs text-slate-500 dark:text-slate-400">Đang tải thành viên và đề nghị…</p>}
 
       <MemberManagementModal isOpen={memberModalOpen} onClose={refreshAfterMemberModal} />
     </section>

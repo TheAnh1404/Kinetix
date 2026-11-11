@@ -192,7 +192,7 @@ export function ZoneFamilySetup() {
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <Link
               href={`/start?workspace=${encodeURIComponent(currentWorkspaceId || "")}`}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-slate-900 text-xs font-bold shadow-md hover:bg-slate-100 transition-all cursor-pointer active:scale-95"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-bold shadow-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer active:scale-95"
             >
               <span>Mở Hướng Dẫn Từng Bước (/start)</span>
               <ExternalLink size={14} />
@@ -293,7 +293,7 @@ export function ZoneFamilySetup() {
               <ShieldCheck size={18} className="text-emerald-600" />
               <span>Danh Sách Kiểm Tra Sẵn Sàng Vận Hành</span>
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Các điều kiện kỹ thuật và tài chính cần thiết trước khi giải ngân
             </p>
           </div>
@@ -311,7 +311,7 @@ export function ZoneFamilySetup() {
             onAction={handleChecklistAction}
           />
         ) : (
-          <div className="py-6 text-center text-xs text-slate-400">
+          <div className="py-6 text-center text-xs text-slate-400 dark:text-slate-500">
             Đang tải danh sách kiểm tra…
           </div>
         )}
@@ -328,7 +328,7 @@ export function ZoneFamilySetup() {
                 <Layers size={18} className="text-red-600" />
                 <span>Cấp Quyền Thành Viên On-Chain (Operator Provisioning)</span>
               </h4>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Ký xác nhận on-chain để ghi nhận địa chỉ ví thành viên vào hợp đồng FamilyHub
               </p>
             </div>
@@ -351,7 +351,7 @@ export function ZoneFamilySetup() {
               <Users size={18} className="text-blue-600" />
               <span>Người Thân & Người Bảo Hộ Được Phân Công</span>
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Hỗ trợ Ông Bà và Trẻ Nhỏ trong các giao dịch vượt hạn mức và việc nhà
             </p>
           </div>
@@ -369,9 +369,9 @@ export function ZoneFamilySetup() {
         </div>
 
         {guardians === null ? (
-          <p className="text-xs text-slate-400 py-3">Đang tìm danh sách người bảo hộ…</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 py-3">Đang tìm danh sách người bảo hộ…</p>
         ) : guardians.length === 0 ? (
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs text-slate-500">
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs text-slate-500 dark:text-slate-400">
             Chưa có người bảo hộ nào được cấu hình số điện thoại. Hãy bổ sung để các thành viên có thể liên hệ nhanh.
           </div>
         ) : (
@@ -387,7 +387,7 @@ export function ZoneFamilySetup() {
                     <strong className="text-xs font-bold text-slate-900 dark:text-white block truncate">
                       {person.fullName}
                     </strong>
-                    <span className="text-[11px] text-slate-500 block truncate">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate">
                       {person.phoneNumber || "Chưa có số điện thoại"}
                     </span>
                   </div>

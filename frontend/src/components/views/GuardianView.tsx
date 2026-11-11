@@ -169,7 +169,7 @@ export const GuardianView: React.FC = () => {
                 onClick={() => setIsMemberModalOpen(true)}
                 hidden={!canManageMembers}
                 type="button"
-                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 border border-slate-200"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 border border-slate-200 dark:border-slate-700"
               >
                 <span className="material-symbols-outlined text-[16px]">
                   supervisor_account
@@ -194,11 +194,11 @@ export const GuardianView: React.FC = () => {
           {/* Lưới các Hũ tiền */}
           <div className="space-y-3">
             {dynamicVaults.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-700">
-                <h3 className="font-bold text-slate-950">
+              <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/90 p-5 text-sm text-slate-700 dark:text-slate-300">
+                <h3 className="font-bold text-slate-950 dark:text-white">
                   Gia đình chưa có hũ tiền
                 </h3>
-                <p className="mt-2">
+                <p className="mt-2 text-slate-600 dark:text-slate-400">
                   Bắt đầu bằng việc thêm người thân, để mỗi người kích hoạt tài
                   khoản và liên kết Core. Có thể chọn Tạo Hũ Mới để chuẩn bị bản
                   nháp ngay; chỉ ký khi quyền giao dịch sẵn sàng. Số dư ban đầu là 0 AVAX.
@@ -215,7 +215,7 @@ export const GuardianView: React.FC = () => {
                 return (
                   <article
                     key={vault.id}
-                    className="p-5 rounded-2xl border border-amber-200 bg-amber-50"
+                    className="p-5 rounded-2xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
                   >
                     <h3 className="font-bold">{vault.name}</h3>
                     <p className="text-sm mt-2">{issue.message}</p>
@@ -239,38 +239,38 @@ export const GuardianView: React.FC = () => {
               return (
                 <div
                   key={vault.id}
-                  className="p-5 rounded-3xl bg-white border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all flex flex-col gap-4"
+                  className="p-5 rounded-3xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md transition-all flex flex-col gap-4 text-slate-900 dark:text-slate-100"
                 >
                   {/* Top Bar: Icon, Name, On-chain Badge, Actions */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      <span className="text-2xl p-2 rounded-2xl bg-slate-50 border border-slate-100">{vault.icon || "🏦"}</span>
+                      <span className="text-2xl p-2 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">{vault.icon || "🏦"}</span>
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-sm font-bold text-slate-900">
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                             {vault.name}
                           </h3>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold">
                             #{vault.onchainVaultId}
                           </span>
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold font-mono">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold font-mono">
                             {vault.ruleTemplate}
                           </span>
                         </div>
-                        <span className="text-xs text-slate-500 mt-0.5">
+                        <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                           {vault.description || "Hũ tiền quản trị đa chữ ký bảo vệ gia đình"}
                         </span>
 
                         {/* On-Chain Contract Address Badge */}
                         {vault.onchainVaultAddress ? (
-                          <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-mono text-slate-700 w-fit">
+                          <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-mono text-slate-700 dark:text-slate-300 w-fit">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             <span className="text-slate-400 font-sans font-bold text-[10px]">Contract:</span>
                             <span className="font-bold">{vault.onchainVaultAddress.slice(0, 6)}...{vault.onchainVaultAddress.slice(-4)}</span>
                             <button
                               type="button"
                               onClick={() => handleCopyAddress(vault.onchainVaultAddress!)}
-                              className="hover:text-slate-900 transition-colors cursor-pointer text-slate-400 hover:text-slate-600"
+                              className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer text-slate-400 hover:text-slate-600"
                               title="Sao chép địa chỉ Smart Contract của Hũ"
                             >
                               <span className="material-symbols-outlined text-[14px]">
@@ -301,7 +301,7 @@ export const GuardianView: React.FC = () => {
                       <button
                         onClick={() => setTransferModalVault(vault)}
                         type="button"
-                        className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 border border-slate-200"
+                        className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 border border-slate-200 dark:border-slate-700"
                         title="Chuyển AVAX sang một Hũ khác trong gia đình"
                       >
                         <span className="material-symbols-outlined text-[15px]">swap_horiz</span>
@@ -320,33 +320,33 @@ export const GuardianView: React.FC = () => {
                   </div>
 
                   {/* 3 TẦNG SỐ DƯ MINH BẠCH (TIERED BALANCES) */}
-                  <div className="grid grid-cols-3 gap-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+                  <div className="grid grid-cols-3 gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/80 text-center">
                     <div className="flex flex-col items-center">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
                         1. Tổng Tài Sản
                       </span>
-                      <span className="text-sm font-mono font-bold text-slate-900 mt-0.5">
-                        {total.toFixed(2)} <span className="text-[10px] font-normal text-slate-500">AVAX</span>
+                      <span className="text-sm font-mono font-bold text-slate-900 dark:text-white mt-0.5">
+                        {total.toFixed(2)} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">AVAX</span>
                       </span>
                     </div>
 
-                    <div className="flex flex-col items-center border-x border-slate-200/80 px-2">
-                      <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wider flex items-center gap-0.5">
+                    <div className="flex flex-col items-center border-x border-slate-200/80 dark:border-slate-700/80 px-2">
+                      <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider flex items-center gap-0.5">
                         <span className="material-symbols-outlined text-[12px]">lock</span>
                         <span>2. Giữ Chỗ M/N</span>
                       </span>
-                      <span className="text-sm font-mono font-bold text-amber-700 mt-0.5">
-                        {reserved.toFixed(2)} <span className="text-[10px] font-normal text-amber-600">AVAX</span>
+                      <span className="text-sm font-mono font-bold text-amber-700 dark:text-amber-400 mt-0.5">
+                        {reserved.toFixed(2)} <span className="text-[10px] font-normal text-amber-600 dark:text-amber-300">AVAX</span>
                       </span>
                     </div>
 
                     <div className="flex flex-col items-center">
-                      <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider flex items-center gap-0.5">
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-0.5">
                         <span className="material-symbols-outlined text-[12px]">bolt</span>
                         <span>3. Khả Dụng</span>
                       </span>
-                      <span className="text-sm font-mono font-black text-emerald-700 mt-0.5">
-                        {available.toFixed(2)} <span className="text-[10px] font-normal text-emerald-600">AVAX</span>
+                      <span className="text-sm font-mono font-black text-emerald-700 dark:text-emerald-400 mt-0.5">
+                        {available.toFixed(2)} <span className="text-[10px] font-normal text-emerald-600 dark:text-emerald-300">AVAX</span>
                       </span>
                     </div>
                   </div>
@@ -382,47 +382,47 @@ export const GuardianView: React.FC = () => {
           {/* MULTISIG COMMAND PANEL */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+              <span className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm">
                 ✍️
               </span>
               <div>
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
                   Bàn Ký Duyệt Đa Chữ Ký (M/N)
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Giải ngân các khoản rút lớn an toàn
                 </p>
               </div>
             </div>
 
-            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60">
               {pendingRequests.length} lệnh chờ
             </span>
           </div>
 
           {activeRequest ? (
-            <div className="bg-white p-5 rounded-2xl border-2 border-blue-200 shadow-sm flex flex-col gap-4">
+            <div className="bg-white dark:bg-slate-900/90 p-5 rounded-2xl border-2 border-blue-200 dark:border-blue-900/60 shadow-sm flex flex-col gap-4 text-slate-900 dark:text-slate-100">
               <div className="flex items-center justify-between">
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold font-mono uppercase">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/60 text-[10px] font-bold font-mono uppercase">
                   {requestStatus(activeRequest)}
                 </span>
-                <span className="text-xs font-mono font-bold text-slate-400">
+                <span className="text-xs font-mono font-bold text-slate-400 dark:text-slate-500">
                   Phiếu #{activeRequest.id}
                 </span>
               </div>
 
               <div className="flex flex-col">
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
                   Số tiền yêu cầu giải ngân:
                 </span>
-                <div className="text-2xl font-black font-mono text-slate-900 my-0.5">
+                <div className="text-2xl font-black font-mono text-slate-900 dark:text-white my-0.5">
                   {activeRequest.amount}{" "}
-                  <span className="text-sm font-sans font-bold text-slate-500">
+                  <span className="text-sm font-sans font-bold text-slate-500 dark:text-slate-400">
                     AVAX
                   </span>
                 </div>
-                <p className="text-xs text-slate-600 mt-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <span className="font-bold text-slate-700">Mục đích:</span>{" "}
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
+                  <span className="font-bold text-slate-700 dark:text-slate-200">Mục đích:</span>{" "}
                   {activeRequest.reason}
                 </p>
               </div>
@@ -430,13 +430,13 @@ export const GuardianView: React.FC = () => {
               {/* Tiến độ chữ ký Guardians M/N */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="text-slate-600">Tiến độ chữ ký:</span>
-                  <span className="font-mono text-blue-600">
+                  <span className="text-slate-600 dark:text-slate-400">Tiến độ chữ ký:</span>
+                  <span className="font-mono text-blue-600 dark:text-blue-400">
                     {activeRequest.approvalsCount ?? 0}/
                     {activeRequest.requiredApprovals ?? 2} chữ ký
                   </span>
                 </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
                     style={{
                       width: `${Math.min(
@@ -471,7 +471,7 @@ export const GuardianView: React.FC = () => {
                   </span>
                 </button>
               ) : (
-                <div className="w-full py-2.5 rounded-xl bg-emerald-50 text-emerald-800 text-center font-bold text-xs">
+                <div className="w-full py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-center font-bold text-xs">
                   {activeRequest.status === "EXECUTED"
                     ? "Đã giải ngân về ví người thụ hưởng"
                     : "Xem trạng thái và quyền ký trong chi tiết hũ"}
@@ -479,21 +479,21 @@ export const GuardianView: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-500">
+            <div className="p-8 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
               Không có yêu cầu rút tiền lớn nào đang chờ duyệt.
             </div>
           )}
 
           {/* DUYỆT THƯỞNG VIỆC NHÀ (CHORE-TO-EARN) */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-3">
+          <div className="bg-white dark:bg-slate-900/90 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col gap-3 text-slate-900 dark:text-slate-100">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-900">
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
                 Việc Nhà Của Con Cần Duyệt
               </span>
               <button
                 onClick={() => setIsChoreModalOpen(true)}
                 type="button"
-                className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
+                className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline cursor-pointer"
               >
                 + Giao Việc Mới
               </button>
@@ -502,7 +502,7 @@ export const GuardianView: React.FC = () => {
             <div className="space-y-2">
               {chores.filter((c: any) => c.status === "SUBMITTED").length ===
               0 ? (
-                <p className="text-[11px] text-slate-400 text-center py-2">
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center py-2">
                   Chưa có bài tập nào con vừa nộp chờ duyệt.
                 </p>
               ) : (
@@ -511,13 +511,13 @@ export const GuardianView: React.FC = () => {
                   .map((chore: any) => (
                     <div
                       key={chore.id}
-                      className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-200 flex items-center justify-between gap-2"
+                      className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/60 flex items-center justify-between gap-2"
                     >
                       <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-bold text-slate-900 truncate">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                           {chore.title}
                         </span>
-                        <span className="text-[11px] text-emerald-700 font-mono font-bold">
+                        <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-mono font-bold">
                           Thưởng: {chore.rewardAmount} AVAX
                         </span>
                       </div>
@@ -526,7 +526,7 @@ export const GuardianView: React.FC = () => {
                         <button
                           onClick={() => setInspectingChore(chore)}
                           type="button"
-                          className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-all"
+                          className="px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-all"
                         >
                           <span className="material-symbols-outlined text-[13px]">
                             visibility
@@ -544,7 +544,7 @@ export const GuardianView: React.FC = () => {
                             handleVerifyChore(chore.id, chore.rewardAmount)
                           }
                           type="button"
-                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer transition-all active:scale-95"
+                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer transition-all active:scale-95 disabled:opacity-40"
                         >
                           Duyệt Thưởng
                         </button>
@@ -561,6 +561,7 @@ export const GuardianView: React.FC = () => {
 
       <DepositVaultModal
         isOpen={Boolean(depositModalVault)}
+        defaultVaultId={depositModalVault?.onchainVaultId}
         onClose={() => setDepositModalVault(null)}
       />
 

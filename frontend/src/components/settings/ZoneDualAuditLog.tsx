@@ -90,7 +90,7 @@ export const ZoneDualAuditLog: React.FC<ZoneDualAuditLogProps> = ({
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               Nhật Ký Hoạt Động Kép (Dual Audit Log Timeline)
             </h3>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
               Minh bạch mọi thay đổi cấu hình cả ở tầng Web2 DB và On-chain Smart Contract
             </p>
           </div>

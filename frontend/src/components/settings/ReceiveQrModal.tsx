@@ -59,7 +59,7 @@ export const ReceiveQrModal: React.FC<ReceiveQrModalProps> = ({
         </p>
 
         {/* QR Code Container */}
-        <div className="p-4 bg-white rounded-2xl border border-slate-200 inline-block shadow-inner mb-4">
+        <div className="p-4 bg-white rounded-2xl border border-slate-200 dark:border-slate-700 inline-block shadow-inner mb-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={qrUrl}
@@ -91,7 +91,7 @@ export const ReceiveQrModal: React.FC<ReceiveQrModalProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 mb-2">
+        <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 mb-2">
           <ShieldCheck size={14} className="text-emerald-600" />
           <span>Hỗ trợ nhận AVAX, USDC và các tài sản Avalanche Fuji</span>
         </div>

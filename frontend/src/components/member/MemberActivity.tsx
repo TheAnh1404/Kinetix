@@ -1,13 +1,19 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { authRequest } from "@/hooks/useAuth";
+import { authRequest, useAuth } from "@/hooks/useAuth";
 import { useFamily } from "@/context/FamilyContext";
 import { amountLabel } from "@/lib/member";
 import { EmptyState } from "./MemberPrimitives";
 import { SNOWTRACE_TESTNET_URL } from "@/contracts/config";
 
 export function ActivityList() {
+  const auth = useAuth();
+  const { currentWorkspace } = useFamily();
+  return <ScopedActivityList key={`${auth.user?.id}:${currentWorkspace?.id}`} />;
+}
+
+function ScopedActivityList() {
   const { currentWorkspace } = useFamily();
   const [page, setPage] = useState(0);
   const [data, setData] = useState<

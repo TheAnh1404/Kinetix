@@ -67,17 +67,17 @@ export function InvitationAcceptancePanel() {
           spellCheck={false}
           maxLength={43}
           placeholder="Dán mã lời mời 43 ký tự"
-          className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 font-mono text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+          className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 font-mono text-sm text-slate-900 dark:text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
         />
-        <button type="button" disabled={busy || token.trim().length !== 43} onClick={() => void inspect()} className="min-h-11 rounded-xl bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">Kiểm tra mã</button>
+        <button type="button" disabled={busy || token.trim().length !== 43} onClick={() => void inspect()} className="min-h-11 rounded-xl bg-blue-700 hover:bg-blue-800 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer">Kiểm tra mã</button>
       </div>
       {preview && (
         <div className="space-y-3 rounded-xl border border-blue-200 bg-white p-4 text-sm dark:border-blue-900 dark:bg-slate-900">
-          {auth.linkedWallet?.address.toLowerCase() !== preview.expectedWallet.toLowerCase() && <p role="alert" className="text-xs font-semibold text-amber-800">Lời mời yêu cầu ví khác với ví đã liên kết tài khoản này. Đăng nhập bằng đúng tài khoản Kinetix trước khi nhận.</p>}
+          {auth.linkedWallet?.address.toLowerCase() !== preview.expectedWallet.toLowerCase() && <p role="alert" className="text-xs font-semibold text-amber-800 dark:text-amber-300">Lời mời yêu cầu ví khác với ví đã liên kết tài khoản này. Đăng nhập bằng đúng tài khoản Kinetix trước khi nhận.</p>}
           <p>Bạn được mời vào <strong>{preview.workspaceName}</strong> với tư cách Guardian.</p>
           <p className="break-all text-xs text-slate-600 dark:text-slate-300">Ví yêu cầu: <span className="font-mono">{preview.expectedWallet}</span></p>
           <p className="text-xs text-slate-600 dark:text-slate-300">Hết hạn: {new Date(preview.expiresAt).toLocaleString("vi-VN")}</p>
-          <button type="button" disabled={busy || auth.linkedWallet?.address.toLowerCase() !== preview.expectedWallet.toLowerCase()} onClick={() => void accept()} className="min-h-11 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white hover:bg-black disabled:opacity-50">Xác thực và tham gia</button>
+          <button type="button" disabled={busy || auth.linkedWallet?.address.toLowerCase() !== preview.expectedWallet.toLowerCase()} onClick={() => void accept()} className="min-h-11 rounded-xl bg-slate-900 hover:bg-black dark:bg-red-600 dark:hover:bg-red-700 px-4 text-sm font-bold text-white disabled:opacity-50 cursor-pointer">Xác thực và tham gia</button>
           <p className="text-xs text-slate-500">Core cần đang chọn đúng ví được ghi trong lời mời. Việc tham gia workspace chưa tự cấp quyền trên từng Hũ.</p>
         </div>
       )}

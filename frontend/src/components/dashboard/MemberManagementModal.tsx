@@ -194,21 +194,21 @@ export function MemberManagementModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="managed-title"
-        className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white shadow-2xl"
+        className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl text-slate-900 dark:text-slate-100"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between border-b border-slate-100 p-6">
+        <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 p-6">
           <div>
             <span className="text-[10px] tracking-[.2em] text-red-500 font-bold">
               GIA ĐÌNH · TÀI KHOẢN CÁ NHÂN
             </span>
             <h2
               id="managed-title"
-              className="mt-2 text-2xl font-bold text-slate-900"
+              className="mt-2 text-2xl font-bold text-slate-900 dark:text-white"
             >
               Thành viên được quản lý
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               {currentWorkspace?.name}
             </p>
           </div>
@@ -216,7 +216,7 @@ export function MemberManagementModal({
             aria-label="Đóng"
             onClick={onClose}
             disabled={busy}
-            className="p-2 rounded-full hover:bg-slate-100"
+            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
           >
             <X size={21} />
           </button>
@@ -224,7 +224,7 @@ export function MemberManagementModal({
         <div className="p-6">
           <div className="flex gap-3 mb-6">
             <button
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${tab === "list" ? "bg-slate-900 text-white" : "bg-slate-100"}`}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${tab === "list" ? "bg-slate-900 dark:bg-red-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"}`}
               onClick={() => {
                 setTab("list");
                 setActivity(null);
@@ -233,7 +233,7 @@ export function MemberManagementModal({
               <Users size={17} /> Thành viên
             </button>
             <button
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${tab === "create" ? "bg-slate-900 text-white" : "bg-slate-100"}`}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${tab === "create" ? "bg-slate-900 dark:bg-red-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"}`}
               onClick={() => {
                 setTab("create");
                 setActivity(null);
@@ -426,12 +426,12 @@ export function MemberManagementModal({
                 <p className="text-sm text-slate-500">Đang tải…</p>
               )}
               {!busy && !list.length && (
-                <div className="text-center rounded-2xl border border-dashed border-slate-200 py-12">
-                  <Users className="mx-auto text-slate-300" size={36} />
-                  <h3 className="mt-3 font-bold">
+                <div className="text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 py-12">
+                  <Users className="mx-auto text-slate-300 dark:text-slate-600" size={36} />
+                  <h3 className="mt-3 font-bold text-slate-900 dark:text-white">
                     Bắt đầu bằng một tài khoản riêng
                   </h3>
-                  <p className="text-sm text-slate-500 mt-2">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
                     Tạo tài khoản cho ông bà hoặc trẻ nhỏ để cùng tham gia.
                   </p>
                 </div>
@@ -439,14 +439,14 @@ export function MemberManagementModal({
               {list.map((member) => (
                 <article
                   key={member.id}
-                  className="rounded-2xl border border-slate-200 p-5"
+                  className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 p-5"
                 >
                   <div className="flex justify-between gap-4">
                     <div>
-                      <h3 className="font-bold text-slate-900">
+                      <h3 className="font-bold text-slate-900 dark:text-white">
                         {member.fullName}
                       </h3>
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                         {member.role === "CHILD" ? "Trẻ nhỏ" : "Người cao tuổi"}{" "}
                         · @{member.username || "cần chuyển đổi"}
                       </p>
@@ -486,14 +486,16 @@ export function MemberManagementModal({
                     requests={member.onchainPermissions}
                     onConfirmed={load}
                   />
-                  <div className="flex flex-wrap gap-4 mt-4 border-t border-slate-100 pt-4 text-xs font-semibold">
+                  <div className="flex flex-wrap gap-4 mt-4 border-t border-slate-100 dark:border-slate-800 pt-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
                     <button
+                      className="hover:underline cursor-pointer"
                       disabled={busy}
                       onClick={() => void run(() => profile(member))}
                     >
                       Sửa hồ sơ
                     </button>
                     <button
+                      className="hover:underline cursor-pointer"
                       disabled={busy}
                       onClick={() => void run(() => reset(member))}
                     >
