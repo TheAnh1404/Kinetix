@@ -238,7 +238,7 @@ describe("HTTP guards without a database", () => {
     it("saves and restores private vault drafts with deployment disabled, without creating a financial resource", async () => {
       const path = `/workspaces/${workspaceId}/vault-drafts`;
       const id = require("crypto").randomUUID();
-      const config = { ...require("../shared/vaultCreation").emptyVaultForm(), description: "Private family metadata" };
+      const config = { ...require("../shared/vaultCreation").emptyVaultForm(), bufferRatioBps: 2300, description: "Private family metadata" };
       const before = await db.select().from(schema.vaults);
       const context = await admin.request(`/workspaces/${workspaceId}/vault-creation`, undefined, "GET");
       expect(context.status).to.equal(200);
@@ -247,6 +247,7 @@ describe("HTTP guards without a database", () => {
       const saved = await admin.request(path, { id, config, step: 1 });
       expect(saved.status).to.equal(200);
       expect(saved.data.draft.revision).to.equal(0);
+      expect(saved.data.draft.config.bufferRatioBps).to.equal(2300);
       expect((await admin.request(path, { id, config, step: 1 })).data.draft.id).to.equal(id);
       expect((await admin.request(path, { id, config: { ...config, name: "Different retry" }, step: 1 })).status).to.equal(409);
       expect((await otherAdmin.request(`${path}/${id}`, undefined, "GET")).status).to.equal(403);
@@ -254,6 +255,7 @@ describe("HTTP guards without a database", () => {
       const second = new Browser();
       expect((await second.request("/auth/login", { username: "guardian_a", password })).status).to.equal(200);
       expect((await second.request(`${path}/${id}`, undefined, "GET")).data.draft.config.description).to.equal(config.description);
+      expect((await second.request(`${path}/${id}`, undefined, "GET")).data.draft.config.bufferRatioBps).to.equal(2300);
       const racing = await Promise.all([admin.request(`${path}/${id}`, { config: { ...config, name: "Tab A" }, step: 2, revision: 0 }, "PATCH"), second.request(`${path}/${id}`, { config: { ...config, name: "Tab B" }, step: 2, revision: 0 }, "PATCH")]);
       expect(racing.map((item) => item.status).sort()).to.deep.equal([200, 409]);
       const latest = (await admin.request(`${path}/${id}`, undefined, "GET")).data.draft;
@@ -302,7 +304,8 @@ describe("HTTP guards without a database", () => {
       expect(done.data.data.progress.completedAt).to.be.a("string");
       const finalMe = await admin.request("/auth/me", undefined, "GET");
       expect(finalMe.data.startRequired).to.equal(false);
-      expect(finalMe.data.redirectUrl).to.equal(`/dashboard/guardian?workspace=${workspaceId}`);
+      expect(finalMe.data.workspaces.find((workspace: any) => workspace.id === workspaceId).role).to.equal("ADMIN");
+      expect(finalMe.data.redirectUrl).to.equal(`/dashboard/admin?workspace=${workspaceId}`);
     });
     it("keeps presentation scope separate from role, wallet rights and untrusted workspace preferences", async () => {
       expect((await otherAdmin.request(`/workspaces/${workspaceId}/start`, undefined, "GET")).status).to.equal(403);

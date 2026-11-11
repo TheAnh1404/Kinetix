@@ -218,10 +218,11 @@ export function CreateVaultModal({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
   const chooseDraft = (row: Draft) => {
-    setDraft(row);
-    setForm(row.config);
+    const needsBufferReview = row.config.bufferRatioBps === undefined && !row.signaturePending && !row.txHash && !row.vaultId;
+    setDraft(needsBufferReview ? { ...row, preflight: null } : row);
+    setForm({ ...emptyVaultForm(), ...row.config });
     setStep(Math.min(4, row.step));
-    setDirty(false);
+    setDirty(needsBufferReview);
     setCreated(
       row.vaultId
         ? family.dynamicVaults.find((item) => item.id === row.vaultId) || {
@@ -896,6 +897,29 @@ export function CreateVaultModal({
                 )}
                 {step === 3 && (
                   <>
+                    <label className={styles.field} htmlFor="vault-buffer-ratio">
+                      Đệm thanh khoản tại Family L1
+                      <output htmlFor="vault-buffer-ratio">
+                        {form.bufferRatioBps / 100}% rút tức thì / {100 - form.bufferRatioBps / 100}% phân bổ Fuji C-Chain
+                      </output>
+                      <input
+                        id="vault-buffer-ratio"
+                        type="range"
+                        min={0}
+                        max={10000}
+                        step={100}
+                        value={form.bufferRatioBps}
+                        onChange={(event) => change("bufferRatioBps", Number(event.target.value))}
+                        aria-valuetext={`${form.bufferRatioBps / 100}% đệm Family L1; ${100 - form.bufferRatioBps / 100}% Fuji C-Chain`}
+                        aria-describedby="vault-buffer-help"
+                        aria-invalid={!!fields.bufferRatioBps}
+                      />
+                      <small id="vault-buffer-help">
+                        Khuyến nghị 10% Đệm rút tức thì tại Family L1 / 90% Gửi sinh lời 8% APY trên Fuji C-Chain.
+                        Lãi 8% là mô hình trả từ quỹ dự trữ. Tỷ lệ là chính sách phân bổ; vốn vẫn được giữ tại kho tiền cho tới khi có chuyển tài sản được xác minh.
+                      </small>
+                      {fields.bufferRatioBps && <small role="alert">{fields.bufferRatioBps}</small>}
+                    </label>
                     <label className={styles.field}>
                       Số Guardian cần đồng ý
                       <select
@@ -1088,12 +1112,15 @@ export function CreateVaultModal({
                         </dd>
                       </div>
                       <div>
+                        <dt>Phân bổ thanh khoản</dt>
+                        <dd>{form.bufferRatioBps / 100}% Family L1 / {100 - form.bufferRatioBps / 100}% Fuji C-Chain · {form.bufferRatioBps} bps</dd>
+                      </div>
+                      <div>
                         <dt>Tài sản & mạng</dt>
                         <dd>
                           AVAX · Avalanche Fuji (43113)
                           <small>
-                            100% vốn trong cùng mạng. Không có lãi suất hoặc cầu
-                            nối.
+                            Tài sản chỉ được ghi nhận ở C-Chain sau khi xác minh vốn nhận thực tế. Lãi 8% APY được chi từ reserve độc lập.
                           </small>
                         </dd>
                       </div>

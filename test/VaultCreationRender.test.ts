@@ -282,15 +282,18 @@ describe("Vault creation component journey", () => {
     await begin();
     await members();
     await click("Tiếp tục");
+    await input("range", "2300");
     await click("Tiếp tục");
     expect(phases).to.have.length(0);
     await input("checkbox", true);
     await click("Kiểm tra cấu hình & phí");
     expect(saved.config.description).to.equal("Private description");
+    expect(saved.config.bufferRatioBps).to.equal(2300);
     expect(renderToStaticMarkup(tree)).to.include("0.000001 AVAX");
     await click("Xác nhận & mở Core");
     expect(phases).to.have.length(1);
     expect(phases[0].ruleTemplate).to.equal("SHIELD");
+    expect(phases[0].bufferRatioBps).to.equal(2300);
     expect(text(tree)).to.match(/Đã tạo\s+Family trip/);
     expect(button("Nạp tiền vào hũ")).to.exist;
   });

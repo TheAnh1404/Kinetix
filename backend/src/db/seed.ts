@@ -10,6 +10,7 @@ import {
   notifications,
 } from "./schema";
 import { sql } from "drizzle-orm";
+import { DEMO_PERSONAS } from "../../../shared/demoPersonas";
 
 async function seed() {
   if (
@@ -41,11 +42,11 @@ async function seed() {
       CASCADE;
     `);
 
-    const adminWalletAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
-    const guardian1Wallet = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
-    const guardian2Wallet = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
-    const elderlyWallet = "0x90F79bf6EB2c4f870365E785982E1f101E93b906";
-    const childWallet = "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65";
+    const adminWalletAddress = DEMO_PERSONAS.admin.wallet;
+    const guardian1Wallet = DEMO_PERSONAS.guardian1.wallet;
+    const guardian2Wallet = DEMO_PERSONAS.guardian2.wallet;
+    const elderlyWallet = DEMO_PERSONAS.elderly.wallet;
+    const childWallet = DEMO_PERSONAS.child.wallet;
 
     const l1Hub = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
     const cChainVault = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
@@ -84,7 +85,7 @@ async function seed() {
       .insert(users)
       .values({
         familyId: workspace1.id,
-        fullName: "Bố Ba (Admin)",
+        fullName: DEMO_PERSONAS.admin.name,
         role: "ADMIN",
         defaultRole: "ADMIN",
         walletAddress: adminWalletAddress,
@@ -100,7 +101,7 @@ async function seed() {
       .insert(users)
       .values({
         familyId: workspace1.id,
-        fullName: "Cô Út (Guardian 1)",
+        fullName: DEMO_PERSONAS.guardian1.name,
         role: "GUARDIAN",
         defaultRole: "GUARDIAN",
         walletAddress: guardian1Wallet,
@@ -116,7 +117,7 @@ async function seed() {
       .insert(users)
       .values({
         familyId: workspace1.id,
-        fullName: "Anh Cả (Guardian 2)",
+        fullName: DEMO_PERSONAS.guardian2.name,
         role: "GUARDIAN",
         defaultRole: "GUARDIAN",
         walletAddress: guardian2Wallet,
@@ -132,7 +133,7 @@ async function seed() {
       .insert(users)
       .values({
         familyId: workspace1.id,
-        fullName: "Ông Nội (Cụ Ba)",
+        fullName: DEMO_PERSONAS.elderly.name,
         role: "ELDERLY",
         defaultRole: "ELDERLY",
         walletAddress: elderlyWallet,
@@ -148,7 +149,7 @@ async function seed() {
       .insert(users)
       .values({
         familyId: workspace1.id,
-        fullName: "Bé Na (Con Gái)",
+        fullName: DEMO_PERSONAS.child.name,
         role: "CHILD",
         defaultRole: "CHILD",
         walletAddress: childWallet,

@@ -1,0 +1,303 @@
+.demo {
+  min-height: 100vh;
+  background: #f3f5f9;
+  color: #142139;
+  font-family: inherit;
+}
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: #142139;
+  color: #fff;
+  box-shadow: 0 4px 24px #14213926;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #78e0bb;
+}
+.roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+}
+.roles button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  background: #263750;
+  color: #fff;
+  border: 1px solid #8493aa;
+  min-height: 56px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.roles button[aria-pressed="true"] {
+  background: #fff;
+  color: #142139;
+  border-color: #fff;
+}
+.roles button > span:first-child {
+  font-size: 26px;
+}
+.roles strong,
+.roles small {
+  display: block;
+}
+.roles strong {
+  font-size: 15px;
+}
+.roles small {
+  font-size: 11px;
+  margin-top: 3px;
+}
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.tools button {
+  min-height: 44px;
+  background: transparent;
+  color: #fff;
+  border: 1px solid #8493aa;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 36px 24px 80px;
+}
+.label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  color: #843b10;
+}
+.main h1 {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 12px 0;
+  text-wrap: balance;
+}
+.intro {
+  max-width: 760px;
+  margin-bottom: 20px;
+  line-height: 1.7;
+}
+.notice {
+  background: #fff5d5;
+  border: 1px solid #c79b31;
+  color: #513c09;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 20px 0;
+  line-height: 1.6;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.card {
+  padding: 28px;
+  border-radius: 20px;
+  border: 1px solid #ccd4df;
+  background: #fff;
+  box-shadow: 0 6px 24px #14213906;
+}
+.card h2 {
+  font-size: 23px;
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+.card h2:not(:first-child) {
+  margin-top: 28px;
+}
+.card p {
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+.card button {
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid #142139;
+  border-radius: 10px;
+  background: #142139;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.card button:disabled {
+  background: #e7ebf0;
+  color: #536078;
+  border-color: #c2cbd8;
+  cursor: default;
+}
+.demo button:focus-visible,
+.demo input:focus-visible {
+  outline: 3px solid #f2b83b;
+  outline-offset: 4px;
+}
+.demo button {
+  transition: box-shadow 0.15s;
+}
+.demo button:hover:not(:disabled) {
+  box-shadow: 0 0 0 2px #9cabc2;
+}
+.card form {
+  display: grid;
+  gap: 12px;
+}
+.card input:not([type="range"]) {
+  min-height: 48px;
+  width: 100%;
+  border: 1px solid #76869e;
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #142139;
+  background: white;
+  font: inherit;
+}
+.card input[type="range"] {
+  width: 100%;
+  min-height: 44px;
+  accent-color: #142139;
+}
+.card label {
+  font-weight: 700;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.jars {
+  padding: 0;
+  list-style: none;
+  margin-top: 24px;
+}
+.jars li {
+  padding: 16px 0;
+  border-top: 1px solid #dce2eb;
+  overflow-wrap: anywhere;
+}
+.jars span {
+  display: block;
+  font-size: 13px;
+  margin-top: 4px;
+}
+.elderly h1,
+.elderly .balance {
+  font-size: 56px;
+  line-height: 1.2;
+  font-weight: 800;
+}
+.elderly .card h2 {
+  font-size: 40px;
+}
+.elderly .card {
+  max-width: 880px;
+}
+.elderly .card p,
+.elderly .card label {
+  font-size: 26px;
+}
+.elderly .card button,
+.elderly .card input {
+  min-height: 80px;
+  font-size: 30px;
+}
+.elderly .card .balance {
+  font-size: 56px;
+}
+.elderly .card form {
+  margin-top: 32px;
+}
+.piggy {
+  background: #fff8fc;
+  border-color: #ddc3d6;
+  text-align: center;
+  max-width: 800px;
+  margin: auto;
+}
+.pig {
+  display: block;
+  font-size: 100px;
+  line-height: 1.5;
+}
+.task {
+  padding: 24px;
+  text-align: left;
+  background: white;
+  border: 1px solid #ddc3d6;
+  border-radius: 16px;
+}
+.task h3 {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+@media (max-width: 800px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .bar {
+    padding: 12px 16px;
+  }
+  .brand {
+    width: 100%;
+  }
+  .main {
+    padding: 28px 16px 60px;
+  }
+  .card {
+    padding: 20px;
+  }
+  .roles {
+    width: 100%;
+  }
+  .roles button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .roles button {
+    flex-direction: column;
+    text-align: center;
+    min-width: 0;
+    padding: 8px;
+  }
+  .roles small {
+    display: none;
+  }
+  .tools {
+    width: 100%;
+  }
+  .tools button {
+    flex: 1;
+  }
+}

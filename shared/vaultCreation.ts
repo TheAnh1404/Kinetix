@@ -12,6 +12,7 @@ export interface VaultForm {
   ruleTemplate: VaultRule;
   name: string;
   description: string;
+  bufferRatioBps: number;
   guardianIds: string[];
   beneficiaryIds: string[];
   requiredApprovals: number;
@@ -24,6 +25,7 @@ export interface VaultForm {
 }
 export interface ResolvedVaultConfig {
   name: string;
+  bufferRatioBps: number;
   ruleTemplate: VaultRule;
   guardianWallets: string[];
   beneficiaryWallets: string[];
@@ -60,6 +62,7 @@ export const emptyVaultForm = (): VaultForm => ({
   ruleTemplate: "SHIELD",
   name: "",
   description: "",
+  bufferRatioBps: 1000,
   guardianIds: [],
   beneficiaryIds: [],
   requiredApprovals: 1,
@@ -72,7 +75,11 @@ export const emptyVaultForm = (): VaultForm => ({
 });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function vaultForm(input: unknown): VaultForm {
-  const value = input as VaultForm;
+  // Bản nháp cũ chưa có tỷ lệ vẫn mở được với giá trị khuyến nghị.
+  const value =
+    input && typeof input === "object"
+      ? ({ bufferRatioBps: 1000, ...input } as VaultForm)
+      : (input as VaultForm);
   const base = emptyVaultForm();
   if (
     !value ||
@@ -82,6 +89,14 @@ export function vaultForm(input: unknown): VaultForm {
     throw new VaultConfigError({ form: "Cấu hình chứa trường không hợp lệ." });
   if (!VAULT_RULES.includes(value.ruleTemplate))
     throw new VaultConfigError({ ruleTemplate: "Chọn loại hũ hợp lệ." });
+  if (
+    !Number.isSafeInteger(value.bufferRatioBps) ||
+    value.bufferRatioBps < 0 ||
+    value.bufferRatioBps > 10000
+  )
+    throw new VaultConfigError({
+      bufferRatioBps: "Tỷ lệ đệm phải từ 0 đến 10000 bps (0–100%).",
+    });
   for (const key of [
     "name",
     "description",
@@ -135,6 +150,12 @@ export function validateVaultForm(
   timestamp: bigint,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
+  if (
+    !Number.isSafeInteger(form.bufferRatioBps) ||
+    form.bufferRatioBps < 0 ||
+    form.bufferRatioBps > 10000
+  )
+    errors.bufferRatioBps = "Chọn tỷ lệ đệm từ 0% đến 100%.";
   if (!form.name.trim() || Array.from(form.name.trim()).length > 80)
     errors.name = "Tên hũ từ 1 đến 80 ký tự.";
   if (
@@ -235,6 +256,7 @@ export function resolveVaultConfig(
     });
   return {
     name: form.name.trim(),
+    bufferRatioBps: form.bufferRatioBps,
     ruleTemplate: form.ruleTemplate,
     guardianWallets,
     beneficiaryWallets,
@@ -252,13 +274,19 @@ export function resolveVaultConfig(
   };
 }
 export function buildVaultCall(config: ResolvedVaultConfig) {
+  if (
+    !Number.isSafeInteger(config.bufferRatioBps) ||
+    config.bufferRatioBps < 0 ||
+    config.bufferRatioBps > 10000
+  )
+    throw new VaultConfigError({ bufferRatioBps: "Tỷ lệ đệm không hợp lệ." });
   const type = VAULT_RULES.indexOf(config.ruleTemplate);
   if (type < 0)
     throw new VaultConfigError({ ruleTemplate: "Loại hũ không hợp lệ." });
   const args: unknown[] = [
     config.name,
     type,
-    10000n,
+    BigInt(config.bufferRatioBps),
     parseEther(config.fastWithdrawLimit),
     BigInt(config.requiredApprovals),
     config.guardianWallets,

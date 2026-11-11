@@ -15,6 +15,7 @@ import { NotificationDropdown } from "@/components/dashboard/NotificationDropdow
 import { TransactionLedgerModal } from "@/components/dashboard/TransactionLedgerModal";
 import { MobileNavBar } from "@/components/navigation/MobileNavBar";
 import { ActiveTab } from "@/types";
+import { DemoPersonaBar } from "./DemoPersonaBar";
 
 interface AppShellProps {
   activeTab: ActiveTab;
@@ -44,6 +45,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [copiedCode, setCopiedCode] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isTelemetryOpen, setIsTelemetryOpen] = useState(false);
+  const [judgeDemo, setJudgeDemo] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
 
   const userMenuRef = useRef<HTMLDivElement>(null);
   const telemetryRef = useRef<HTMLDivElement>(null);
@@ -145,6 +147,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   /* ========================================================================= */
   /* PHÂN LUỒNG 1: THÀNH VIÊN GIA ĐÌNH (ÔNG BÀ, CON TRẺ, ANH CẢ) */
   /* ========================================================================= */
+  if (judgeDemo) return <DemoPersonaBar onExit={() => setJudgeDemo(false)} />;
   if (!isAdmin) {
     return (
       <MemberResponsiveShell elderly={userRole === "ELDERLY"}>
@@ -160,6 +163,9 @@ export const AppShell: React.FC<AppShellProps> = ({
   /* ========================================================================= */
   return (
     <div className="min-h-screen w-full flex flex-col bg-slate-100/70 text-slate-900 font-sans antialiased selection:bg-red-500 selection:text-white">
+      {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
+        <button type="button" className="sticky top-0 z-40 bg-slate-900 px-6 py-3 text-white font-bold" onClick={() => setJudgeDemo(true)}>UNIHACK JUDGE QUICK SWITCHER</button>
+      )}
       <div className="flex-1 flex min-h-screen">
         
         {/* ============================================================== */}

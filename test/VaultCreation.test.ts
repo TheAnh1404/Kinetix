@@ -38,7 +38,7 @@ describe("Vault creation canonical configuration", () => {
       vaultForm({ ...form(), description: "x".repeat(1001) }),
     ).to.throw();
   });
-  it("builds all four ABI calls with the same order, fixed same-chain ratio and zero inactive fields", () => {
+  it("builds all four ABI calls with the same order, recommended buffer ratio and zero inactive fields", () => {
     for (const ruleTemplate of [
       "SHIELD",
       "MILESTONE",
@@ -60,7 +60,7 @@ describe("Vault creation canonical configuration", () => {
           ? "createAdvancedVault"
           : "createCustomVault",
       );
-      expect(decoded.args![2]).to.equal(10000n);
+      expect(decoded.args![2]).to.equal(1000n);
       expect(decoded.args![6]).to.deep.equal([
         wallets.get(ids[1]),
         wallets.get(ids[2]),
@@ -77,6 +77,18 @@ describe("Vault creation canonical configuration", () => {
         expect(decoded.args![10]).to.equal(0n);
       }
     }
+  });
+  it("validates buffer boundaries and preserves selected bps in calldata", () => {
+    for (const bufferRatioBps of [0, 1000, 2345, 10000]) {
+      const value = vaultForm({ ...form(), bufferRatioBps });
+      expect(buildVaultCall(resolveVaultConfig(value, wallets, now)).args[2]).to.equal(BigInt(bufferRatioBps));
+    }
+    for (const bufferRatioBps of [-1, 10001, 0.5, NaN, "1000", null]) {
+      expect(() => vaultForm({ ...form(), bufferRatioBps })).to.throw();
+      expect(() => buildVaultCall({ ...resolveVaultConfig(form(), wallets, now), bufferRatioBps } as any)).to.throw();
+    }
+    const { bufferRatioBps, ...legacy } = form();
+    expect(vaultForm(legacy).bufferRatioBps).to.equal(1000);
   });
   it("preserves 18-decimal amounts and rejects rounding, negatives, exponent notation and storage overflow", () => {
     const value = { ...form(), fastWithdrawLimit: "0.000000000000000001" };
