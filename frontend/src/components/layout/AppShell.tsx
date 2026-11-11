@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/context/LanguageContext";
+import { useSettings } from "@/context/SettingsContext";
 import { WorkspaceSwitcher } from "@/components/workspaces/WorkspaceSwitcher";
 import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
 import { useVaultCreation } from "@/context/VaultCreationContext";
@@ -38,6 +39,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const { currentWorkspace, familyInfo, currentMember, dynamicVaults } = useFamily();
   const { user, logout } = useAuth();
   const { language, toggleLanguage } = useLanguage();
+  const { theme, toggleTheme } = useSettings();
   const router = useRouter();
 
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
@@ -162,7 +164,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   /* PHÂN LUỒNG 2: CHỦ GIA ĐÌNH / QUẢN TRỊ VIÊN (BỐ BA / GUARDIAN) */
   /* ========================================================================= */
   return (
-    <div className="min-h-screen w-full flex flex-col bg-slate-100/70 text-slate-900 font-sans antialiased selection:bg-red-500 selection:text-white">
+    <div className="min-h-screen w-full flex flex-col bg-slate-100/70 dark:bg-[#0b111d] text-slate-900 dark:text-slate-100 font-sans antialiased selection:bg-red-500 selection:text-white transition-colors duration-200">
       {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
         <button type="button" className="sticky top-0 z-40 bg-slate-900 px-6 py-3 text-white font-bold" onClick={() => setJudgeDemo(true)}>UNIHACK JUDGE QUICK SWITCHER</button>
       )}
@@ -171,19 +173,19 @@ export const AppShell: React.FC<AppShellProps> = ({
         {/* ============================================================== */}
         {/* SIDEBAR BÊN TRÁI: TRỤC ĐIỀU HƯỚNG DUY NHẤT TRÊN DESKTOP */}
         {/* ============================================================== */}
-        <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col shrink-0 sticky top-0 h-screen max-h-screen self-start overflow-hidden z-20">
+        <aside className="hidden lg:flex w-64 bg-white dark:bg-[#111927] border-r border-slate-200/80 dark:border-slate-800 flex-col shrink-0 sticky top-0 h-screen max-h-screen self-start overflow-hidden z-20 transition-colors duration-200">
           
           {/* Header Brand: Logo Lớn Nổi Bật & Nhận Diện Kinetix OS */}
-          <div className="h-20 px-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+          <div className="h-20 px-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
             <Link href="/dashboard" className="flex items-center gap-3 group">
               <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white flex items-center justify-center font-black text-xl shadow-md shadow-red-500/30 group-hover:scale-105 transition-transform shrink-0">
                 K
               </div>
               <div className="flex flex-col text-left">
-                <span className="font-black text-lg text-slate-900 tracking-tight leading-tight">
+                <span className="font-black text-lg text-slate-900 dark:text-white tracking-tight leading-tight">
                   Kinetix OS
                 </span>
-                <span className="text-[11px] font-mono text-red-600 font-bold uppercase tracking-wider mt-0.5">
+                <span className="text-[11px] font-mono text-red-600 dark:text-red-400 font-bold uppercase tracking-wider mt-0.5">
                   Master Desk
                 </span>
               </div>
@@ -191,20 +193,20 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* Bộ chọn Không Gian Làm Việc */}
-          <div className="p-3 border-b border-slate-100 bg-slate-50/50 shrink-0">
-            <span className="block px-1 text-[10px] font-mono uppercase font-bold text-slate-400 mb-1.5">
+          <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+            <span className="block px-1 text-[10px] font-mono uppercase font-bold text-slate-400 dark:text-slate-500 mb-1.5">
               {language === "vi" ? "Không Gian Làm Việc" : "Workspace"}
             </span>
             <WorkspaceSwitcher />
           </div>
 
           {/* Mã Không Gian Gia Đình (Family / Workspace Code) */}
-          <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between shrink-0">
+          <div className="px-4 py-2.5 bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
             <div className="flex flex-col min-w-0 pr-2">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 {language === "vi" ? "Mã mời người thân:" : "Workspace Code:"}
               </span>
-              <span className="font-mono font-bold text-slate-800 text-xs truncate">
+              <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-xs truncate">
                 {currentWorkspace?.workspaceCode || familyInfo?.familyCode || "KNTX-8888"}
               </span>
             </div>
@@ -212,8 +214,8 @@ export const AppShell: React.FC<AppShellProps> = ({
               onClick={handleCopyCode}
               className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
                 copiedCode
-                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                  : "bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs"
+                  ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700"
+                  : "bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs"
               }`}
               title={
                 language === "vi"
@@ -232,10 +234,10 @@ export const AppShell: React.FC<AppShellProps> = ({
           {/* Danh mục 4 Không Gian Cốt Lõi */}
           <div className="flex-1 min-h-0 p-3 space-y-1 overflow-y-auto">
             <div className="flex items-center justify-between px-2 py-1 mb-1">
-              <span className="text-[10px] font-mono uppercase font-bold text-slate-400">
+              <span className="text-[10px] font-mono uppercase font-bold text-slate-400 dark:text-slate-500">
                 {language === "vi" ? "Không Gian" : "Spaces"}
               </span>
-              <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+              <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                 {dynamicVaults.length} {language === "vi" ? "Hũ" : "Vaults"}
               </span>
             </div>
@@ -250,15 +252,15 @@ export const AppShell: React.FC<AppShellProps> = ({
                   aria-pressed={isActive}
                   className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all cursor-pointer group ${
                     isActive
-                      ? "bg-red-50 text-red-950 font-bold border border-red-200 shadow-xs"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent"
+                      ? "bg-red-50 dark:bg-red-950/40 text-red-950 dark:text-red-200 font-bold border border-red-200 dark:border-red-900/60 shadow-xs"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white border border-transparent"
                   }`}
                 >
                   <span
                     className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
                       isActive
                         ? "bg-red-600 text-white shadow-xs shadow-red-500/25"
-                        : "bg-slate-100 text-slate-600"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
                     }`}
                   >
                     <span className="material-symbols-outlined text-[18px]">
@@ -269,7 +271,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     <span className="text-xs truncate font-bold">
                       {sp.label}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-normal truncate">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal truncate">
                       {sp.badge}
                     </span>
                   </div>
@@ -279,13 +281,13 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* Quick Action: Khởi Tạo Hũ Mới */}
-          <div className="p-3 border-t border-slate-100 shrink-0">
+          <div className="p-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
             <button
               onClick={() => vaultCreation.open()}
               type="button"
-              className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer active:scale-95"
+              className="w-full py-2.5 px-3 rounded-xl bg-slate-900 dark:bg-red-600 hover:bg-slate-800 dark:hover:bg-red-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer active:scale-95"
             >
-              <span className="material-symbols-outlined text-[17px] text-red-400">
+              <span className="material-symbols-outlined text-[17px] text-red-400 dark:text-white">
                 add_circle
               </span>
               <span>
@@ -297,28 +299,28 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
 
           {/* User Footer: Avatar, Name, Role, Settings, Logout */}
-          <div className="p-3 border-t border-slate-100 flex items-center justify-between bg-white shrink-0 mt-auto">
+          <div className="p-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-[#111927] shrink-0 mt-auto">
             <div className="flex items-center gap-2.5 min-w-0">
               {sidebarAvatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={sidebarAvatar}
                   alt={user?.fullName || "User"}
-                  className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0"
+                  className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
                 />
               ) : (
                 <span
                   aria-hidden="true"
-                  className="w-8 h-8 rounded-full border border-red-200 bg-red-50 text-[11px] font-bold text-red-700 flex items-center justify-center shrink-0"
+                  className="w-8 h-8 rounded-full border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/50 text-[11px] font-bold text-red-700 dark:text-red-300 flex items-center justify-center shrink-0"
                 >
                   {sidebarInitial || "K"}
                 </span>
               )}
               <div className="flex flex-col text-left min-w-0">
-                <span className="text-xs font-bold text-slate-800 truncate max-w-[100px]">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[100px]">
                   {user?.fullName || "Chủ Hộ (Admin)"}
                 </span>
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
                   Admin Master
                 </span>
               </div>
@@ -327,7 +329,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             <div className="flex items-center gap-1">
               <Link
                 href="/settings"
-                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 flex items-center justify-center transition-colors"
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors"
                 title="Cài đặt hệ thống"
               >
                 <span className="material-symbols-outlined text-[18px]">
@@ -336,7 +338,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               </Link>
               <button
                 onClick={handleLogout}
-                className="w-8 h-8 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center justify-center transition-colors cursor-pointer"
                 title="Đăng xuất"
                 type="button"
               >
@@ -356,7 +358,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           {/* ============================================================ */}
           {/* TOPBAR TINH GỌN (CLEAN CONTEXTUAL TOPBAR) */}
           {/* ============================================================ */}
-          <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between shadow-2xs transition-all">
+          <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#111927]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between shadow-2xs transition-colors duration-200">
             
             {/* --- BÊN TRÁI: TIÊU ĐỀ NGỮ CẢNH (DESKTOP) HOẶC LOGO (MOBILE) --- */}
             <div className="flex items-center gap-3 min-w-0">
@@ -377,15 +379,15 @@ export const AppShell: React.FC<AppShellProps> = ({
               {/* Desktop Contextual Title (hiển thị trang đang đứng, không trùng lặp các tab) */}
               <div className="hidden lg:flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[22px] text-slate-700">
+                  <span className="material-symbols-outlined text-[22px] text-slate-700 dark:text-slate-300">
                     {activeSpaceObj.icon}
                   </span>
-                  <h1 className="text-sm font-bold text-slate-900 tracking-tight">
+                  <h1 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                     {activeSpaceObj.fullLabel}
                   </h1>
                 </div>
-                <span className="text-slate-300">|</span>
-                <span className="text-xs text-slate-500 font-medium">
+                <span className="text-slate-300 dark:text-slate-700">|</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   {activeSpaceObj.description}
                 </span>
               </div>
@@ -399,67 +401,67 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsTelemetryOpen(!isTelemetryOpen)}
-                  className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-xs font-mono transition-all cursor-pointer group shadow-2xs"
+                  className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/90 dark:border-slate-700 text-xs font-mono transition-all cursor-pointer group shadow-2xs text-slate-700 dark:text-slate-200"
                   title="Xem trạng thái kết nối Avalanche Dual-Chain"
                 >
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="font-bold text-slate-700">Family L1</span>
-                    <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 rounded font-semibold border border-emerald-200">
+                    <span className="font-bold text-slate-700 dark:text-slate-200">Family L1</span>
+                    <span className="text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1 rounded font-semibold border border-emerald-200 dark:border-emerald-900/60">
                       Fuji
                     </span>
                   </div>
-                  <span className="text-slate-300 font-sans text-xs">⇄</span>
+                  <span className="text-slate-300 dark:text-slate-600 font-sans text-xs">⇄</span>
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-red-500" />
-                    <span className="font-bold text-slate-700">Fuji C-Chain</span>
-                    <span className="text-[10px] text-red-700 bg-red-50 px-1 rounded font-semibold border border-red-200">
+                    <span className="font-bold text-slate-700 dark:text-slate-200">Fuji C-Chain</span>
+                    <span className="text-[10px] text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-1 rounded font-semibold border border-red-200 dark:border-red-900/60">
                       AVAX
                     </span>
                   </div>
-                  <span className="material-symbols-outlined text-[15px] text-slate-400 group-hover:text-slate-600 transition-transform">
+                  <span className="material-symbols-outlined text-[15px] text-slate-400 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-transform">
                     info
                   </span>
                 </button>
 
                 {/* Popover Chi Tiết Dual-Chain Telemetry */}
                 {isTelemetryOpen && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl p-4 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-4 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150 text-slate-900 dark:text-slate-100">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                       <div className="flex items-center gap-2">
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                        <span className="text-xs font-bold text-slate-900">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
                         Thông tin mạng & nguồn tiền
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold border border-emerald-200">
+                      <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded font-bold border border-emerald-200 dark:border-emerald-900/60">
                         Fuji Testnet
                       </span>
                     </div>
 
                     <div className="mt-3 space-y-2.5 text-xs">
                       {/* L1 Box */}
-                      <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                        <div className="flex items-center justify-between font-bold text-slate-900">
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                        <div className="flex items-center justify-between font-bold text-slate-900 dark:text-white">
                           <span>⚡ Family L1 (Appchain)</span>
-                          <span className="text-[10px] font-mono text-emerald-700 bg-emerald-100/60 px-1 rounded">
+                          <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-950/50 px-1 rounded">
                             Theo cấu hình
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-1">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                           Hũ smart contract kiểm tra hạn mức và quyền trên mạng được triển khai. Xem thông tin xác minh trong từng hũ.
                         </p>
                       </div>
 
                       {/* C-Chain Box */}
-                      <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                        <div className="flex items-center justify-between font-bold text-slate-900">
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+                        <div className="flex items-center justify-between font-bold text-slate-900 dark:text-white">
                           <span>🌊 Avalanche Fuji C-Chain</span>
-                          <span className="text-[10px] font-mono text-red-700 bg-red-100/60 px-1 rounded">
+                          <span className="text-[10px] font-mono text-red-700 dark:text-red-400 bg-red-100/60 dark:bg-red-950/50 px-1 rounded">
                             Phí mạng AVAX
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-1">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                           Tiền ví chung được giữ trong Core. Nạp và chi trả có tx hash để đối soát, không có lợi suất tự động.
                         </p>
                       </div>
@@ -472,14 +474,27 @@ export const AppShell: React.FC<AppShellProps> = ({
               <button
                 type="button"
                 onClick={() => setIsLedgerOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 hover:text-slate-900 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95 border border-slate-200/60"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95 border border-slate-200/60 dark:border-slate-700"
                 title="Mở Sổ Cái Lịch Sử Giao Dịch Dual-Chain (Audit Log)"
               >
-                <span className="material-symbols-outlined text-[17px] text-slate-600">
+                <span className="material-symbols-outlined text-[17px] text-slate-600 dark:text-slate-300">
                   receipt_long
                 </span>
                 <span className="hidden md:inline">
                   {language === "vi" ? "Sổ Cái On-Chain" : "Audit Ledger"}
+                </span>
+              </button>
+
+              {/* Nút Chuyển Đổi Giao Diện Sáng / Tối Nhanh (1-Click Theme Toggle) */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 border border-slate-200/60 dark:border-slate-700"
+                title={theme === "dark" ? (language === "vi" ? "Chuyển sang giao diện sáng" : "Switch to Light Mode") : (language === "vi" ? "Chuyển sang giao diện tối" : "Switch to Dark Mode")}
+                aria-label={theme === "dark" ? "Giao diện sáng" : "Giao diện tối"}
+              >
+                <span className="material-symbols-outlined text-[19px]">
+                  {theme === "dark" ? "light_mode" : "dark_mode"}
                 </span>
               </button>
 
@@ -502,7 +517,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               {/* Nút Chuyển Đổi Ngôn Ngữ */}
               <button
                 onClick={toggleLanguage}
-                className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-xs font-mono font-bold text-slate-700 transition-colors cursor-pointer border border-slate-200/60"
+                className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer border border-slate-200/60 dark:border-slate-700"
                 title="Chuyển đổi ngôn ngữ VI / EN"
                 type="button"
               >
@@ -514,7 +529,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200/60 transition-all cursor-pointer"
+                  className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700 transition-all cursor-pointer"
                   title="Tài khoản"
                 >
                   {sidebarAvatar ? (
@@ -525,32 +540,51 @@ export const AppShell: React.FC<AppShellProps> = ({
                       className="w-7 h-7 rounded-lg object-cover"
                     />
                   ) : (
-                    <span className="w-7 h-7 rounded-lg bg-red-100 text-red-700 font-bold text-xs flex items-center justify-center">
+                    <span className="w-7 h-7 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 font-bold text-xs flex items-center justify-center">
                       {sidebarInitial}
                     </span>
                   )}
-                  <span className="material-symbols-outlined text-[15px] text-slate-500">
+                  <span className="material-symbols-outlined text-[15px] text-slate-500 dark:text-slate-400">
                     expand_more
                   </span>
                 </button>
 
                 {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150">
-                    <div className="p-2.5 bg-slate-50 rounded-xl mb-1.5">
-                      <p className="text-xs font-bold text-slate-900 truncate">
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-2 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-800/70 rounded-xl mb-1.5">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                         {user?.fullName || "Chủ Hộ"}
                       </p>
-                      <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-red-100 text-red-700 font-bold">
+                      <span className="text-[10px] font-mono px-1 py-0.5 rounded bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 font-bold">
                         Admin Master
                       </span>
                     </div>
 
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleTheme();
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[17px] text-slate-500 dark:text-slate-400">
+                          {theme === "dark" ? "light_mode" : "dark_mode"}
+                        </span>
+                        <span>{theme === "dark" ? "Giao diện sáng" : "Giao diện tối"}</span>
+                      </div>
+                      <span className="text-[10px] font-mono uppercase text-slate-400">
+                        {theme === "dark" ? "Tối" : "Sáng"}
+                      </span>
+                    </button>
+
                     <Link
                       href="/settings"
                       onClick={() => setIsUserMenuOpen(false)}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
-                      <span className="material-symbols-outlined text-[17px] text-slate-500">
+                      <span className="material-symbols-outlined text-[17px] text-slate-500 dark:text-slate-400">
                         settings
                       </span>
                       <span>{language === "vi" ? "Cài Đặt" : "Settings"}</span>
@@ -562,7 +596,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                         setIsUserMenuOpen(false);
                         handleLogout();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[17px]">
                         logout

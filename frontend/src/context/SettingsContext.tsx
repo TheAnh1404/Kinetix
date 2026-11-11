@@ -65,20 +65,43 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
     isChecking: false,
   });
 
-  // Khởi tạo từ localStorage khi chạy trên trình duyệt
+  // Khởi tạo từ localStorage khi chạy trên trình duyệt và đồng bộ với class dark trên <html>
   useEffect(() => {
     try {
       const savedTheme = localStorage.getItem(
         "kinetix_theme",
       ) as AppTheme | null;
+      let effectiveTheme: AppTheme = "light";
       if (savedTheme === "dark" || savedTheme === "light") {
-        setThemeState(savedTheme);
-        if (savedTheme === "dark") {
-          document.documentElement.classList.add("dark");
-        } else {
-          document.documentElement.classList.remove("dark");
-        }
+        effectiveTheme = savedTheme;
+      } else if (
+        typeof window !== "undefined" &&
+        (document.documentElement.classList.contains("dark") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches)
+      ) {
+        effectiveTheme = "dark";
       }
+
+      setThemeState(effectiveTheme);
+      if (effectiveTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+
+      // Lắng nghe sự kiện storage khi người dùng đổi theme ở tab khác
+      const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === "kinetix_theme" && (e.newValue === "dark" || e.newValue === "light")) {
+          const newT = e.newValue as AppTheme;
+          setThemeState(newT);
+          if (newT === "dark") {
+            document.documentElement.classList.add("dark");
+          } else {
+            document.documentElement.classList.remove("dark");
+          }
+        }
+      };
+      window.addEventListener("storage", handleStorageChange);
 
       const savedCurrency = localStorage.getItem(
         "kinetix_currency",
@@ -106,6 +129,10 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
       if (savedHideBalance !== null) {
         setPrivacyHideBalanceState(savedHideBalance === "true");
       }
+
+      return () => {
+        window.removeEventListener("storage", handleStorageChange);
+      };
     } catch (e) {
       console.warn("Lỗi đọc settings từ localStorage:", e);
     }
@@ -120,14 +147,33 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
       } else {
         document.documentElement.classList.remove("dark");
       }
+      window.dispatchEvent(
+        new CustomEvent("kinetix-theme-change", { detail: newTheme })
+      );
     } catch (e) {
       console.warn("Lỗi lưu theme:", e);
     }
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  }, [theme, setTheme]);
+    setThemeState((prev) => {
+      const nextTheme: AppTheme = prev === "dark" ? "light" : "dark";
+      try {
+        localStorage.setItem("kinetix_theme", nextTheme);
+        if (nextTheme === "dark") {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+        window.dispatchEvent(
+          new CustomEvent("kinetix-theme-change", { detail: nextTheme })
+        );
+      } catch (e) {
+        console.warn("Lỗi lưu theme:", e);
+      }
+      return nextTheme;
+    });
+  }, []);
 
   const setDisplayCurrency = useCallback((currency: DisplayCurrency) => {
     if (currency !== "AVAX") return;

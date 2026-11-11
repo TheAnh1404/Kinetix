@@ -23,10 +23,10 @@ export const MobilePhoneContainer: React.FC<MobilePhoneContainerProps> = ({
         <div className="absolute -right-[7px] top-28 w-[3px] h-16 bg-slate-600 rounded-r-md" />
 
         {/* Màn hình điện thoại (Screen Canvas) */}
-        <div className="w-full bg-slate-50 text-slate-900 rounded-[38px] overflow-hidden flex flex-col min-h-[720px] max-h-[820px] shadow-inner relative">
+        <div className="w-full bg-slate-50 dark:bg-[#0b111d] text-slate-900 dark:text-slate-100 rounded-[38px] overflow-hidden flex flex-col min-h-[720px] max-h-[820px] shadow-inner relative transition-colors">
           {/* Status Bar: Thời gian & Dynamic Island */}
-          <div className="h-10 w-full bg-slate-100/90 backdrop-blur-md px-6 flex items-center justify-between shrink-0 select-none border-b border-slate-200/50 z-20">
-            <span className="text-[12px] font-bold font-mono text-slate-800">
+          <div className="h-10 w-full bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-md px-6 flex items-center justify-between shrink-0 select-none border-b border-slate-200/50 dark:border-slate-800 z-20">
+            <span className="text-[12px] font-bold font-mono text-slate-800 dark:text-slate-200">
               9:41
             </span>
 
@@ -36,7 +36,7 @@ export const MobilePhoneContainer: React.FC<MobilePhoneContainerProps> = ({
               <div className="w-1.5 h-1.5 rounded-full bg-blue-900/60" />
             </div>
 
-            <div className="flex items-center gap-1.5 text-slate-700">
+            <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
               <span className="material-symbols-outlined text-[14px]">
                 signal_cellular_alt
               </span>
@@ -50,22 +50,22 @@ export const MobilePhoneContainer: React.FC<MobilePhoneContainerProps> = ({
           </div>
 
           {/* Mini Mobile App Header */}
-          <div className="px-5 py-3 bg-white border-b border-slate-200/60 flex items-center justify-between shrink-0">
+          <div className="px-5 py-3 bg-white dark:bg-slate-900 border-b border-slate-200/60 dark:border-slate-800 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-red-600 text-white flex items-center justify-center font-bold text-xs">
                 K
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-slate-900 leading-tight">
+                <span className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
                   {title}
                 </span>
-                <span className="text-[10px] text-slate-500 font-mono">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                   Fuji T1
                 </span>
               </div>
             </div>
 
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900/60 font-mono">
               {roleBadge}
             </span>
           </div>
@@ -76,8 +76,8 @@ export const MobilePhoneContainer: React.FC<MobilePhoneContainerProps> = ({
           </div>
 
           {/* Home Bar Indicator ở đáy máy */}
-          <div className="h-6 w-full bg-white/80 backdrop-blur-md flex items-center justify-center shrink-0 border-t border-slate-100">
-            <div className="w-32 h-1 bg-slate-300 rounded-full" />
+          <div className="h-6 w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-center shrink-0 border-t border-slate-100 dark:border-slate-800">
+            <div className="w-32 h-1 bg-slate-300 dark:bg-slate-700 rounded-full" />
           </div>
         </div>
       </div>

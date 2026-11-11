@@ -28,6 +28,221 @@
   --ink: #0f172a;
   --muted: #475569;
 }
+
+/* Chế độ Giao diện Tối cho Kinetix Member & Sub-dashboards */
+.dark .member-app,
+.dark .member-preview,
+.dark.member-app,
+.dark.member-preview {
+  --page: #0b111d;
+  --ink: #f1f5f9;
+  --muted: #94a3b8;
+  --tint: #064e3b;
+}
+.dark .elderly-theme,
+.dark.elderly-theme {
+  --page: #0b111d;
+  --ink: #f8fafc;
+  --muted: #cbd5e1;
+  --tint: #064e3b;
+}
+.dark .kids-theme,
+.dark.kids-theme {
+  --page: #0b111d;
+  --ink: #f8fafc;
+  --muted: #cbd5e1;
+  --tint: #2e1065;
+}
+.dark .member-sidebar {
+  background: #111927;
+  border-right-color: #1e293b;
+}
+.dark .member-topbar {
+  background: #111927;
+  border-bottom-color: #1e293b;
+}
+.dark .member-sidebar .sidebar-note {
+  background: #13222d;
+  color: #34d399;
+}
+.dark .role-navigation a {
+  color: #cbd5e1;
+}
+.dark .role-navigation a:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+.dark .role-navigation a.active {
+  background: #132b24;
+  color: #34d399;
+}
+.dark .kids-theme .role-navigation a.active {
+  background: #271746;
+  color: #c084fc;
+}
+.dark .member-card,
+.dark .member-box {
+  background: #131c2e;
+  border-color: #243048;
+  color: #f1f5f9;
+}
+.dark .notification-row {
+  border-top-color: #1e293b;
+}
+.dark .member-startup {
+  background: #0b111d;
+  color: #f1f5f9;
+}
+.dark .member-theme-toggle {
+  background: #1e293b;
+  color: #f59e0b;
+  border-color: #334155;
+}
+.dark .member-dialog {
+  background: #111927;
+  color: #f1f5f9;
+  border-color: #243048;
+}
+.dark .member-dialog::backdrop {
+  background: rgba(3, 7, 18, 0.8);
+  backdrop-filter: blur(4px);
+}
+.dark .member-field select,
+.dark .member-field input {
+  background: #182234;
+  color: #f1f5f9;
+  border-color: #334155;
+}
+.dark .member-field select option {
+  background: #182234;
+  color: #f1f5f9;
+}
+.dark .amount-field input {
+  background: #111927;
+  color: #f1f5f9;
+  border-color: #334155;
+}
+.dark .member-secondary {
+  background: #182234;
+  border-color: #334155;
+  color: #34d399;
+}
+.dark .member-secondary:hover {
+  background: #1e293b;
+}
+.dark .family-help-card {
+  background: #152238;
+  border: 1px solid #243048;
+  color: #f1f5f9;
+}
+.dark .family-help-card .member-secondary {
+  background: #182234;
+  border-color: #334155;
+  color: #34d399;
+}
+.dark .request-card {
+  background: #131c2e;
+  border-color: #243048;
+  color: #f1f5f9;
+}
+.dark .kids-hero {
+  background: #1e1338;
+  background-image: radial-gradient(circle at 80% 40%, #311c52, transparent 65%);
+  color: #f1f5f9;
+  border: 1px solid #3b2268;
+}
+.dark .kids-hero h2 {
+  color: #e9d5ff;
+}
+.dark .kids-hero p {
+  color: #c4b5fd;
+}
+.dark .hero-pig {
+  background: #251642;
+  border-color: #381f64;
+  box-shadow: 0 15px 0 #140b24;
+  color: #fbbf24;
+}
+.dark .kids-stats > section {
+  background: #131c2e;
+  border-color: #243048;
+  color: #f1f5f9;
+}
+.dark .chore-card {
+  background: #131c2e;
+  border-color: #243048;
+  color: #f1f5f9;
+}
+.dark .chore-card h3 {
+  color: #f1f5f9;
+}
+.dark .member-filters button {
+  background: #182234;
+  border-color: #334155;
+  color: #94a3b8;
+}
+.dark .member-filters [aria-pressed="true"] {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.dark .review-card {
+  background: #131c2e;
+  border-color: #243048;
+  color: #f1f5f9;
+}
+.dark .review-card dl > div,
+.dark .member-details > div {
+  border-bottom-color: #1e293b;
+}
+.dark .contact-card {
+  border-bottom-color: #1e293b;
+}
+.dark .member-setting {
+  border-bottom-color: #1e293b;
+}
+.dark .activity-row {
+  border-bottom-color: #1e293b;
+}
+.dark .member-footer {
+  border-top-color: #1e293b;
+  color: #64748b;
+}
+.dark .accessibility-bar button {
+  background: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+}
+.dark .accessibility-bar button:hover {
+  background: #334155;
+  color: #ffffff;
+}
+.dark .amount-suggestions button {
+  background: #13222d;
+  border-color: #1e3a47;
+  color: #34d399;
+}
+.dark .amount-suggestions button:hover {
+  background: #16303f;
+}
+.dark .member-error {
+  background: #2c1214;
+  border-color: #5c1f24;
+  color: #fca5a5;
+}
+.dark .member-notice {
+  background: #11261e;
+  border-color: #1a4332;
+  color: #86efac;
+}
+.dark .member-status {
+  background: #11261e;
+  color: #86efac;
+}
+.dark .contact-initial {
+  background: #13222d;
+  color: #34d399;
+}
 .member-app {
   min-height: 100dvh;
   background: var(--page);

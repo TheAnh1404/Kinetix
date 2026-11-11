@@ -14,6 +14,13 @@
     color: #0b1c30;
     font-family: "Inter", sans-serif;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  html.dark,
+  html.dark body {
+    background-color: #0b111d;
+    color: #f1f5f9;
   }
 
   ::-webkit-scrollbar {
@@ -29,6 +36,17 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     background: #76777d;
+  }
+
+  html.dark ::-webkit-scrollbar-track {
+    background: #111927;
+  }
+  html.dark ::-webkit-scrollbar-thumb {
+    background: #243048;
+    border-radius: 9999px;
+  }
+  html.dark ::-webkit-scrollbar-thumb:hover {
+    background: #384968;
   }
 }
 
@@ -47,6 +65,11 @@
     backdrop-filter: blur(12px);
     border: 1px solid rgba(226, 232, 240, 0.8);
   }
+  .dark .glass-card {
+    background: rgba(17, 25, 39, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(36, 48, 72, 0.8);
+  }
   .glass-card-dark {
     background: rgba(15, 23, 42, 0.85);
     backdrop-filter: blur(12px);
@@ -62,6 +85,15 @@
   .bento-card:hover {
     box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -2px rgba(0, 0, 0, 0.04);
     border-color: #cbd5e1;
+  }
+  .dark .bento-card {
+    background: #131c2e;
+    border-color: #243048;
+    color: #f1f5f9;
+  }
+  .dark .bento-card:hover {
+    border-color: #384968;
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -525,6 +557,93 @@
 }
 .auth-label input {
   font-size: 16px;
+}
+
+/* Chế độ Giao diện Tối cho Trang Đăng nhập & Xác thực Kinetix */
+.dark .auth-page {
+  background: #0b111d;
+  color: #f1f5f9;
+}
+.dark .auth-story {
+  background: #080d17;
+  border-right: 1px solid #1e293b;
+}
+.dark .auth-content-top {
+  color: #94a3b8;
+}
+.dark .auth-content-top > a {
+  color: #cbd5e1;
+}
+.dark .auth-form-heading h2 {
+  color: #ffffff;
+}
+.dark .auth-form-heading p {
+  color: #94a3b8;
+}
+.dark .auth-tabs {
+  background: #111927;
+  border: 1px solid #1e293b;
+}
+.dark .auth-tabs > button {
+  color: #94a3b8;
+}
+.dark .auth-tabs > button[aria-pressed="true"] {
+  background: #1e293b;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.dark .auth-label {
+  color: #cbd5e1;
+}
+.dark .auth-label input,
+.dark .auth-form select {
+  background: #111927;
+  border-color: #243048;
+  color: #f1f5f9;
+}
+.dark .auth-label input::placeholder {
+  color: #64748b;
+}
+.dark .auth-secondary {
+  background: #111927;
+  border-color: #243048;
+  color: #cbd5e1;
+}
+.dark .auth-secondary:hover {
+  background: #182234;
+}
+.dark .auth-divider {
+  border-top-color: #1e293b;
+}
+.dark .auth-divider > span {
+  background: #0b111d;
+  color: #64748b;
+}
+.dark .auth-info {
+  background: #131c2e;
+  border-color: #243048;
+  color: #94a3b8;
+}
+.dark .auth-info strong {
+  color: #f1f5f9;
+}
+.dark .auth-bottom-note {
+  color: #64748b;
+}
+.dark .auth-steps li {
+  color: #64748b;
+}
+.dark .auth-steps li > span {
+  border-color: #334155;
+  background: #111927;
+}
+.dark .auth-steps li.complete {
+  color: #34d399;
+}
+.dark .auth-steps li.complete > span {
+  background: #064e3b;
+  border-color: #047857;
+  color: #ecfdf5;
 }
 
 /* Ẩn thanh cuộn cho các dải chip ngang trên điện thoại di động */

@@ -14,6 +14,48 @@
   margin: 0 auto;
   padding-bottom: 32px;
 }
+.dark .vault-experience {
+  --vx-ink: #f1f5f9;
+  --vx-muted: #94a3b8;
+  --vx-tint: #064e3b;
+}
+.dark .vx-milestone {
+  --vx-tint: #2e1065;
+}
+.dark .vx-rosca {
+  --vx-tint: #451a03;
+}
+.dark .vx-card,
+.dark .vx-hero,
+.dark .vx-panel {
+  background: #131c2e;
+  border-color: #243048;
+  color: #f1f5f9;
+}
+.dark .vx-source {
+  background: #182234;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+.dark .vx-source-tabs {
+  background: #182234;
+}
+.dark .vx-source-tabs button {
+  color: #94a3b8;
+}
+.dark .vx-source-tabs button[aria-pressed="true"] {
+  background: #243048;
+  color: #f8fafc;
+}
+.dark .vx-amount-options button {
+  background: #182234;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+.dark .vx-amount-options button[aria-pressed="true"] {
+  background: #064e3b;
+  color: #34d399;
+}
 .vault-experience * {
   box-sizing: border-box;
 }
@@ -116,6 +158,122 @@
   color: var(--vx-ink);
   box-shadow: 0 2px 5px #0f172a0a;
 }
+.vx-source-explanation {
+  margin-top: -12px !important;
+  max-width: 80ch;
+}
+.vx-funding {
+  border-color: color-mix(in srgb, var(--vx-accent) 24%, white);
+  scroll-margin-block: 100px;
+}
+.vx-funding-heading {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.vx-funding-heading > div {
+  min-width: 0;
+}
+.vx-funding-heading h2 {
+  overflow-wrap: anywhere;
+}
+.vx-funding-heading p {
+  margin-top: 4px;
+}
+.vx-funding-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 16px;
+}
+.vx-funding-fields .vx-button {
+  align-self: end;
+}
+.vx-amount-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.vx-amount-options button {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 650;
+  background: #fff;
+}
+.vx-amount-options button[aria-pressed="true"] {
+  border-color: var(--vx-accent);
+  box-shadow: inset 0 0 0 1px var(--vx-accent);
+  color: var(--vx-accent);
+  background: var(--vx-tint);
+}
+.vx-funding-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.vx-funding-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.vx-funding-warning {
+  padding: 14px 16px;
+  border: 1px solid #fcd34d;
+  border-radius: 14px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 14px;
+}
+.vx-funding .vx-alert a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 650;
+}
+.vx-tool-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.vx-tool-links a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 650;
+}
+.vx-tool-links a:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.vx-tool-tabs { flex-wrap: wrap; }
+.vx-tool-tabs a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  gap: 8px;
+  color: #475569;
+  font-weight: 650;
+  font-size: 14px;
+}
+.vx-tool-tabs a[aria-current="page"] { background: #fff; color: var(--vx-ink); box-shadow: 0 2px 5px #0f172a0a; }
+.vx-tools .vx-section-heading h2 { display: flex; gap: 8px; align-items: center; }
+.vx-signature-actions { width: 100%; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+.vx-signature-actions > summary { cursor: pointer; min-height: 44px; font-size: 14px; font-weight: 650; }
+.vx-signature-actions .vx-form { padding-top: 12px; }
+.vx-signature-actions label { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.vx-signature-actions textarea { width: 100%; padding: 12px; border: 1px solid #94a3b8; border-radius: 12px; font-size: 14px; color: #0f172a; background: #fff; overflow-wrap: anywhere; resize: vertical; }
+.dark .vx-tool-links a, .dark .vx-tool-tabs a[aria-current="page"] { background: #182234; border-color: #334155; color: #f1f5f9; }
+.dark .vx-tool-tabs a { color: #cbd5e1; }
 .vx-setup {
   border: 1px dashed #94a3b8;
   border-radius: 18px;
@@ -703,6 +861,9 @@
   }
 }
 @media (max-width: 600px) {
+  .vx-funding-fields {
+    grid-template-columns: 1fr;
+  }
   .vault-experience {
     gap: 20px;
   }

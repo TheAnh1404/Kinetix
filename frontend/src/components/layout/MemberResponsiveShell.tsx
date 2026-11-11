@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Home,
   HeartHandshake,
@@ -15,9 +15,12 @@ import {
   Volume2,
   VolumeX,
   Settings2,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useSettings } from "@/context/SettingsContext";
 
 const Preferences = createContext({
   largeText: false,
@@ -30,6 +33,7 @@ export const useMemberPreferences = () => useContext(Preferences);
 
 export function RoleNavigation({ elderly }: { elderly: boolean }) {
   const pathname = usePathname();
+  const source = useSearchParams().get("source");
   const auth = useAuth();
   const family = useFamily();
   const adult =
@@ -74,6 +78,7 @@ export function RoleNavigation({ elderly }: { elderly: boolean }) {
     label: "Góp vốn",
     Icon: ReceiptText,
   });
+  entries.push({ href: "/dashboard/tools", label: "Giao dịch", Icon: ReceiptText });
   // Bổ sung mục Cài đặt vào thanh điều hướng cho các vai trò thành viên còn lại
   if (!adult) {
     entries.push({
@@ -92,7 +97,7 @@ export function RoleNavigation({ elderly }: { elderly: boolean }) {
         return (
           <Link
             key={href}
-            href={href}
+            href={source === "contract" && href.startsWith("/dashboard/") && href !== "/dashboard/tools" ? `${href}?source=contract` : href}
             aria-current={active ? "page" : undefined}
             className={active ? "active" : ""}
           >
@@ -115,6 +120,7 @@ export function MemberResponsiveShell({
 }) {
   const auth = useAuth();
   const family = useFamily();
+  const { theme, toggleTheme } = useSettings();
   const adult =
     auth.workspaces.find((item) => item.id === family.currentWorkspace?.id)
       ?.role === "GUARDIAN";
@@ -224,6 +230,19 @@ export function MemberResponsiveShell({
               </select>
             </div>
             <div className="member-identity">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                aria-label={theme === "dark" ? "Chuyển giao diện sáng" : "Chuyển giao diện tối"}
+                title={theme === "dark" ? "Giao diện sáng" : "Giao diện tối"}
+                className="member-secondary"
+              >
+                {theme === "dark" ? (
+                  <Sun size={21} aria-hidden="true" />
+                ) : (
+                  <Moon size={21} aria-hidden="true" />
+                )}
+              </button>
               <Link
                 href="/settings"
                 aria-label="Mở cài đặt tài khoản"
