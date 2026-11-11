@@ -103,7 +103,7 @@ describe("Contract readiness audit: post-upgrade T1 regressions", () => {
         f.cashflow.target,
         "0x",
       ),
-    ).to.be.revertedWithCustomError(f.yieldVault, "FeatureDisabled");
+    ).to.be.revertedWithCustomError(f.yieldVault, "OnlyTeleporterMessenger");
     expect(await f.yieldVault.totalPrincipal()).to.equal(0n);
   });
   it("receiver failures remain visible in the messenger test double", async () => {

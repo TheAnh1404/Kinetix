@@ -40,6 +40,8 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
     error ZeroAddress();
     error ZeroAmount();
     error OnlyTeleporterMessenger();
+    error TeleporterNotConfigured();
+    error InvalidOriginChain();
     error UnauthorizedSender();
     error InvalidChainID();
     error InsufficientBalance(uint256 available, uint256 requested);
@@ -87,6 +89,7 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
     event FundsWithdrawn(uint256 indexed vaultId, address indexed recipient, uint256 amount);
 
     event YieldReserveDeposited(address indexed depositor, uint256 amount);
+    event CrossChainPrincipalFunded(address indexed operator, uint256 amount);
 
     // -------------------------------------------------------------
     // CONSTRUCTOR
@@ -148,10 +151,21 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
      * @notice Nạp tiền bảo chứng vào Quỹ dự trữ chi trả lãi suất (Yield Reserve Pool)
      * Đảm bảo nguồn tiền trả lãi 8% APY được bảo chứng độc lập, không lạm vào vốn gốc của gia đình khác
      */
-    function depositYieldReserve() external payable nonReentrant whenNotPaused {
+    function depositYieldReserve() public payable nonReentrant whenNotPaused {
         if (msg.value == 0) revert ZeroAmount();
         yieldReservePool += msg.value;
         emit YieldReserveDeposited(msg.sender, msg.value);
+    }
+
+    /// @notice Alias chuẩn cho script deploy, giữ nguyên kiểm tra pause và reentrancy.
+    function seedYieldReserve() external payable {
+        depositYieldReserve();
+    }
+
+    /// @notice Operator cấp vốn đích trước khi ICM ghi nhận principal; không lấy tiền từ reserve.
+    function fundCrossChainPrincipal() external payable onlyOwner whenNotPaused {
+        if (msg.value == 0) revert ZeroAmount();
+        emit CrossChainPrincipalFunded(msg.sender, msg.value);
     }
 
     // -------------------------------------------------------------
@@ -220,9 +234,28 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
      * 2. originChainID == familyL1BlockchainId
      * 3. originSenderAddress == familyHubAddress
      */
-    function receiveTeleporterMessage(bytes32, address, bytes calldata) external pure override {
-        // ICM chỉ là message, không chứng minh đã nhận tài sản. Tắt tới khi có adapter funded.
-        revert FeatureDisabled();
+    function receiveTeleporterMessage(
+        bytes32 originChainID,
+        address originSenderAddress,
+        bytes calldata message
+    ) external override nonReentrant whenNotPaused {
+        if (msg.sender != address(teleporterMessenger)) revert OnlyTeleporterMessenger();
+        if (familyHubAddress == address(0) || familyL1BlockchainId == bytes32(0)) {
+            revert TeleporterNotConfigured();
+        }
+        if (originChainID != familyL1BlockchainId) revert InvalidOriginChain();
+        if (originSenderAddress != familyHubAddress) revert UnauthorizedSender();
+
+        // Teleporter đảm bảo delivery duy nhất; payload dùng chung DEPOSIT/WITHDRAW.
+        (BridgeAction action, uint256 vaultId, uint256 amount, address recipient) = abi.decode(
+            message,
+            (BridgeAction, uint256, uint256, address)
+        );
+        if (action == BridgeAction.DEPOSIT) {
+            _handleDeposit(vaultId, amount);
+        } else {
+            _handleWithdrawal(vaultId, recipient, amount);
+        }
     }
 
     /**
@@ -261,6 +294,9 @@ contract FamilyYieldVault is Ownable, Pausable, ReentrancyGuard, ITeleporterRece
             revert InsufficientBalance(principal + accruedYields[vaultId], amount);
         if (interestOut > yieldReservePool)
             revert InsufficientReservePool(yieldReservePool, interestOut);
+        if (address(this).balance < amount) {
+            revert InsufficientContractBalance(address(this).balance, amount);
+        }
         vaultPrincipals[vaultId] -= principalOut;
         totalPrincipal -= principalOut;
         accruedYields[vaultId] -= interestOut;

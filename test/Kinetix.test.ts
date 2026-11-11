@@ -4,6 +4,15 @@ import { time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { t1Fixture } from "./support/t1";
 
 describe("T1 native vault policies and treasury", () => {
+  for (const ratio of [0, 1000, 2000, 10000]) {
+    it(`stores a flexible ${ratio} bps policy consistently in Hub and Cashflow`, async () => {
+      const f = await t1Fixture();
+      for (const member of [f.g1, f.member]) await f.hub.setAllowlistStatus(member.address, true);
+      await f.hub.createCustomVault("Flexible buffer", 0, ratio, 50n, 1, [f.g1.address], [f.member.address]);
+      expect((await f.hub.getVault(1n)).bufferRatioBps).to.equal(ratio);
+      expect((await f.cashflow.getVaultLedger(1n)).bufferRatioBps).to.equal(ratio);
+    });
+  }
   for (const modular of [true, false]) {
     describe(modular ? "Cashflow custody" : "Standalone custody", () => {
       it("backs every deposited wei locally, including rounding boundaries", async () => {
@@ -105,7 +114,7 @@ describe("T1 native vault policies and treasury", () => {
       f.hub.createCustomVault(
         "Bad ratio",
         0,
-        1000,
+        10001,
         0n,
         1,
         [f.g1.address],

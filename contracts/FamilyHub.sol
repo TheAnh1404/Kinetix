@@ -40,7 +40,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         uint256 totalBalance; // Tổng tài sản trong Hũ
         uint256 l1BufferBalance; // Số dư tài sản trên cùng chain Hub
         uint256 cChainPrincipal; // Luôn bằng 0 trong T1, giữ trường ABI tương thích
-        uint256 bufferRatioBps; // T1 chỉ chấp nhận 10000, giữ vốn trên cùng chain
+        uint256 bufferRatioBps; // Chính sách 0–10000 bps; số dư thực phụ thuộc tài sản đã nhận
         uint256 fastWithdrawLimit; // Hạn mức rút nhanh không cần duyệt (áp dụng cho SHIELD)
         uint256 requiredApprovals; // Số chữ ký Guardians cần thiết để duyệt lệnh rút lớn (M/N)
         address[] guardians; // Danh sách ví có quyền ký duyệt trong Hũ này
@@ -405,7 +405,13 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
             _teleporterMessenger != address(0) ||
             _cChainBlockchainId != bytes32(0) ||
             _yieldVaultAddress != address(0)
-        ) revert FeatureDisabled();
+        ) {
+            if (
+                _teleporterMessenger.code.length == 0 ||
+                _cChainBlockchainId == bytes32(0) ||
+                _yieldVaultAddress == address(0)
+            ) revert ZeroAddress();
+        }
         familyAdmin = _admin;
         isAllowlisted[_admin] = true;
 
@@ -480,10 +486,19 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
     }
 
     /**
-     * @notice Entry point liên chuỗi bị khóa trong T1
+     * @notice Cấu hình đích ICM trước khi tạo hũ; không thay đổi nơi giữ tài sản đã nạp
      */
-    function setTeleporterConfig(address, bytes32, address) external pure {
-        revert FeatureDisabled();
+    function setTeleporterConfig(
+        address messenger,
+        bytes32 remoteId,
+        address remoteVault
+    ) external onlyFamilyAdmin {
+        if (vaultCounter != 0) revert ConfigurationLocked();
+        if (messenger.code.length == 0 || remoteId == bytes32(0) || remoteVault == address(0))
+            revert ZeroAddress();
+        teleporterMessenger = ITeleporterMessenger(messenger);
+        cChainBlockchainId = remoteId;
+        yieldVaultAddress = remoteVault;
     }
 
     /**
@@ -560,7 +575,7 @@ contract FamilyHub is ReentrancyGuard, Pausable, ITeleporterReceiver {
         uint256 roscaRoundContribution
     ) public whenNotPaused onlyAllowed returns (uint256 vaultId) {
         if (bytes(name).length == 0) revert ZeroAmount();
-        if (bufferRatioBps != 10000) revert InvalidBufferRatio();
+        if (bufferRatioBps > 10000) revert InvalidBufferRatio();
         if (fastWithdrawLimit > type(uint256).max / 2) revert InvalidRuleAction();
         if (guardians.length == 0) revert InvalidApprovalThreshold();
         if (requiredApprovals == 0 || requiredApprovals > guardians.length) {

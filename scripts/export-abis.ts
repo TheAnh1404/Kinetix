@@ -1,58 +1,37 @@
-import * as fs from "fs";
-import * as path from "path";
+import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-const familyHubArtifact = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, "../artifacts/contracts/FamilyHub.sol/FamilyHub.json"), "utf8")
-);
-
-const familyYieldVaultArtifact = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, "../artifacts/contracts/FamilyYieldVault.sol/FamilyYieldVault.json"), "utf8")
-);
-
-const teleporterArtifact = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, "../artifacts/contracts/interfaces/ITeleporterMessenger.sol/ITeleporterMessenger.json"), "utf8")
-);
-
-const vaultCashflowArtifact = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, "../artifacts/contracts/VaultCashflow.sol/VaultCashflow.json"), "utf8")
-);
-
-const forwarderArtifact = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, "../artifacts/contracts/KinetixForwarder.sol/KinetixForwarder.json"), "utf8")
-);
-
-const contentFrontend = `/**
- * Smart Contract ABIs for Kinetix
- * Tự động đồng bộ từ Smart Contracts Solidity đã biên dịch
- */
-
-export const FAMILY_HUB_ABI = ${JSON.stringify(familyHubArtifact.abi, null, 2)} as const;
-
-export const FAMILY_YIELD_VAULT_ABI = ${JSON.stringify(familyYieldVaultArtifact.abi, null, 2)} as const;
-
-export const TELEPORTER_MESSENGER_ABI = ${JSON.stringify(teleporterArtifact.abi, null, 2)} as const;
-
-export const VAULT_CASHFLOW_ABI = ${JSON.stringify(vaultCashflowArtifact.abi, null, 2)} as const;
-
-export const KINETIX_FORWARDER_ABI = ${JSON.stringify(forwarderArtifact.abi, null, 2)} as const;
-`;
-
-const contentShared = `/**
- * Smart Contract ABIs for Kinetix
- * Tự động đồng bộ từ Smart Contracts Solidity đã biên dịch
- */
-
-export const FAMILY_HUB_ABI = ${JSON.stringify(familyHubArtifact.abi, null, 2)};
-
-export const FAMILY_YIELD_VAULT_ABI = ${JSON.stringify(familyYieldVaultArtifact.abi, null, 2)};
-
-export const TELEPORTER_MESSENGER_ABI = ${JSON.stringify(teleporterArtifact.abi, null, 2)};
-
-export const VAULT_CASHFLOW_ABI = ${JSON.stringify(vaultCashflowArtifact.abi, null, 2)};
-
-export const KINETIX_FORWARDER_ABI = ${JSON.stringify(forwarderArtifact.abi, null, 2)};
-`;
-
-fs.writeFileSync(path.resolve(__dirname, "../frontend/src/contracts/abis.ts"), contentFrontend, "utf8");
-fs.writeFileSync(path.resolve(__dirname, "../shared/abis.ts"), contentShared, "utf8");
-console.log("✅ Đã cập nhật frontend/src/contracts/abis.ts và shared/abis.ts thành công!");
+// Đồng bộ mọi ABI đang được ứng dụng dùng, giữ cả thế hệ Vault V1.
+const contracts = [
+  ["FAMILY_HUB_ABI", "FamilyHub.sol/FamilyHub"],
+  ["FAMILY_YIELD_VAULT_ABI", "FamilyYieldVault.sol/FamilyYieldVault"],
+  [
+    "TELEPORTER_MESSENGER_ABI",
+    "interfaces/ITeleporterMessenger.sol/ITeleporterMessenger",
+  ],
+  ["VAULT_CASHFLOW_ABI", "VaultCashflow.sol/VaultCashflow"],
+  ["KINETIX_FORWARDER_ABI", "KinetixForwarder.sol/KinetixForwarder"],
+  ["KINETIX_VAULT_V1_ABI", "KinetixVaultV1.sol/KinetixVaultV1"],
+  [
+    "KINETIX_VAULT_FACTORY_V1_ABI",
+    "KinetixVaultFactoryV1.sol/KinetixVaultFactoryV1",
+  ],
+];
+for (const [file, constant] of [
+  ["frontend/src/contracts/abis.ts", " as const"],
+  ["shared/abis.ts", ""],
+]) {
+  const exports = contracts.map(([name, artifact]) => {
+    const { abi } = JSON.parse(
+      readFileSync(resolve("artifacts/contracts", `${artifact}.json`), "utf8"),
+    );
+    return `export const ${name} = ${JSON.stringify(abi, null, 2)}${constant};`;
+  });
+  writeFileSync(
+    resolve(file),
+    "/** ABI đồng bộ từ artifacts Solidity; chạy scripts/export-abis.ts sau compile. */\n\n" +
+      exports.join("\n\n") +
+      "\n",
+  );
+}
+console.log("Updated frontend and shared contract ABIs.");

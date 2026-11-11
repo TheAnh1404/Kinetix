@@ -25,6 +25,7 @@ contract VaultCashflow is Ownable, Pausable, ReentrancyGuard {
     error VaultNotInitialized();
     error ConfigurationLocked();
     error FeatureDisabled();
+    error InvalidBufferRatio();
     error InsufficientVaultBalance(uint256 available, uint256 requested);
     error TransferFailed();
 
@@ -62,8 +63,7 @@ contract VaultCashflow is Ownable, Pausable, ReentrancyGuard {
         bytes32 remoteId,
         address remoteVault
     ) Ownable(initialOwner) {
-        if (messenger != address(0) || remoteId != bytes32(0) || remoteVault != address(0))
-            revert FeatureDisabled();
+        _setTeleporterConfig(messenger, remoteId, remoteVault);
         if (initialController != address(0) && initialController.code.length == 0)
             revert ZeroAddress();
         controller = initialController;
@@ -89,10 +89,10 @@ contract VaultCashflow is Ownable, Pausable, ReentrancyGuard {
         uint256 bufferRatioBps
     ) external onlyController whenNotPaused {
         if (vaultId == 0 || ledgers[vaultId].isInitialized) revert ConfigurationLocked();
-        if (bufferRatioBps != 10000) revert FeatureDisabled();
-        ledgers[vaultId] = VaultLedger(0, 0, 0, 10000, true);
+        if (bufferRatioBps > 10000) revert InvalidBufferRatio();
+        ledgers[vaultId] = VaultLedger(0, 0, 0, bufferRatioBps, true);
         initializedVaults++;
-        emit VaultLedgerInitialized(vaultId, 10000);
+        emit VaultLedgerInitialized(vaultId, bufferRatioBps);
     }
 
     function deposit(
@@ -129,7 +129,7 @@ contract VaultCashflow is Ownable, Pausable, ReentrancyGuard {
         return true;
     }
 
-    /// @notice Chưa có policy ERC20/bridge đầy đủ ở T1 nên khóa mọi entry point.
+    /// @notice ERC20 chưa có policy theo từng tài sản nên giữ khóa các entry point token.
     function depositToken(uint256, address, uint256, address) external pure {
         revert FeatureDisabled();
     }
@@ -139,8 +139,33 @@ contract VaultCashflow is Ownable, Pausable, ReentrancyGuard {
     function getTokenBalance(uint256, address) external pure returns (uint256) {
         return 0;
     }
-    function setTeleporterConfig(address, bytes32, address) external pure {
-        revert FeatureDisabled();
+    function setTeleporterConfig(
+        address messenger,
+        bytes32 remoteId,
+        address remoteVault
+    ) external onlyOwner {
+        if (initializedVaults != 0) revert ConfigurationLocked();
+        _setTeleporterConfig(messenger, remoteId, remoteVault);
+    }
+
+    address public teleporterMessenger;
+    bytes32 public cChainBlockchainId;
+    address public yieldVaultAddress;
+    event TeleporterConfigUpdated(address messenger, bytes32 remoteId, address remoteVault);
+
+    function _setTeleporterConfig(
+        address messenger,
+        bytes32 remoteId,
+        address remoteVault
+    ) internal {
+        if (messenger != address(0) || remoteId != bytes32(0) || remoteVault != address(0)) {
+            if (messenger.code.length == 0 || remoteId == bytes32(0) || remoteVault == address(0))
+                revert ZeroAddress();
+        }
+        teleporterMessenger = messenger;
+        cChainBlockchainId = remoteId;
+        yieldVaultAddress = remoteVault;
+        emit TeleporterConfigUpdated(messenger, remoteId, remoteVault);
     }
 
     function getVaultLedger(uint256 vaultId) external view returns (VaultLedger memory) {

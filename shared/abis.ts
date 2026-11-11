@@ -1,7 +1,4 @@
-/**
- * Smart Contract ABIs for Kinetix
- * Tự động đồng bộ từ Smart Contracts Solidity đã biên dịch
- */
+/** ABI đồng bộ từ artifacts Solidity; chạy scripts/export-abis.ts sau compile. */
 
 export const FAMILY_HUB_ABI = [
   {
@@ -2281,23 +2278,23 @@ export const FAMILY_HUB_ABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "messenger",
         "type": "address"
       },
       {
         "internalType": "bytes32",
-        "name": "",
+        "name": "remoteId",
         "type": "bytes32"
       },
       {
         "internalType": "address",
-        "name": "",
+        "name": "remoteVault",
         "type": "address"
       }
     ],
     "name": "setTeleporterConfig",
     "outputs": [],
-    "stateMutability": "pure",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -2832,6 +2829,11 @@ export const FAMILY_YIELD_VAULT_ABI = [
   },
   {
     "inputs": [],
+    "name": "InvalidOriginChain",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "OnlyTeleporterMessenger",
     "type": "error"
   },
@@ -2864,6 +2866,11 @@ export const FAMILY_YIELD_VAULT_ABI = [
   },
   {
     "inputs": [],
+    "name": "TeleporterNotConfigured",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "TransferFailed",
     "type": "error"
   },
@@ -2886,6 +2893,25 @@ export const FAMILY_YIELD_VAULT_ABI = [
     "inputs": [],
     "name": "ZeroAmount",
     "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "operator",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "CrossChainPrincipalFunded",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -3194,6 +3220,13 @@ export const FAMILY_YIELD_VAULT_ABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "fundCrossChainPrincipal",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -3323,23 +3356,23 @@ export const FAMILY_YIELD_VAULT_ABI = [
     "inputs": [
       {
         "internalType": "bytes32",
-        "name": "",
+        "name": "originChainID",
         "type": "bytes32"
       },
       {
         "internalType": "address",
-        "name": "",
+        "name": "originSenderAddress",
         "type": "address"
       },
       {
         "internalType": "bytes",
-        "name": "",
+        "name": "message",
         "type": "bytes"
       }
     ],
     "name": "receiveTeleporterMessage",
     "outputs": [],
-    "stateMutability": "pure",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -3347,6 +3380,13 @@ export const FAMILY_YIELD_VAULT_ABI = [
     "name": "renounceOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "seedYieldReserve",
+    "outputs": [],
+    "stateMutability": "payable",
     "type": "function"
   },
   {
@@ -3624,6 +3664,11 @@ export const VAULT_CASHFLOW_ABI = [
   },
   {
     "inputs": [],
+    "name": "InvalidBufferRatio",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NotController",
     "type": "error"
   },
@@ -3799,6 +3844,31 @@ export const VAULT_CASHFLOW_ABI = [
       {
         "indexed": false,
         "internalType": "address",
+        "name": "messenger",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "remoteId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "remoteVault",
+        "type": "address"
+      }
+    ],
+    "name": "TeleporterConfigUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
         "name": "account",
         "type": "address"
       }
@@ -3824,6 +3894,19 @@ export const VAULT_CASHFLOW_ABI = [
     ],
     "name": "VaultLedgerInitialized",
     "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "cChainBlockchainId",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
     "inputs": [],
@@ -4185,23 +4268,36 @@ export const VAULT_CASHFLOW_ABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "messenger",
         "type": "address"
       },
       {
         "internalType": "bytes32",
-        "name": "",
+        "name": "remoteId",
         "type": "bytes32"
       },
+      {
+        "internalType": "address",
+        "name": "remoteVault",
+        "type": "address"
+      }
+    ],
+    "name": "setTeleporterConfig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "teleporterMessenger",
+    "outputs": [
       {
         "internalType": "address",
         "name": "",
         "type": "address"
       }
     ],
-    "name": "setTeleporterConfig",
-    "outputs": [],
-    "stateMutability": "pure",
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -4235,6 +4331,19 @@ export const VAULT_CASHFLOW_ABI = [
     "name": "unpause",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "yieldVaultAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -4616,7 +4725,6 @@ export const KINETIX_FORWARDER_ABI = [
     "type": "function"
   }
 ];
-
 
 export const KINETIX_VAULT_V1_ABI = [
   {
@@ -6394,7 +6502,7 @@ export const KINETIX_VAULT_V1_ABI = [
     "stateMutability": "payable",
     "type": "receive"
   }
-] as const;
+];
 
 export const KINETIX_VAULT_FACTORY_V1_ABI = [
   {
@@ -6843,4 +6951,4 @@ export const KINETIX_VAULT_FACTORY_V1_ABI = [
     "stateMutability": "nonpayable",
     "type": "function"
   }
-] as const;
+];
