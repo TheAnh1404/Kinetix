@@ -160,13 +160,19 @@ export function useVaultExperience() {
     } catch {
       /* Server still enforces request identity. */
     }
-    return result.data;
+    if (scope.current !== scopeKey)
+      throw new Error("Gia đình hoặc tài khoản đã thay đổi. Mở lại thao tác.");
+    return result.data ?? result.transfer;
   };
   const sign = async (
     payment: ExperiencePayment,
     cancel = false,
     manualHash?: string,
   ) => {
+    if (scope.current !== scopeKey)
+      throw new Error("Gia đình hoặc tài khoản đã thay đổi. Mở lại thao tác.");
+    if (!payment?.id || !payment.sender || !payment.recipient)
+      throw new Error("Chưa nhận được yêu cầu thanh toán hợp lệ. Tải lại dữ liệu trước khi ký.");
     const key = `kinetix-treasury:${payment.id}${cancel ? ":cancel" : ""}`;
     let hash = manualHash;
     try {

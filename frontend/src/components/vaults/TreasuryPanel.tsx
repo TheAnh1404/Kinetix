@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createWalletClient, custom, formatEther } from "viem";
 import { avalancheFuji } from "viem/chains";
 import { useFamily } from "@/context/FamilyContext";
+import { useAuth } from "@/hooks/useAuth";
 import { getCoreProvider } from "@/lib/web3/client";
 import { treasuryCancelMemo } from "../../../../shared/treasury";
 
@@ -57,6 +58,7 @@ async function api(path: string, body?: object) {
 }
 const explorer = "https://explorer-test.avax.network/c-chain/tx/";
 export function TreasuryPanel() {
+  const auth = useAuth();
   const { currentWorkspace } = useFamily();
   const workspaceId = currentWorkspace?.id;
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -160,20 +162,21 @@ export function TreasuryPanel() {
     });
   };
   const inputClass =
-    "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm min-h-11";
+    "w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm min-h-11 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-red-500/20";
   const buttonClass =
-    "rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 min-h-11";
+    "rounded-xl bg-slate-900 dark:bg-red-600 hover:bg-slate-800 dark:hover:bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 min-h-11 cursor-pointer transition-colors";
   return (
     <section
-      className="rounded-3xl border border-slate-200 bg-white p-5 md:p-6 space-y-5 text-slate-900"
+      className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-5 md:p-6 space-y-5 text-slate-900 dark:text-slate-100 transition-colors"
       aria-labelledby="treasury-title"
+      id="core-treasury"
       aria-busy={busy}
     >
       <div>
-        <h2 id="treasury-title" className="text-xl font-bold">
+        <h2 id="treasury-title" className="text-xl font-bold text-slate-900 dark:text-white">
           Hũ tiền · Ví chung Fuji
         </h2>
-        <p className="text-sm text-slate-600 mt-1">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
           AVAX testnet được giữ trong Core; số dư từng hũ được ghi trong
           database. Chủ ví chung ký lệnh chi.
         </p>
@@ -181,7 +184,7 @@ export function TreasuryPanel() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl bg-red-50 p-3 text-red-800 break-words"
+          className="rounded-xl bg-red-50 dark:bg-red-950/40 p-3 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-900/60 break-words"
         >
           {error}
         </p>
@@ -189,21 +192,21 @@ export function TreasuryPanel() {
       {message && (
         <p
           role="status"
-          className="rounded-xl bg-emerald-50 p-3 text-emerald-900 break-all"
+          className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 p-3 text-emerald-900 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/60 break-all"
         >
           {message}
         </p>
       )}
       {!overview ? (
-        <p role="status">
+        <p role="status" className="text-slate-500 dark:text-slate-400">
           {error ? "Chưa tải được sổ hũ." : "Đang tải sổ hũ…"}
         </p>
       ) : (
         <>
-          <p className="text-sm break-all">
+          <p className="text-sm break-all text-slate-600 dark:text-slate-300">
             Ví giữ tiền:{" "}
             <a
-              className="underline"
+              className="underline font-mono text-red-600 dark:text-red-400"
               href={`https://explorer-test.avax.network/c-chain/address/${overview.address}`}
               target="_blank"
               rel="noreferrer"
@@ -213,16 +216,16 @@ export function TreasuryPanel() {
             · Chain {overview.chainId}
           </p>
           {overview.reconciliation && (
-            <div className="rounded-xl bg-slate-50 p-3 text-sm space-y-1">
-              <p>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 p-3 text-sm space-y-1">
+              <p className="font-semibold text-slate-900 dark:text-slate-200">
                 Ví on-chain: {overview.reconciliation.walletBalance} AVAX · Đã
                 phân bổ: {overview.reconciliation.allocated} AVAX
               </p>
-              <p>
+              <p className="font-mono text-xs text-slate-700 dark:text-slate-300">
                 Chênh lệch: {overview.reconciliation.difference} AVAX · Block{" "}
                 {overview.reconciliation.blockNumber}
               </p>
-              <p className="text-slate-600">
+              <p className="text-slate-500 dark:text-slate-400 text-xs">
                 Tiền chuyển trực tiếp vào ví và phí gas nằm trong chênh lệch. Sổ
                 hũ có thể đang chờ worker đồng bộ.
               </p>
@@ -242,7 +245,7 @@ export function TreasuryPanel() {
                 });
               }}
             >
-              <label className="flex-1 min-w-48 text-sm">
+              <label className="flex-1 min-w-48 text-sm font-semibold text-slate-700 dark:text-slate-300">
                 Tên hũ mới
                 <input
                   className={inputClass}
@@ -261,13 +264,13 @@ export function TreasuryPanel() {
             {overview.jars.map((jar) => (
               <article
                 key={jar.id}
-                className="rounded-2xl border border-slate-200 p-4"
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 p-4"
               >
-                <h3 className="font-semibold break-words">{jar.name}</h3>
-                <p className="text-lg font-bold mt-2 break-all">
+                <h3 className="font-semibold break-words text-slate-900 dark:text-white">{jar.name}</h3>
+                <p className="text-lg font-bold mt-2 break-all font-mono text-slate-900 dark:text-white">
                   {jar.balance} AVAX
                 </p>
-                <p className="text-sm text-slate-600 break-all">
+                <p className="text-sm text-slate-500 dark:text-slate-400 break-all">
                   Khả dụng {jar.available} · Giữ chỗ{" "}
                   {formatEther(BigInt(jar.reservedWei))}
                 </p>
@@ -275,7 +278,7 @@ export function TreasuryPanel() {
             ))}
           </div>
           {overview.jars.length === 0 ? (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Chưa có hũ ví chung. Quản trị viên có thể tạo hũ phía trên.
             </p>
           ) : (
@@ -426,7 +429,7 @@ export function TreasuryPanel() {
                     {transfer.txHash || hashes[transfer.id]}
                   </a>
                 )}
-                {transfer.status === "READY" && (
+                {transfer.status === "READY" && transfer.sender.toLowerCase() === auth.linkedWallet?.address.toLowerCase() && (
                   <button
                     type="button"
                     className={buttonClass}
@@ -436,7 +439,7 @@ export function TreasuryPanel() {
                     Ký bằng Core · nonce {transfer.transaction?.nonce}
                   </button>
                 )}
-                {["READY", "SUBMITTED"].includes(transfer.status) && (
+                {["READY", "SUBMITTED"].includes(transfer.status) && transfer.sender.toLowerCase() === auth.linkedWallet?.address.toLowerCase() && (
                   <button
                     type="button"
                     className="min-h-11 px-3 underline text-sm"

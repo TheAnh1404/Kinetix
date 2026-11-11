@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -18,6 +18,7 @@ import {
   Wallet,
   Target,
   Volume2,
+  ArrowDownToLine,
 } from "lucide-react";
 import { parseEther } from "viem";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,7 +31,8 @@ import {
   ExperienceData,
 } from "@/hooks/useVaultExperience";
 import { TreasuryPurpose } from "../../../../shared/vaultExperience";
-import { TREASURY_ADDRESS } from "../../../../shared/treasury";
+import { CoreVaultFunding } from "./CoreVaultFunding";
+import { ContractVaultFunding } from "./ContractVaultFunding";
 import {
   Money,
   SourceBadge,
@@ -86,11 +88,13 @@ export function VaultExperience({
   const router = useRouter();
   const [review, setReview] = useState<Review | null>(null);
   const [filter, setFilter] = useState("ALL");
+  const requestedSource = query.get("source");
   const source =
-    query.get("source") ||
-    (pathname.split("/")[4] || pathname.includes("/withdraw")
-      ? "contract"
-      : "core");
+    requestedSource === "core" || requestedSource === "contract"
+      ? requestedSource
+      : pathname.split("/")[4] || pathname.includes("/withdraw")
+        ? "contract"
+        : "core";
   const setQuery = (key: string, value: string) => {
     const next = new URLSearchParams(query.toString());
     next.set(key, value);
@@ -104,6 +108,9 @@ export function VaultExperience({
           (kind === "MILESTONE" && jar.policy.kind === "SAVINGS")),
     ) || [];
   const selected = jars.find((jar) => jar.id === query.get("jar")) || jars[0];
+  useEffect(() => {
+    setReview(null);
+  }, [source, selected?.id, controller.workspaceId]);
   const theme = themes[kind];
   const prepare = (next: Review) =>
     setReview({ ...next, confirm: () => controller.run(next.confirm) });
@@ -142,6 +149,7 @@ export function VaultExperience({
         <button
           type="button"
           aria-pressed={source === "core"}
+          disabled={busy}
           onClick={() => setQuery("source", "core")}
         >
           <Wallet size={18} aria-hidden />
@@ -150,14 +158,25 @@ export function VaultExperience({
         <button
           type="button"
           aria-pressed={source === "contract"}
+          disabled={busy}
           onClick={() => setQuery("source", "contract")}
         >
           <ShieldCheck size={18} aria-hidden />
           Hũ smart contract
         </button>
       </div>
+      <p className="vx-muted vx-source-explanation">
+        {source === "core"
+          ? "Tiền được giữ trong ví chung Core và ghi sổ riêng cho từng hũ của gia đình."
+          : "Mỗi hũ giữ tiền theo quy tắc của hợp đồng. Số dư tách riêng với ví chung Core."}
+      </p>
       {source === "contract" ? (
-        <div className="vx-legacy">{legacy}</div>
+        <>
+          {kind !== "ROSCA" && !pathname.split("/")[4] && (
+            <ContractVaultFunding kind={kind} />
+          )}
+          <div className="vx-legacy">{legacy}</div>
+        </>
       ) : (
         <>
           {error && (
@@ -235,6 +254,7 @@ export function VaultExperience({
                         type="button"
                         className={jar.id === selected?.id ? "selected" : ""}
                         aria-pressed={jar.id === selected?.id}
+                        disabled={busy}
                         onClick={() => setQuery("jar", jar.id)}
                       >
                         <span>{jar.name}</span>
@@ -282,6 +302,30 @@ export function VaultExperience({
                                   Giữ chỗ <Money wei={selected.reservedWei} />
                                 </span>
                               </div>
+                              <a
+                                className="vx-button"
+                                href={`#funding-${selected.id}`}
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  const form = document.getElementById(
+                                    `funding-${selected.id}`,
+                                  );
+                                  form?.scrollIntoView({
+                                    block: "center",
+                                    behavior: window.matchMedia(
+                                      "(prefers-reduced-motion: reduce)",
+                                    ).matches
+                                      ? "auto"
+                                      : "smooth",
+                                  });
+                                  form
+                                    ?.querySelector<HTMLInputElement>("input")
+                                    ?.focus({ preventScroll: true });
+                                }}
+                              >
+                                <ArrowDownToLine size={19} aria-hidden />
+                                Nạp tiền
+                              </a>
                             </section>
                             <aside className="vx-card">
                               <div className="vx-card-icon">
@@ -320,6 +364,11 @@ export function VaultExperience({
                               </Link>
                             </aside>
                           </div>
+                          <CoreVaultFunding
+                            jar={selected}
+                            controller={controller}
+                            prepare={prepare}
+                          />
                           {selected.policy.kind === "SAVINGS" ? (
                             <SavingsGoal
                               jar={selected}
@@ -457,13 +506,6 @@ export function VaultExperience({
                             Yêu cầu và hoạt động của hũ sẽ xuất hiện tại đây.
                           </p>
                         </div>
-                      )}
-                      {selected.policy.kind !== "ROSCA" && (
-                        <FundingForm
-                          jar={selected}
-                          controller={controller}
-                          prepare={prepare}
-                        />
                       )}
                       <section className="vx-card">
                         <div className="vx-section-heading">
@@ -769,52 +811,6 @@ function SavingsGoal({ jar, controller, prepare }: ActionProps) {
         )}
       </div>
     </section>
-  );
-}
-function FundingForm({ jar, controller, prepare }: ActionProps) {
-  const [amount, setAmount] = useState("0.01");
-  const [error, setError] = useState("");
-  return (
-    <details className="vx-card">
-      <summary>Nạp thêm tiền vào hũ</summary>
-      <form
-        className="vx-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          try {
-            prepare({
-              title: "Nạp từ ví cá nhân",
-              detail: `Phân bổ khoản nạp vào ${jar.name}. Core sẽ yêu cầu ký trên Fuji.`,
-              amountWei: parseWei(amount),
-              recipient: TREASURY_ADDRESS,
-              confirm: async () => {
-                const payment = await controller.post(
-                  `/api/workspaces/${controller.workspaceId}/treasury/transfers`,
-                  { jarId: jar.id, kind: "DEPOSIT", amount },
-                );
-                await controller.sign(payment);
-              },
-            });
-          } catch (e) {
-            setError((e as Error).message);
-          }
-        }}
-      >
-        <label>
-          Số AVAX
-          <input
-            required
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </label>
-        {error && <p role="alert">{error}</p>}
-        <button className="vx-button" disabled={controller.busy}>
-          Xem lại khoản nạp
-        </button>
-      </form>
-    </details>
   );
 }
 function RoscaContent({
@@ -1329,7 +1325,7 @@ function PaymentCard({
   const [hash, setHash] = useState("");
   const auth = useAuth();
   const signer =
-    auth.user?.walletAddress?.toLowerCase() === payment.sender?.toLowerCase();
+    !!auth.linkedWallet && auth.linkedWallet.address.toLowerCase() === payment.sender?.toLowerCase();
   const pending = ["READY", "SUBMITTED"].includes(payment.status);
   return (
     <div className="vx-transaction">
