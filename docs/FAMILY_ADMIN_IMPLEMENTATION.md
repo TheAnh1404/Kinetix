@@ -39,6 +39,6 @@ Chữ ký quản trị xác nhận thay đổi ứng dụng; không tạo tx has
 
 Migration đã được áp dụng trên database cấu hình hiện tại; `npm run db:check` xác nhận không thiếu cột. Không reset database ứng dụng để chạy test. Kiểm thử tích hợp phải dùng `TEST_DATABASE_URL` riêng và `AUTH_TEST_ALLOW_RESET=true`.
 
-CI cài dependency của cả monorepo, kiểm tra contract/API/UI, dùng PostgreSQL tạm cho test tích hợp, build hai image rồi smoke test Compose. Backend container dùng Node 24 cho Argon2, đặt dependencies ở root để `shared/` resolve đúng, chạy non-root, và có gateway PostgreSQL cho driver Neon hiện hữu. Release gọi lại CI trước khi xuất bản image.
+CI cài dependency của cả monorepo, chạy kiểm thử contract, API và giao diện, kiểm tra TypeScript, rồi build hai image và smoke test Compose. Chạy riêng bộ test tích hợp với PostgreSQL dùng một lần bằng `npm run test:auth:local`. Backend container dùng Node 24 cho Argon2, đặt dependencies ở root để `shared/` resolve đúng, chạy bằng tài khoản không có quyền root và kết nối PostgreSQL qua gateway cho driver Neon. Quy trình release gọi lại CI trước khi xuất bản image.
 
 Các bước xác nhận khi phát hành: chạy CI xanh, kiểm tra Core trên trình duyệt với hai gia đình, kiểm tra Docker trên máy có Docker Engine, và hoàn tất cấu hình môi trường thật. Ví kho tiền hiện tại và Fuji là kiến trúc testnet của dự án; không coi phân quyền ứng dụng là quyền sở hữu riêng tài sản on-chain của mỗi gia đình.

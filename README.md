@@ -1,5 +1,68 @@
 # KINETIX: The Multi-Generational Family & Social Finance OS on Avalanche
 
+## 3-Minute Judge Walkthrough
+
+**Bật phiên trình diễn:** đặt `NEXT_PUBLIC_DEMO_MODE=true` trong
+`frontend/.env.local`, khởi động frontend rồi mở `/demo`. Thanh ghim
+**UNIHACK JUDGE QUICK SWITCHER** cũng được tích hợp trong `AppShell` của dashboard.
+Ba nút dùng cùng tên, vai trò và ví công khai với `backend/src/db/seed.ts`, thông qua
+`shared/demoPersonas.ts`. Không cần reset database, đăng nhập giả hay ngắt kết nối Core.
+Đây là **demo tương tác cục bộ**, có nhãn riêng; số dư, chữ ký và chi trả trong demo
+không phải receipt blockchain. Thoát về tài khoản thật để dùng các thao tác Web3 có
+xác thực phiên/ví, allowlist và policy thực tế.
+
+| Thời gian | Thao tác của giám khảo | Kết quả quan sát |
+| --- | --- | --- |
+| **Phút 1 — Bố Ba & Allowlist Security** | Chọn **👨‍💼 Bố Ba**. Bấm **Thử ví người lạ**. Trong **Tạo Hũ Động**, nhập tên hũ và kéo tỷ lệ đệm, rồi tạo hũ. | Ví ngoài gia đình bị chặn bởi `NotAllowlisted` trong kịch bản. Hũ mới có ID riêng, số dư ban đầu 0; tỷ lệ mặc định **1000 bps = 10% L1 / 90% Fuji**. Slider hỗ trợ toàn bộ **0–100%**. Dashboard thật dùng wizard tạo hũ, preflight, ký Core và đối soát receipt. |
+| **Phút 2 — Ông Nội rút 0 gas & Anti-Scam Multisig 2/3** | Chọn **👴 Ông Nội Cụ Ba**. Bấm **Rút nhanh 20 AVAX · 0đ gas**. Gửi yêu cầu lớn **60 AVAX**. Chuyển sang Bố Ba, ký lần lượt bằng hai người bảo hộ khác nhau. | Giao diện có tiêu đề/số dư **56px**, chữ tương phản cao, nút lớn và điều khiển bằng bàn phím. Đệm từ 120 xuống 100 AVAX sau rút nhanh; yêu cầu lớn ở **0/3 → 1/3 → 2/3**, chỉ chi khi đủ 2 chữ ký. Mỗi Guardian ký một lần, không chi lặp. |
+| **Phút 3 — Bé Na Chore-to-Earn & Tạo Hũ Động** | Chọn **👧 Bé Na**, xem **Heo đất 4.0**, bấm **Con đã làm xong!**. Chuyển Bố Ba để hai Guardian xác nhận, quay lại Bé Na xem thưởng. Tạo thêm một hũ nếu còn thời gian. | Nhiệm vụ chuyển **Chưa hoàn thành → Chờ gia đình duyệt → Đã nhận thưởng**. Heo đất chỉ tăng **5 AVAX** sau đủ chữ ký. Chuyển vai giữ nguyên tiến trình; **Bắt đầu lại** khôi phục phiên demo. |
+
+**Phân biệt với vận hành thật:** 0 gas chỉ áp dụng khi Family L1 được cấu hình
+zero-fee hoặc có cơ chế tài trợ đã triển khai; Fuji vẫn có phí mạng. Hạn mức demo
+50 dùng đơn vị AVAX; ERC20/USDC chưa được bật, không quy đổi hai loại tài sản.
+Kích thước 56px và bảng màu không thay thế kiểm định WCAG AAA toàn ứng dụng.
+
+**Deploy và wiring hai mạng (thao tác thật, dùng AVAX testnet):** cấu hình
+`DEPLOYER_PRIVATE_KEY`, hai RPC, messenger mỗi mạng, `FAMILY_L1_BLOCKCHAIN_ID` và
+`CCHAIN_BLOCKCHAIN_ID` dạng **bytes32** lấy từ cấu hình Avalanche thực tế.
+
+```bash
+npm run compile
+npm run deploy:fuji
+npm run deploy:familyL1
+npm run wire:teleporter
+```
+
+Fuji deploy `FamilyYieldVault` và gọi `seedYieldReserve()` với
+`INITIAL_YIELD_RESERVE_AVAX` (mặc định 0.1). Family L1 deploy Hub, Cashflow và
+Forwarder, tự đọc Vault từ kết quả bước Fuji. Địa chỉ công khai được lưu vào
+`deployments/dual-chain/addresses.env`; receipt và code hash được lưu theo chain.
+Wiring kiểm tra owner, contract code, chain ID, địa chỉ hai chiều và reserve dương.
+Chỉ ghi `wiring.json` trạng thái `verified` sau khi mọi postcondition đúng;
+journal cho phép chạy tiếp khi một mạng bị gián đoạn. Hai blockchain không hỗ trợ
+rollback nguyên tử chung. Kết quả này không tự kích hoạt manifest T1 hiện tại.
+
+**Thanh khoản và APY:** 8% APY là mô hình tính theo `block.timestamp`, chi từ
+reserve riêng; không phải lợi nhuận DeFi được bảo đảm. ICM chỉ truyền thông điệp.
+`fundCrossChainPrincipal()` cho phép operator cấp vốn đích độc lập trước khi
+receiver nhận deposit; thông điệp chưa có vốn bị từ chối `UnfundedPrincipal`.
+Chính sách tỷ lệ được lưu xuyên suốt form, calldata, Hub, Cashflow và database;
+luồng nạp hiện tại vẫn giữ tài sản ở kho tiền địa phương. Tự động chuyển 90% AVAX
+giữa hai mạng cần adapter chuyển tài sản có bảo chứng và nghiệm thu riêng.
+
+**Kiểm chứng:** chạy `npx hardhat test`; alias `test/FamilyHub.test.ts` dùng lại
+bộ test chính và không đăng ký trùng. Để bao gồm integration tests, dùng PostgreSQL
+riêng và tuyệt đối không đặt `TEST_DATABASE_URL` trỏ vào database ứng dụng:
+
+```powershell
+$env:TEST_DATABASE_URL="postgresql://tester@127.0.0.1:5432/kinetix_unihack_tests"
+$env:AUTH_TEST_ALLOW_RESET="true"
+$env:NODE_OPTIONS="--require=./scripts/local-postgres-transport.cjs"
+npx hardhat test
+```
+
+Đối chiếu và giới hạn nghiệm thu nằm tại [báo cáo bản vá UniHack](docs/UNIHACK_READINESS_RECHECK.md).
+
 ## Trải nghiệm thành viên hiện tại — 04/11/2026
 
 **Trạng thái contract/testnet:** xem [báo cáo và kế hoạch nâng cấp](CONTRACT_TESTNET_REVIEW.md).
@@ -82,7 +145,7 @@ khai và điều kiện vận hành ở trên là căn cứ cho phiên bản hi�
   <a href="https://neon.tech/"><img src="https://img.shields.io/badge/Neon-Serverless_Postgres-00E599?style=for-the-badge&logo=postgresql&logoColor=black" alt="Neon Postgres" /></a>
   <a href="https://orm.drizzle.team/"><img src="https://img.shields.io/badge/ORM-Drizzle_v0.30-C5F74F?style=for-the-badge&logo=databricks&logoColor=black" alt="Drizzle ORM" /></a>
   <a href="https://core.app/"><img src="https://img.shields.io/badge/Auth-Core_Wallet_SIWE_(EIP--4361)-E84142?style=for-the-badge&logo=walletconnect&logoColor=white" alt="Core Wallet SIWE" /></a>
-  <a href="#10-complete-test-suite--verification-results"><img src="https://img.shields.io/badge/Tests-31%2F31_Passing_(100%25)-10B981?style=for-the-badge&logo=jest&logoColor=white" alt="Test Suite" /></a>
+  <a href="#10-complete-test-suite--verification-results"><img src="https://img.shields.io/badge/Tests-287%2F287_Passing_(100%25)-10B981?style=for-the-badge&logo=jest&logoColor=white" alt="287 tests passing, including isolated database integration" /></a>
 </p>
 
 <p align="center">
