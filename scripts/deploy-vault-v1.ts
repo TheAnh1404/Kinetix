@@ -8,6 +8,9 @@ import { writeFileSync, mkdirSync } from "node:fs";
  * trên mạng Avalanche Fuji Testnet (Chain ID 43113) hoặc mạng cục bộ Hardhat.
  */
 async function main() {
+  if (!["hardhat", "localhost", "fuji"].includes(network.name)) {
+    throw new Error("UNSUPPORTED_DEPLOYMENT_NETWORK");
+  }
   console.log("=== BẮT ĐẦU QUY TRÌNH TRIỂN KHAI KINETIX VAULT V1 (EIP-1167 CLONES) ===");
 
   const rpcUrl =
@@ -32,6 +35,12 @@ async function main() {
   }
 
   const deployerAddress = await deployer.getAddress();
+  const actualChainId = Number((await provider.getNetwork()).chainId);
+  const expectedChainId = network.name === "fuji" ? 43113 : 31337;
+  if (actualChainId !== expectedChainId) throw new Error("RPC_CHAIN_ID_MISMATCH");
+  if (network.name === "fuji" && deployerAddress.toLowerCase() === "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266") {
+    throw new Error("PUBLIC_DEVELOPMENT_SIGNER_FORBIDDEN");
+  }
   const balance = await provider.getBalance(deployerAddress);
   console.log(`- Mạng triển khai: ${network.name}`);
   console.log(`- Ví Deployer: ${deployerAddress}`);
@@ -73,12 +82,12 @@ async function main() {
   if (registeredImpl.toLowerCase() !== implementationAddress.toLowerCase()) {
     throw new Error("LỖI ĐỐI SOÁT: Implementation trong Factory không khớp với địa chỉ vừa deploy!");
   }
-  console.log("  -> Đối soát on-chain hoàn toàn hợp lệ (100% Verified).");
+  console.log("  -> Factory implementation matches. This does not activate T1 or constitute an audit.");
 
   // Ghi kết quả ra manifest
   const deploymentRecord = {
     network: network.name,
-    chainId: network.name === "fuji" ? 43113 : 31337,
+    chainId: actualChainId,
     deployedAt: new Date().toISOString(),
     deployer: deployerAddress,
     contracts: {

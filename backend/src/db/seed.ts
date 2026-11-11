@@ -237,7 +237,7 @@ async function seed() {
         onchainVaultId: 3,
         name: "Hụi Họ Thân Tộc",
         description:
-          "Góp vốn xoay vòng tương trợ họ hàng, 100% vốn chờ đẩy sang C-Chain sinh lời 8% APY",
+          "Quỹ góp vốn xoay vòng; dữ liệu mẫu không đại diện giao dịch hoặc lợi suất thực.",
         ruleTemplate: "ROSCA",
         bufferRatioBps: 0, // 0% L1 / 100% C-Chain
         fastWithdrawLimit: "0",
@@ -257,7 +257,7 @@ async function seed() {
         onchainVaultId: 4,
         name: "Quỹ Du Lịch Đà Lạt Cùng Bạn",
         description:
-          "Mục tiêu chung tích lũy 800 AVAX đi du lịch, sinh lời DeFi cho đến ngày mở quỹ",
+          "Dữ liệu mẫu cho mục tiêu du lịch chung; không có nguồn lợi suất DeFi tích hợp.",
         ruleTemplate: "SHARED_GOAL",
         bufferRatioBps: 1500, // 15% L1 / 85% C-Chain
         fastWithdrawLimit: "100",
@@ -404,7 +404,7 @@ async function seed() {
         userId: adminUser.id,
         title: "Lợi suất C-Chain đã tự động kết toán",
         message:
-          "Quỹ Hưu Trí & Báo Hiếu vừa nhận thêm 1.25 AVAX lợi nhuận DeFi 8% APY.",
+          "Thông báo minh họa lãi giả định từ reserve, không phải giao dịch hoặc lợi suất DeFi thực.",
         type: "YIELD_PAYOUT",
         isRead: true,
       },

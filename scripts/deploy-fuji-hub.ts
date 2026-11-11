@@ -1,2 +1,2 @@
-// Entry point tương thích; luôn triển khai deployment T1 mới, không gắn Hub cũ hay seed ví.
+// Compatibility entry point for experimental dual-chain deployment; does not activate T1.
 import "./deploy";
