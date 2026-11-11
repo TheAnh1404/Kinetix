@@ -1,0 +1,186 @@
+/* Landing Page Cyber-Fintech Luxe Animations & Effects */
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(1deg);
+  }
+}
+
+@keyframes floatCard1 {
+  0%, 100% {
+    transform: translateY(0px) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-1deg);
+  }
+}
+
+@keyframes floatCard2 {
+  0%, 100% {
+    transform: translateY(0px) rotate(2deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(3deg);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes beamSweep {
+  0% {
+    left: -20%;
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    left: 120%;
+    opacity: 0;
+  }
+}
+
+@keyframes liveStatusBlink {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+}
+
+.floatingOrb1 {
+  position: absolute;
+  top: -100px;
+  left: 15%;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232, 65, 66, 0.18) 0%, rgba(232, 65, 66, 0) 70%);
+  filter: blur(60px);
+  pointer-events: none;
+  animation: pulseGlow 8s ease-in-out infinite;
+}
+
+.floatingOrb2 {
+  position: absolute;
+  top: 250px;
+  right: 10%;
+  width: 550px;
+  height: 550px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, rgba(139, 92, 246, 0.08) 50%, rgba(0, 0, 0, 0) 70%);
+  filter: blur(70px);
+  pointer-events: none;
+  animation: pulseGlow 10s ease-in-out infinite alternate;
+}
+
+.floatingOrb3 {
+  position: absolute;
+  top: 50%;
+  left: -100px;
+  width: 450px;
+  height: 450px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, rgba(16, 185, 129, 0.06) 60%, rgba(0, 0, 0, 0) 70%);
+  filter: blur(65px);
+  pointer-events: none;
+  animation: pulseGlow 12s ease-in-out infinite alternate-reverse;
+}
+
+.glassCard {
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glassCard:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 20px 40px -15px rgba(232, 65, 66, 0.15);
+  transform: translateY(-3px);
+}
+
+.gradientBorder {
+  position: relative;
+  border-radius: 1.25rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 1px;
+}
+
+.gradientBorderInner {
+  border-radius: calc(1.25rem - 1px);
+  background: #0d1322;
+  height: 100%;
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #10B981;
+  animation: liveStatusBlink 2s infinite;
+}
+
+.beamLine {
+  position: relative;
+  overflow: hidden;
+}
+
+.beamLine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 80px;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.9), transparent);
+  animation: beamSweep 2.5s ease-in-out infinite;
+}
+
+.heroFloatDeck {
+  animation: floatSlow 7s ease-in-out infinite;
+}
+
+.floatCardLeft {
+  animation: floatCard1 6s ease-in-out infinite;
+}
+
+.floatCardRight {
+  animation: floatCard2 8s ease-in-out infinite;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .floatingOrb1,
+  .floatingOrb2,
+  .floatingOrb3,
+  .heroFloatDeck,
+  .floatCardLeft,
+  .floatCardRight,
+  .beamLine::after,
+  .liveDot {
+    animation: none !important;
+  }
+}
