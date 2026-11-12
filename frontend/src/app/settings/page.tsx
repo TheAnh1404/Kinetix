@@ -12,6 +12,7 @@ import {
 } from "@/components/settings/SettingsView";
 import { MobileNavBar } from "@/components/navigation/MobileNavBar";
 import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
+import { KinetixLogo } from "@/components/ui/KinetixLogo";
 
 function SettingsContent() {
   const auth = useAuth();
@@ -63,10 +64,10 @@ function SettingsContent() {
       <header className="account-topbar">
         <Link
           href="/dashboard"
-          className="account-brand"
+          className="flex items-center gap-3 transition-transform hover:scale-[1.02]"
           aria-label="Kinetix, về gia đình"
         >
-          <span>K</span>kinetix.
+          <KinetixLogo size="md" subtitle="Cài Đặt Hệ Thống" />
         </Link>
         <div className="account-topbar-actions">
           <WorkspaceSwitcher />

@@ -5,9 +5,16 @@ import "./vault-experience.css";
 import { AppProviders } from "@/context/AppProviders";
 
 export const metadata: Metadata = {
-  title: "Kinetix - The Multi-Space Vault OS on Avalanche",
+  title: "Kinetix OS - The Multi-Space Vault OS on Avalanche",
   description:
     "Quản lý hũ gia đình trên Avalanche Fuji: hỗ trợ người thân, việc nhà và góp vốn minh bạch với sổ giao dịch có thể đối soát.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/icon.svg",
+    shortcut: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -34,7 +41,7 @@ export default function RootLayout({
               (function() {
                 try {
                   var saved = localStorage.getItem('kinetix_theme');
-                  var isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                  var isDark = saved === 'dark';
                   if (isDark) {
                     document.documentElement.classList.add('dark');
                   } else {

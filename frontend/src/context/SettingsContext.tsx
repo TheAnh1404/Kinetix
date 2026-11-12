@@ -74,12 +74,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
       let effectiveTheme: AppTheme = "light";
       if (savedTheme === "dark" || savedTheme === "light") {
         effectiveTheme = savedTheme;
-      } else if (
-        typeof window !== "undefined" &&
-        (document.documentElement.classList.contains("dark") ||
-          window.matchMedia("(prefers-color-scheme: dark)").matches)
-      ) {
-        effectiveTheme = "dark";
       }
 
       setThemeState(effectiveTheme);

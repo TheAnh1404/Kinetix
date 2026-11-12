@@ -50,11 +50,20 @@ export const LandingFooter: React.FC = () => {
         {/* Footer Navigation & Brand */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-12 border-b border-white/10 text-xs text-slate-400">
           <div className="space-y-4 md:col-span-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#E84142] flex items-center justify-center font-black text-white text-base">
-                K
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#E84142] via-[#F59E0B] to-[#8B5CF6] p-[1.5px] shadow-lg shadow-[#E84142]/20">
+                <div className="w-full h-full bg-[#090D16] rounded-[9px] flex items-center justify-center">
+                  <span className="font-black text-lg text-transparent bg-clip-text bg-gradient-to-r from-white to-[#E2E8F0]">
+                    K
+                  </span>
+                </div>
               </div>
-              <span className="font-bold text-lg text-white">Kinetix OS</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-lg text-white tracking-tight">Kinetix</span>
+                <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/15">
+                  OS
+                </span>
+              </div>
             </div>
             <p className="max-w-md leading-relaxed">
               Hệ điều hành tài chính gia đình và cộng đồng đa thế hệ trên Avalanche. Tích hợp Family L1 zero-gas và lợi tức thực tế 8% APY từ Fuji C-Chain.

@@ -2,6 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { HeartHandshake, Check, LogOut, ShieldCheck } from "lucide-react";
+import { KinetixLogo } from "@/components/ui/KinetixLogo";
 import type { StartStep } from "../../../../shared/startFlow";
 
 export const startLabels: Record<StartStep, string> = {
@@ -33,8 +34,8 @@ export function StartShell({
   return (
     <main className={`start-screen ${role === "ELDERLY" ? "start-large" : ""}`}>
       <header className="start-header">
-        <Link href="/" className="start-brand">
-          <span>K</span>kinetix<span className="start-brand-dot">.</span>
+        <Link href="/" className="flex items-center gap-3 transition-transform hover:scale-[1.02]">
+          <KinetixLogo size="md" subtitle="Khởi Đầu Gia Đình" />
         </Link>
         <button
           type="button"

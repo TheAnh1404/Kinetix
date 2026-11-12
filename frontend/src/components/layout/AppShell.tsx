@@ -17,6 +17,7 @@ import { TransactionLedgerModal } from "@/components/dashboard/TransactionLedger
 import { MobileNavBar } from "@/components/navigation/MobileNavBar";
 import { ActiveTab } from "@/types";
 import { DemoPersonaBar } from "./DemoPersonaBar";
+import { KinetixLogo } from "@/components/ui/KinetixLogo";
 
 interface AppShellProps {
   activeTab: ActiveTab;
@@ -47,7 +48,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [copiedCode, setCopiedCode] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isTelemetryOpen, setIsTelemetryOpen] = useState(false);
-  const [judgeDemo, setJudgeDemo] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
+  // Quản lý trạng thái mở popover
 
   const userMenuRef = useRef<HTMLDivElement>(null);
   const telemetryRef = useRef<HTMLDivElement>(null);
@@ -149,7 +150,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   /* ========================================================================= */
   /* PHÂN LUỒNG 1: THÀNH VIÊN GIA ĐÌNH (ÔNG BÀ, CON TRẺ, ANH CẢ) */
   /* ========================================================================= */
-  if (judgeDemo) return <DemoPersonaBar onExit={() => setJudgeDemo(false)} />;
   if (!isAdmin) {
     return (
       <MemberResponsiveShell elderly={userRole === "ELDERLY"}>
@@ -165,9 +165,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   /* ========================================================================= */
   return (
     <div className="min-h-screen w-full flex flex-col bg-slate-100/70 dark:bg-[#0b111d] text-slate-900 dark:text-slate-100 font-sans antialiased selection:bg-red-500 selection:text-white transition-colors duration-200">
-      {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
-        <button type="button" className="sticky top-0 z-40 bg-slate-900 px-6 py-3 text-white font-bold" onClick={() => setJudgeDemo(true)}>UNIHACK JUDGE QUICK SWITCHER</button>
-      )}
       <div className="flex-1 flex min-h-screen">
         
         {/* ============================================================== */}
@@ -178,17 +175,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           {/* Header Brand: Logo Lớn Nổi Bật & Nhận Diện Kinetix OS */}
           <div className="h-20 px-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
             <Link href="/dashboard" className="flex items-center gap-3 group">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white flex items-center justify-center font-black text-xl shadow-md shadow-red-500/30 group-hover:scale-105 transition-transform shrink-0">
-                K
-              </div>
-              <div className="flex flex-col text-left">
-                <span className="font-black text-lg text-slate-900 dark:text-white tracking-tight leading-tight">
-                  Kinetix OS
-                </span>
-                <span className="text-[11px] font-mono text-red-600 dark:text-red-400 font-bold uppercase tracking-wider mt-0.5">
-                  Master Desk
-                </span>
-              </div>
+              <KinetixLogo size="md" subtitle="Master Desk" />
             </Link>
           </div>
 
@@ -366,10 +353,9 @@ export const AppShell: React.FC<AppShellProps> = ({
               <div className="flex lg:hidden items-center gap-2.5 shrink-0">
                 <Link
                   href="/dashboard"
-                  className="w-10 h-10 rounded-2xl bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white flex items-center justify-center font-black text-lg shadow-sm shadow-red-500/25 shrink-0"
                   title="Kinetix OS Dashboard"
                 >
-                  K
+                  <KinetixLogo size="sm" showText={false} />
                 </Link>
                 <div className="max-w-[150px] sm:max-w-[200px]">
                   <WorkspaceSwitcher />

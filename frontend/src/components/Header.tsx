@@ -6,6 +6,7 @@ import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/context/LanguageContext";
 import { WorkspaceSwitcher } from "./workspaces/WorkspaceSwitcher";
+import { KinetixLogo } from "./ui/KinetixLogo";
 import { ActiveTab, FamilyMember } from "../types";
 
 interface HeaderProps {
@@ -95,19 +96,7 @@ export const Header: React.FC<HeaderProps> = ({
             }}
             className="flex items-center gap-2.5 cursor-pointer select-none group shrink-0"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-105">
-              <span className="material-symbols-outlined text-[20px] sm:text-[24px] text-secondary-container">
-                family_restroom
-              </span>
-            </div>
-            <div className="flex flex-col text-left">
-              <span className="font-headline-sm text-lg sm:text-headline-sm text-on-surface tracking-tight leading-none font-bold">
-                {t("brand.name")}
-              </span>
-              <span className="hidden min-[380px]:inline-block font-label-caps text-[9px] sm:text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold mt-0.5">
-                {t("brand.tagline")}
-              </span>
-            </div>
+            <KinetixLogo size="md" subtitle={t("brand.tagline") || "Family Vault OS"} />
           </Link>
 
           {/* 2. THÔNG TIN GIỚI THIỆU TRÊN DESKTOP (NAV ANCHOR LINKS) */}

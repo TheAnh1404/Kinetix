@@ -1,4 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-  <rect width="48" height="48" rx="12" fill="#175d50"/>
-  <path d="M14 11h6v11l10-11h8L26 24l13 13h-8L20 26v11h-6z" fill="#fffefa"/>
+  <defs>
+    <!-- Kinetix Cyber-Fintech Signature Brand Gradient: Avalanche Red -> Amber Gold -> Violet Purple -->
+    <linearGradient id="kg" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E84142" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#8B5CF6" />
+    </linearGradient>
+    <!-- Silver-White Shimmer Gradient for 'K' Lettermark -->
+    <linearGradient id="ks" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#E2E8F0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Rounded Squircle with Signature Gradient Border -->
+  <rect width="48" height="48" rx="12" fill="url(#kg)" />
+
+  <!-- Inner Deep Cyber Obsidian Canvas matching Landing Page #090D16 -->
+  <rect x="2" y="2" width="44" height="44" rx="10.5" fill="#090D16" />
+
+  <!-- Bold Clean Kinetix 'K' Lettermark (Vector Path, 100% Font-Independent) -->
+  <path
+    d="M14 12h5.5v24H14z M28.5 12l-9 11v2l9.5 11h6.5l-11.5-12.5L34.5 12z"
+    fill="url(#ks)"
+  />
 </svg>
