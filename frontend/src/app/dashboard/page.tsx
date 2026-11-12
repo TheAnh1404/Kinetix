@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ActiveTab, RoleType } from "@/types";
 import { AppShell } from "@/components/layout/AppShell";
 import { AdminConsole } from "@/components/admin/AdminConsole";
+import { ModernAdminDashboard } from "@/components/dashboard/modern/ModernAdminDashboard";
 import { RoscaView } from "@/components/views/RoscaView";
 import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +14,7 @@ import { StartReminder } from "@/components/auth/StartReminder";
 import { MemberResponsiveShell } from "@/components/layout/MemberResponsiveShell";
 import { ElderlyPortal } from "@/components/member/ElderlyPortal";
 import { KidsPortal } from "@/components/member/KidsPortal";
+import { GuardianMobileView } from "@/components/member/GuardianMobileView";
 import { VaultExperience } from "@/components/vaults/VaultExperience";
 import { isWorkspaceOwner } from "../../../../shared/workspacePermissions";
 import { memberHome } from "@/lib/member";
@@ -155,7 +157,13 @@ function DashboardContent() {
     </>
   );
   const memberView =
-    group === "tools" ? <WorkspaceTools /> : group === "member" ? <VaultExperience kind="SHIELD" legacy={null} /> : group === "rosca" ? <RoscaView /> : group === "elderly" ? (
+    group === "tools" ? (
+      <WorkspaceTools />
+    ) : group === "member" ? (
+      <GuardianMobileView />
+    ) : group === "rosca" ? (
+      <RoscaView />
+    ) : group === "elderly" ? (
       <ElderlyPortal preview={admin} />
     ) : (
       <KidsPortal preview={admin} />
@@ -185,9 +193,11 @@ function DashboardContent() {
       }
     >
       {notices}
-      {group !== "tools" && <WorkspaceToolsLinks />}
-      {group === "tools" ? <WorkspaceTools key={`${auth.user?.id}:${family.currentWorkspace.id}`} /> : activeTab === "quan-tri-cha-me" ? (
-        <AdminConsole key={`${auth.user?.id}:${family.currentWorkspace.id}`} />
+      {group !== "tools" && activeTab !== "quan-tri-cha-me" && <WorkspaceToolsLinks />}
+      {group === "tools" ? (
+        <WorkspaceTools key={`${auth.user?.id}:${family.currentWorkspace.id}`} />
+      ) : activeTab === "quan-tri-cha-me" ? (
+        <ModernAdminDashboard key={`${auth.user?.id}:${family.currentWorkspace.id}`} />
       ) : activeTab === "quy-rosca" ? (
         <RoscaView currentMember={family.currentMember} />
       ) : (

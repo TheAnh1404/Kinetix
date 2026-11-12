@@ -28,6 +28,15 @@
   --ink: #0f172a;
   --muted: #475569;
 }
+.guardian-theme {
+  --accent: #0284c7;
+  --accent-dark: #0369a1;
+  --tint: #f0f9ff;
+  --page: #f8fafc;
+  --ink: #0f172a;
+  --muted: #475569;
+  font-size: 1.125rem;
+}
 
 /* Chế độ Giao diện Tối cho Kinetix Member & Sub-dashboards */
 .dark .member-app,
@@ -52,6 +61,13 @@
   --ink: #f8fafc;
   --muted: #cbd5e1;
   --tint: #2e1065;
+}
+.dark .guardian-theme,
+.dark.guardian-theme {
+  --page: #0b111d;
+  --ink: #f8fafc;
+  --muted: #cbd5e1;
+  --tint: #082f49;
 }
 .dark .member-sidebar {
   background: #111927;
@@ -79,6 +95,10 @@
 .dark .kids-theme .role-navigation a.active {
   background: #271746;
   color: #c084fc;
+}
+.dark .guardian-theme .role-navigation a.active {
+  background: #082f49;
+  color: #38bdf8;
 }
 .dark .member-card,
 .dark .member-box {
@@ -316,17 +336,19 @@
   color: var(--ink);
 }
 .member-brand > span:first-child {
-  color: white;
-  background: var(--accent);
-  width: 37px;
-  height: 40px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #E84142 0%, #F59E0B 50%, #8B5CF6 100%);
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
-  border-radius: 0.8rem 0.8rem 0.8rem 0.15rem;
-  font-size: 1.4rem;
+  border-radius: 11px;
+  font-size: 1.3rem;
+  font-weight: 900;
+  box-shadow: 0 4px 12px rgba(232, 65, 66, 0.25);
 }
 .member-brand .brand-period {
-  color: var(--accent);
+  color: #E84142;
   margin-left: -0.5rem;
 }
 .sidebar-caption {
@@ -1389,8 +1411,9 @@
   .workspace-picker {
     max-width: calc(100% - 55px);
   }
+  /* Khoảng cách đệm an toàn phía dưới đảm bảo nội dung không bị che bởi Thanh điều hướng nổi (calc(5.5rem + safe-area)) */
   .member-content {
-    padding: 1.2rem 1rem calc(7rem + env(safe-area-inset-bottom));
+    padding: 1rem 1rem calc(5.5rem + env(safe-area-inset-bottom));
   }
   .member-page-header {
     margin-bottom: 1.5rem;
@@ -1433,37 +1456,175 @@
   .section-heading a {
     font-size: 0.9em;
   }
-  .member-mobile-navigation {
+  
+  /* ========================================================================= */
+  /* THANH ĐIỀU HƯỚNG ĐÁY NỔI DI ĐỘNG (FLOATING GLASS DOCK) - ERGONOMIC THUMB  */
+  /* ========================================================================= */
+  .member-mobile-dock-wrapper {
     display: block;
     position: fixed;
-    z-index: 40;
+    z-index: 50;
     bottom: 0;
     left: 0;
     right: 0;
-    background: #fffefa;
-    border-top: 1px solid #dbe1d7;
-    padding: 0.35rem 0.3rem max(0.5rem, env(safe-area-inset-bottom));
+    padding: 0.5rem 0.75rem max(0.5rem, env(safe-area-inset-bottom));
+    pointer-events: none;
   }
-  .member-mobile-navigation .role-navigation {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
-    gap: 0.15rem;
+
+  .member-mobile-dock {
+    pointer-events: auto;
+    max-width: 440px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 0.35rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 1.5rem;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(226, 232, 240, 0.85);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+    transition: background 0.2s ease, border-color 0.2s ease;
   }
-  .member-mobile-navigation .role-navigation a {
-    min-height: 64px;
-    padding: 0.5rem 0.1rem;
+
+  .dark .member-mobile-dock {
+    background: rgba(17, 25, 39, 0.88);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  }
+
+  .member-dock-item {
+    position: relative;
+    flex: 1;
+    display: flex;
     flex-direction: column;
-    gap: 0.25rem;
-    font-size: 0.76rem;
-    line-height: 1.4;
-    text-align: center;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    min-height: 48px;
+    padding: 0.45rem 0.25rem;
+    border-radius: 1.15rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, color 0.15s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
-  .member-mobile-navigation .nav-arrow {
+
+  .dark .member-dock-item {
+    color: #94a3b8;
+  }
+
+  .member-dock-item:active {
+    transform: scale(0.95);
+  }
+
+  .dock-badge {
+    position: absolute;
+    top: -6px;
+    right: -10px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(239, 68, 68, 0.4);
+    border: 1.5px solid #ffffff;
+  }
+
+  .dark .dock-badge {
+    border-color: #111927;
+  }
+
+  .dock-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .dock-active-indicator {
+    position: absolute;
+    bottom: 2px;
+    width: 16px;
+    height: 3px;
+    border-radius: 2px;
+    background: currentColor;
+  }
+
+  /* Role: ELDERLY - 3 nút to rõ >= 56px, chữ lớn, tương phản cao WCAG AAA */
+  .elderly-dock-theme .member-dock-item {
+    min-height: 58px;
+    padding: 0.5rem 0.35rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
+  .elderly-dock-theme .member-dock-item.active {
+    background: rgba(5, 150, 105, 0.15);
+    color: #047857;
+    box-shadow: 0 0 16px rgba(5, 150, 105, 0.3);
+  }
+
+  .dark .elderly-dock-theme .member-dock-item.active {
+    background: rgba(5, 150, 105, 0.28);
+    color: #34d399;
+    box-shadow: 0 0 18px rgba(16, 185, 129, 0.4);
+  }
+
+  /* Role: CHILD - Gamified tabs, màu tím tươi sáng, hiệu ứng phát sáng */
+  .kids-dock-theme .member-dock-item {
+    min-height: 52px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border-radius: 1.25rem;
+  }
+
+  .kids-dock-theme .member-dock-item.active {
+    background: rgba(124, 58, 237, 0.16);
+    color: #6d28d9;
+    box-shadow: 0 0 16px rgba(124, 58, 237, 0.35);
+  }
+
+  .dark .kids-dock-theme .member-dock-item.active {
+    background: rgba(124, 58, 237, 0.3);
+    color: #c084fc;
+    box-shadow: 0 0 18px rgba(168, 85, 247, 0.45);
+  }
+
+  /* Role: GUARDIAN - Gamified/Professional Teal/Sky */
+  .guardian-dock-theme .member-dock-item {
+    min-height: 50px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .guardian-dock-theme .member-dock-item.active {
+    background: rgba(14, 165, 233, 0.15);
+    color: #0284c7;
+    box-shadow: 0 0 16px rgba(14, 165, 233, 0.3);
+  }
+
+  .dark .guardian-dock-theme .member-dock-item.active {
+    background: rgba(14, 165, 233, 0.28);
+    color: #38bdf8;
+    box-shadow: 0 0 18px rgba(14, 165, 233, 0.4);
+  }
+
+  .member-mobile-navigation {
     display: none;
-  }
-  .elderly-theme .member-mobile-navigation .role-navigation a {
-    font-size: 1.125rem;
   }
   .kids-hero {
     padding: 1.5rem;
