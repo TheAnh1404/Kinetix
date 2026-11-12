@@ -18,6 +18,8 @@ import { DepositVaultModal } from "@/components/vaults/DepositVaultModal";
 import { InterVaultTransferModal } from "@/components/vaults/InterVaultTransferModal";
 import { MemberManagementModal } from "@/components/dashboard/MemberManagementModal";
 import { CreateChoreModal } from "@/components/dashboard/CreateChoreModal";
+import { CoreDeploymentConsole } from "@/components/dashboard/CoreDeploymentConsole";
+import { DEPLOYMENT } from "@/contracts/config";
 
 import { CheckCircle2, AlertCircle, X } from "lucide-react";
 
@@ -120,6 +122,14 @@ export const ModernAdminDashboard: React.FC = () => {
   return (
     <div className="w-full min-h-screen bg-[#F8FAFC] text-slate-900 pb-16 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
+        {isOwner && !DEPLOYMENT.enabled && (
+          <details id="deployment" className="rounded-2xl border border-slate-200 bg-white p-4">
+            <summary className="min-h-12 cursor-pointer py-3 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-600">
+              Triển khai T1 trên Fuji bằng Core Wallet
+            </summary>
+            <CoreDeploymentConsole />
+          </details>
+        )}
         {/* Toast Thông Báo Phản Hồi */}
         {feedback && (
           <div

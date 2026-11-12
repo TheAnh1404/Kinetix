@@ -1,12 +1,12 @@
 # Project Status
 
-Reviewed on **2026-11-11**. This document describes the reviewed working tree, not proof of a deployed service or an independent audit.
+Code review snapshot: **2026-11-11**. Fuji contract deployment updated on **2026-11-12**. Contract deployment evidence does not establish public frontend hosting or an independent audit.
 
 ## Deployment and Assets
 
-The checked-in `shared/deployment.json` is `configured` with `enabled: false`, null contract records, and no deployment receipts. The target is single-chain Avalanche Fuji using native AVAX. **No verified, activated FamilyHub deployment is established by this repository state.** No contract address or explorer transaction is advertised as a verified deployment.
+The checked-in `shared/deployment.json` is now `verified` with `enabled: true`. FamilyHub, VaultCashflow, and KinetixForwarder were deployed on Avalanche Fuji, chain ID 43113, with native AVAX T1 settings. All three creation receipts and two wiring receipts were finalized; exact transaction inputs, compiled runtime code, source identity, admin/controller permissions, and wiring were verified before activation. See [addresses and transaction evidence](FUJI_DEPLOYMENT.md).
 
-Hardhat uses a local EVM and deterministic fixture addresses. An address must be accompanied by actual chain and receipt evidence before it can be attributed to Fuji. Historic fixture values have been removed from the product README. No deployment or real-funds transaction was sent during this review.
+The dedicated deployment administrator is recorded in the manifest. Its signing key remains in the ignored local environment file. Existing workspaces and legacy vaults were not silently reassigned. Hardhat uses a separate local EVM; its fixture addresses do not establish a Fuji deployment.
 
 ERC20/USDC, cross-chain transfers, yield, and sponsored relaying are disabled in T1. Fuji network fees apply. Experimental dual-chain deployment/wiring scripts are not the acceptance path for an enabled T1 deployment.
 
@@ -51,7 +51,7 @@ Environment: Windows, Node.js 24.19.0, local Hardhat network, and a newly initia
 
 For the full local database run, configure an isolated `TEST_DATABASE_URL`, set `AUTH_TEST_ALLOW_RESET=true` and `FORBID_PENDING_TESTS=true`, and preload `scripts/local-postgres-transport.cjs` through `NODE_OPTIONS` before running `npm test`. The adapter accepts only loopback PostgreSQL and refuses application-database aliases. Credentials and local connection values are intentionally omitted here. The disposable review server was stopped after validation.
 
-CI has been updated but was not executed on GitHub during this review. The local PostgreSQL run used version 18; CI provisions version 16, so that runner remains a separate validation step. Docker smoke tests, real-device wallet/accessibility tests, public deployment verification, and independent audit remain outstanding.
+CI has been updated but was not executed on GitHub during this review. The local PostgreSQL run used version 18; CI provisions version 16, so that runner remains a separate validation step. Docker smoke tests, real-device wallet/accessibility tests, public application hosting verification, and independent audit remain outstanding. Fuji contract deployment and RPC verification were completed on 2026-11-12; see the deployment evidence linked above.
 
 ## External Information
 

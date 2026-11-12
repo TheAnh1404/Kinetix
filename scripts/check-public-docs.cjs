@@ -4,7 +4,7 @@ const { resolve, dirname } = require("node:path");
 // Current public references. Historical handovers are explicitly marked as such.
 const files = [
   "README.md", "SECURITY.md", "CONTRIBUTING.md", "docs/README.md",
-  "docs/STATUS.md", "docs/ARCHITECTURE.md", "docs/ROADMAP.md",
+  "docs/STATUS.md", "docs/ARCHITECTURE.md", "docs/FUJI_DEPLOYMENT.md", "docs/ROADMAP.md",
   "docs/REPOSITORY_METADATA.md",
 ];
 const failures = [];

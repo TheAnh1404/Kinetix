@@ -2,18 +2,47 @@
   "schemaVersion": 1,
   "version": "2.1.0-t1",
   "mode": "single-chain",
-  "status": "configured",
-  "enabled": false,
+  "status": "verified",
+  "enabled": true,
   "chainId": 43113,
   "avalancheBlockchainId": null,
   "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
   "explorerUrl": "https://testnet.snowtrace.io",
-  "deploymentBlock": null,
+  "deploymentBlock": "60950962",
   "compiler": "0.8.26",
   "evmVersion": "cancun",
-  "sourceHash": null,
-  "admin": null,
-  "features": { "native": true, "erc20": false, "crossChain": false, "yield": false, "relayer": false },
-  "contracts": { "hub": null, "cashflow": null, "forwarder": null, "yieldVault": null },
-  "wiring": []
+  "sourceHash": "0x1d1ee980ac2032de81fd15c18fba79a5796ebdb7b4c5e18c45f002588d402f05",
+  "admin": "0x215eb14808B826d1469476a79C8942d8944e9d6c",
+  "features": {
+    "native": true,
+    "erc20": false,
+    "crossChain": false,
+    "yield": false,
+    "relayer": false
+  },
+  "contracts": {
+    "hub": {
+      "address": "0x2c2D8a0af6b3b610108a7bc49c6f33b4B6361211",
+      "transactionHash": "0xf33dc3f1237d4b18e1a37d48378fb3ed1386b08337c07102a9054ea5febc584f",
+      "blockNumber": "60950962",
+      "runtimeCodeHash": "0x7e353e530f132cc6dd824dc09549ca07d7de196895a9c5ef4207716e7fd310cf"
+    },
+    "cashflow": {
+      "address": "0x2203FDBB6a779ae4ADd73Bc6c08BA0ddD182796B",
+      "transactionHash": "0xce1f95d34f907011178610938aaa80b52abc5ca8d1953bf10273c6b0c3af2b8e",
+      "blockNumber": "60950974",
+      "runtimeCodeHash": "0xc75a8941f1120e68ff6cd41dd4c7631dbb1ae5695edc20c5a924881701c71dc2"
+    },
+    "forwarder": {
+      "address": "0xf8b5c91E96B865aA73d2FeD2105456997253d0d2",
+      "transactionHash": "0xc609a7d9a839f8472deb24c6b5de444c42e07f6f9d3839d3aa3d37ddc104d8ce",
+      "blockNumber": "60950984",
+      "runtimeCodeHash": "0xfe907d548f2ef6e644327fb10a1c58c26282ccfadf5ba5d94e7a70ea22f1483b"
+    },
+    "yieldVault": null
+  },
+  "wiring": [
+    "0xe586527f7db339a5fbda4628d1676f1cf8211388ebec200cf3093384cf852698",
+    "0xd16bfda3e4ad43864a397cfe285705d760de8728ce2f66874cb5b034007206aa"
+  ]
 }

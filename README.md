@@ -6,7 +6,7 @@ Kinetix brings shared funds, member responsibilities, and financial approvals in
 
 From supporting an older family member's daily expenses to rewarding a child's progress or saving toward a shared goal, Kinetix gives each fund a defined purpose and each participant a clear role.
 
-> **Development status:** Experimental, testnet-oriented software. The checked-in contract deployment is not verified or enabled. T1 uses native AVAX; cross-chain transfers, ERC20/USDC, and yield are disabled. The contracts have not been independently audited.
+> **Development status:** Experimental software with a verified, enabled T1 contract deployment on Avalanche Fuji (chain ID 43113). See [deployment evidence](docs/FUJI_DEPLOYMENT.md). T1 uses native AVAX; cross-chain transfers, ERC20/USDC, and yield are disabled. The contracts have not been independently audited.
 
 ## Product Vision
 

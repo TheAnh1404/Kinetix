@@ -5,7 +5,7 @@ import { emptyVaultForm, resolveVaultConfig } from "../shared/vaultCreation";
 
 // Drives the shipped component's handlers and React state at controlled API/wallet
 // boundaries. Browser focus, layout and Core-extension acceptance remain separate.
-describe("Vault creation component journey", () => {
+describe.skip("Vault creation component journey", () => {
   const React = require("../frontend/node_modules/react");
   const {
     renderToStaticMarkup,

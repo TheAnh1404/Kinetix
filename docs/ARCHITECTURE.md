@@ -20,12 +20,12 @@ The frontend provides role-based experiences. The same-origin proxy forwards app
 
 | Path | Asset custody | Current boundary |
 | --- | --- | --- |
-| FamilyHub + VaultCashflow, T1 | Contracts on a single configured chain | Native AVAX; deployment and runtime checks gate transactions. The checked-in manifest is disabled. |
+| FamilyHub + VaultCashflow, T1 | Contracts on Avalanche Fuji, chain ID 43113 | Native AVAX; the manifest is enabled with finalized deployment receipts. Runtime checks still gate transactions. |
 | KinetixVaultV1 + factory | Individual clone contracts | Experimental alternative, not activated by the T1 manifest. Multi-approval vaults reject unilateral member edits and direct inter-vault transfers. |
 | Shared Core treasury | A designated wallet controlled by its holder | Custodial application ledger with receipt reconciliation. Independent of FamilyHub deployment and on-chain multisig rules. |
 | FamilyYieldVault | Standalone operator-controlled contract | Reserve-funded simulation, excluded from the T1 application deployment. |
 
-The public manifest contains no verified contract deployment at this revision. Local deterministic addresses identify fixtures only when their local network context is established; address patterns alone cannot establish which network hosts a contract. Verified deployment evidence requires chain identity, receipts, code hashes, source identity, and wiring checks.
+The public manifest records the verified Fuji T1 deployment described in [deployment evidence](FUJI_DEPLOYMENT.md). Its receipts, runtime code hashes, source identity, and wiring were checked against Fuji RPC before activation. Address patterns alone cannot establish which network hosts a contract; local fixtures remain separate from this chain evidence.
 
 ## Financial Rules
 
