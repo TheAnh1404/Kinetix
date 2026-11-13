@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { useFamily } from "@/context/FamilyContext";
 import { useCreateVaultState } from "@/hooks/useCreateVaultState";
 import { CreateVaultWizard } from "./create/CreateVaultWizard";
@@ -16,11 +16,14 @@ export interface CreateVaultModalProps {
 /**
  * Kinetix CreateVaultModal
  * 
- * Rebuilt from scratch into an elegant, non-AI-slop, consumer-friendly 4-step Wizard:
- * 1. Chọn Mục Đích (4 high-impact presets: SHIELD, SHARED_GOAL, MILESTONE, ROSCA)
- * 2. Phân Quyền Thành Viên (Guardians M/N & Beneficiaries)
- * 3. Phân Bổ Vốn & Lãi Suất (L1 Buffer vs C-Chain Yield & APY Real-time Engine)
- * 4. Xác Nhận & Ký On-Chain (Digital fintech card preview & Core Wallet signing)
+ * Mobile-First & Anti-AI-Slop 4-Step Wizard:
+ * - Mobile (360px-430px): Sleek bottom-sheet modal (`max-h-[92dvh] rounded-t-3xl`), thumb-friendly sticky nav
+ * - Desktop: Centered glassmorphic card modal (`max-w-2xl rounded-3xl`)
+ * 
+ * 1. Chọn Mục Đích (Compact 2x2 grid, 1-line taglines, quick name chips)
+ * 2. Thành Viên (SafeAvatar chips, horizontal segmented multisig pills)
+ * 3. Đệm & Lợi Nhuận (Dual-chain visual slider, 1-line yield simulation)
+ * 4. Xác Nhận (Compact fintech card, 1-line policy consent)
  */
 export function CreateVaultModal({
   isOpen,
@@ -35,7 +38,6 @@ export function CreateVaultModal({
     isOpen,
     initialDraftId,
     onSuccess: (vault) => {
-      // Transaction successful callback
       if (onNext) {
         onNext(vault, vault?.ruleTemplate === "MILESTONE" ? "chore" : "deposit");
       }
@@ -66,11 +68,11 @@ export function CreateVaultModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="vault-creation-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md overflow-hidden animate-fade-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-hidden animate-fade-in"
     >
-      {/* Modal Dialog Card */}
+      {/* Dialog Container: Bottom Sheet on Mobile, Centered Modal on Tablet/Desktop */}
       <div
-        className="relative w-full max-w-3xl bg-slate-900/95 border border-slate-800 rounded-3xl p-4 sm:p-7 shadow-2xl shadow-slate-950/80 flex flex-col max-h-[92vh] overflow-hidden"
+        className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-3 sm:p-5 shadow-2xl shadow-slate-950 flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <CreateVaultWizard

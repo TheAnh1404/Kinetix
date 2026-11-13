@@ -7,11 +7,8 @@ import {
   Users,
   Check,
   AlertCircle,
-  Info,
-  Shield,
-  UserPlus,
-  ArrowRight,
   Sliders,
+  UserPlus,
 } from "lucide-react";
 import { MemberCandidate } from "@/hooks/useCreateVaultState";
 import { VaultRuleType } from "@/lib/vaultTemplates";
@@ -50,74 +47,64 @@ export function GuardianSelector({
   const recommendations = getMultisigRecommendations(selectedGuardianIds.length);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4">
       {/* Header Guide */}
       <div>
-        <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+        <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
           {VAULT_MICROCOPY.step2Members.title}
         </h3>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1">
+        <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
           {VAULT_MICROCOPY.step2Members.subtitle}
         </p>
       </div>
 
       {isLoading ? (
-        <div className="p-8 text-center bg-slate-900/60 border border-slate-800 rounded-2xl">
-          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-slate-400">Đang tải danh sách thành viên gia đình...</p>
+        <div className="p-6 text-center bg-slate-900/60 border border-slate-800 rounded-xl">
+          <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-xs text-slate-400">Đang tải thành viên...</p>
         </div>
       ) : candidates.length === 0 ? (
-        <div className="p-6 text-center bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3">
-          <div className="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-full flex items-center justify-center mx-auto">
-            <Users className="w-6 h-6" />
-          </div>
-          <h4 className="text-sm font-bold text-white">Chưa có thành viên nào trong gia đình</h4>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Bạn cần thêm ít nhất một thành viên vào gia đình để phân quyền bảo hộ và thụ hưởng hũ tiền.
-          </p>
+        <div className="p-4 text-center bg-slate-900/80 border border-slate-800 rounded-xl space-y-2">
+          <p className="text-xs text-slate-300">Chưa có thành viên nào trong gia đình</p>
           {onManageMembers && (
             <button
               type="button"
               onClick={onManageMembers}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold text-xs rounded-xl transition-colors"
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold text-xs rounded-lg transition-colors"
             >
-              <UserPlus className="w-4 h-4" />
-              <span>Thêm thành viên ngay</span>
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Thêm thành viên</span>
             </button>
           )}
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* SECTION 1: GUARDIANS (HỘI ĐỒNG BẢO HỘ) */}
-          <div className="bg-slate-900/80 border border-slate-800/90 rounded-2xl p-4 sm:p-5 space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    <span>{VAULT_MICROCOPY.step2Members.guardianSectionTitle}</span>
-                    <span className="text-xs font-normal text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                      {selectedGuardianIds.length} đã chọn
-                    </span>
-                  </h4>
-                  <p className="text-[11px] sm:text-xs text-slate-400">
-                    {VAULT_MICROCOPY.step2Members.guardianSectionDesc}
-                  </p>
-                </div>
+        <div className="space-y-3 sm:space-y-4">
+          {/* SECTION 1: GUARDIANS */}
+          <div className="bg-slate-900/80 border border-slate-800/80 rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="text-xs sm:text-sm font-bold text-white">
+                  {VAULT_MICROCOPY.step2Members.guardiansTitle}
+                </span>
+                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded-full border border-emerald-500/20 font-mono">
+                  {selectedGuardianIds.length} chọn
+                </span>
               </div>
+              <span className="text-[10px] text-slate-400 hidden sm:inline">
+                {VAULT_MICROCOPY.step2Members.guardiansHint}
+              </span>
             </div>
 
             {errors.guardianIds && (
-              <div className="p-3 bg-red-950/30 border border-red-500/30 rounded-xl text-xs text-red-400 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
+              <p className="text-[11px] text-red-400 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 shrink-0" />
                 <span>{errors.guardianIds}</span>
-              </div>
+              </p>
             )}
 
-            {/* Guardian Candidate Chips Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Compact Member Chips Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
               {candidates.map((member) => {
                 const isSelected = selectedGuardianIds.includes(member.id);
                 return (
@@ -132,73 +119,58 @@ export function GuardianSelector({
                         onToggleGuardian(member.id);
                       }
                     }}
-                    className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-2 sm:p-2.5 rounded-lg sm:rounded-xl border transition-all cursor-pointer ${
                       isSelected
-                        ? "bg-emerald-950/20 border-emerald-500/50 shadow-sm shadow-emerald-500/10"
-                        : "bg-slate-950/40 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40"
+                        ? "bg-emerald-950/20 border-emerald-500/50"
+                        : "bg-slate-950/40 border-slate-800/80 hover:border-slate-700"
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
                       <SafeAvatar
                         name={member.fullName}
                         role={member.role}
                         size="sm"
-                        className={isSelected ? "ring-2 ring-emerald-500/50" : ""}
+                        className={isSelected ? "ring-1 ring-emerald-500/60" : ""}
                       />
                       <div className="truncate">
                         <p className="text-xs font-semibold text-white truncate">
                           {member.fullName}
                         </p>
-                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                          <span className="uppercase tracking-wider">{member.role}</span>
-                          {member.linked ? (
-                            <span className="text-emerald-400 flex items-center gap-0.5">
-                              • Ví Core đã kết nối
-                            </span>
-                          ) : (
-                            <span className="text-amber-400 flex items-center gap-0.5">
-                              • Chưa liên kết ví
-                            </span>
-                          )}
-                        </div>
+                        <span className="text-[9px] text-slate-400 uppercase tracking-wider block">
+                          {member.role} {member.linked ? "• Ví Core" : ""}
+                        </span>
                       </div>
                     </div>
 
                     <div
-                      className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
+                      className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border transition-all ${
                         isSelected
                           ? "bg-emerald-500 border-emerald-400 text-slate-950"
                           : "border-slate-700 bg-slate-900"
                       }`}
                     >
-                      {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* MULTISIG THRESHOLD M/N SELECTOR */}
+            {/* MULTISIG THRESHOLD: Horizontal Segmented Pills */}
             {selectedGuardianIds.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-slate-800/80 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs font-bold text-white">
-                      Ngưỡng duyệt chi lớn ({requiredApprovals}/{selectedGuardianIds.length} người)
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-400">
-                    {requiredApprovals === 1
-                      ? "Bất kỳ ai ký duyệt là giải ngân"
-                      : requiredApprovals === selectedGuardianIds.length
-                      ? "Cần 100% đồng thuận"
-                      : `Cần ít nhất ${requiredApprovals} người ký`}
+              <div className="pt-2 border-t border-slate-800/60 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-300 font-semibold flex items-center gap-1">
+                    <Sliders className="w-3 h-3 text-emerald-400" />
+                    {VAULT_MICROCOPY.step2Members.thresholdLabel}
+                  </span>
+                  <span className="text-emerald-400 font-bold font-mono">
+                    {requiredApprovals}/{selectedGuardianIds.length} người
                   </span>
                 </div>
 
-                {/* Preset Threshold Options */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {/* Horizontal Segmented Bar */}
+                <div className="flex gap-1.5 flex-wrap">
                   {recommendations.map((rec, idx) => {
                     const isSelected = requiredApprovals === rec.threshold;
                     return (
@@ -206,23 +178,18 @@ export function GuardianSelector({
                         key={idx}
                         type="button"
                         onClick={() => onSetRequiredApprovals(rec.threshold)}
-                        className={`text-left p-2.5 rounded-xl border text-xs transition-all ${
+                        className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 ${
                           isSelected
-                            ? "bg-emerald-500/15 border-emerald-500/60 text-white shadow-sm ring-1 ring-emerald-500/30"
-                            : "bg-slate-950/40 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white"
+                            ? "bg-emerald-500/20 border-emerald-500/70 text-emerald-300 ring-1 ring-emerald-500/30 font-bold"
+                            : "bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white"
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-xs">{rec.label}</span>
-                          {rec.isRecommended && (
-                            <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-medium">
-                              Khuyên dùng
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-slate-400 leading-tight">
-                          {rec.description}
-                        </p>
+                        <span>{rec.shortLabel || `${rec.threshold}/${rec.total}`}</span>
+                        {rec.isRecommended && (
+                          <span className="text-[9px] bg-emerald-500/30 text-emerald-300 px-1 rounded font-normal">
+                            Gợi ý
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -231,50 +198,40 @@ export function GuardianSelector({
             )}
           </div>
 
-          {/* SECTION 2: BENEFICIARIES (NGƯỜI THỤ HƯỞNG) */}
-          <div className="bg-slate-900/80 border border-slate-800/90 rounded-2xl p-4 sm:p-5 space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center">
-                  <UserCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    <span>{VAULT_MICROCOPY.step2Members.beneficiarySectionTitle}</span>
-                    <span className="text-xs font-normal text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">
-                      {selectedBeneficiaryIds.length} đã chọn
-                    </span>
-                  </h4>
-                  <p className="text-[11px] sm:text-xs text-slate-400">
-                    {VAULT_MICROCOPY.step2Members.beneficiarySectionDesc}
-                  </p>
-                </div>
+          {/* SECTION 2: BENEFICIARIES */}
+          <div className="bg-slate-900/80 border border-slate-800/80 rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-sky-400 shrink-0" />
+                <span className="text-xs sm:text-sm font-bold text-white">
+                  {VAULT_MICROCOPY.step2Members.beneficiariesTitle}
+                </span>
+                <span className="text-[10px] text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded-full border border-sky-500/20 font-mono">
+                  {selectedBeneficiaryIds.length} chọn
+                </span>
               </div>
 
               <button
                 type="button"
                 onClick={onSelectAllBeneficiaries}
-                className="text-[11px] text-sky-400 hover:text-sky-300 font-semibold px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 transition-colors"
+                className="text-[10px] sm:text-xs text-sky-400 hover:text-sky-300 font-semibold px-2 py-0.5 rounded-md bg-sky-500/10 transition-colors"
               >
-                {selectedBeneficiaryIds.length === candidates.length
-                  ? "Bỏ chọn tất cả"
-                  : "Chọn cả gia đình"}
+                {selectedBeneficiaryIds.length === candidates.length ? "Bỏ chọn" : "Chọn cả nhà"}
               </button>
             </div>
 
             {errors.beneficiaryIds && (
-              <div className="p-3 bg-red-950/30 border border-red-500/30 rounded-xl text-xs text-red-400 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
+              <p className="text-[11px] text-red-400 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 shrink-0" />
                 <span>{errors.beneficiaryIds}</span>
-              </div>
+              </p>
             )}
 
-            {/* Beneficiary Candidate Chips Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Beneficiary Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
               {candidates.map((member) => {
                 const isSelected = selectedBeneficiaryIds.includes(member.id);
                 const isGuardian = selectedGuardianIds.includes(member.id);
-                // Milestone restriction: beneficiary cannot be guardian
                 const isMilestoneConflict = ruleTemplate === "MILESTONE" && isGuardian;
 
                 return (
@@ -295,42 +252,39 @@ export function GuardianSelector({
                         }
                       }
                     }}
-                    className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                    className={`flex items-center justify-between p-2 sm:p-2.5 rounded-lg sm:rounded-xl border transition-all ${
                       isMilestoneConflict
                         ? "bg-slate-950/20 border-slate-800/40 opacity-40 cursor-not-allowed"
                         : isSelected
-                        ? "bg-sky-950/20 border-sky-500/50 shadow-sm shadow-sky-500/10 cursor-pointer"
-                        : "bg-slate-950/40 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40 cursor-pointer"
+                        ? "bg-sky-950/20 border-sky-500/50 cursor-pointer"
+                        : "bg-slate-950/40 border-slate-800/80 hover:border-slate-700 cursor-pointer"
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
                       <SafeAvatar
                         name={member.fullName}
                         role={member.role}
                         size="sm"
-                        className={isSelected ? "ring-2 ring-sky-500/50" : ""}
+                        className={isSelected ? "ring-1 ring-sky-500/60" : ""}
                       />
                       <div className="truncate">
                         <p className="text-xs font-semibold text-white truncate">
                           {member.fullName}
                         </p>
-                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                          <span className="uppercase tracking-wider">{member.role}</span>
-                          {isMilestoneConflict && (
-                            <span className="text-amber-400">• Đang là Guardian (không được tự nhận thưởng)</span>
-                          )}
-                        </div>
+                        <span className="text-[9px] text-slate-400 uppercase tracking-wider block">
+                          {member.role} {isMilestoneConflict ? "• Đang là Guardian" : ""}
+                        </span>
                       </div>
                     </div>
 
                     <div
-                      className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
+                      className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border transition-all ${
                         isSelected
                           ? "bg-sky-500 border-sky-400 text-slate-950"
                           : "border-slate-700 bg-slate-900"
                       }`}
                     >
-                      {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                     </div>
                   </div>
                 );

@@ -1,28 +1,30 @@
-# Kinetix Vault Creation Flow - UX & Visual Architecture Specification
+# Kinetix Vault Creation Flow - Mobile-First & Anti-AI-Slop Specification
 *Designed by Senior Product & UI/UX Specialist for Web3 Fintech*
 
-Please refer to the full specification and interactive guide:
-- Brain Artifact: [Kinetix_Vault_Creation_UX_Architecture.md](file:///C:/Users/The%20Anh/.gemini/antigravity-cli/brain/adf88685-b78d-4631-a500-1b6630de0388/Kinetix_Vault_Creation_UX_Architecture.md)
+Full specification artifacts:
+- Brain Artifact: [Kinetix_Vault_Creation_Mobile_UX_Overhaul.md](file:///C:/Users/The%20Anh/.gemini/antigravity-cli/brain/adf88685-b78d-4631-a500-1b6630de0388/Kinetix_Vault_Creation_Mobile_UX_Overhaul.md)
 - Design Tokens & Math: [designTokens.ts](file:///C:/TheAnhproject/Kinetix/frontend/src/components/vaults/create/designTokens.ts)
 
-## Key Highlights
+## Key Mobile Improvements (360px - 430px Viewports):
 
-1. **4 High-Impact Presets**:
-   - `SHIELD`: Quỹ Khẩn Cấp & Trợ Cấp (20% L1 0 gas instant withdraw, 80% C-Chain 8% APY, 1/1 fast limit, M/N large).
-   - `SHARED_GOAL`: Quỹ Mục Tiêu Chung (10% L1, 90% C-Chain, M/N multisig when goal reached).
-   - `MILESTONE`: Quỹ Thưởng Nhiệm Vụ (Chore-to-Earn, funds locked yielding 8%, parent approves proof).
-   - `ROSCA`: Quỹ Họ / Hụi Xoay Vòng Thông Minh (100% C-Chain yield, periodic contributions, rotating payout).
+1. **Cut 60% Verbose Text (Zero AI-Slop)**:
+   - Replaced multi-paragraph descriptions with 1-line taglines and compact badges.
+   - Removed 3-bullet feature lists inside cards on mobile.
 
-2. **Dual-Chain Liquidity & APY Visualizer**:
-   - Dual-track visual slider: L1 Buffer (Sky Blue) vs Fuji C-Chain (Emerald Green).
-   - Real-time Effective APY calculator: $8\% \times (1 - \text{bufferRatioBps} / 10000)$.
-   - Quick preset pills: [Tối đa lãi: 0/100] [Chuẩn DeFi: 10/90] [Khẩn cấp: 20/80] [Linh hoạt: 30/70].
+2. **2-Column Compact Grid for Presets**:
+   - `grid-cols-2 gap-2` on mobile, ~100px height per card.
+   - Clean, instant selection with single-tap quick names (`[Khẩn cấp]` `[Du lịch]` `[Tiết kiệm]`).
+   - Description hidden behind progressive disclosure (`+ Thêm ghi chú riêng tư`).
 
-3. **Guardian Multi-sig Selector**:
-   - SafeAvatar member chips with roles & connection status.
-   - Segmented M/N approval threshold pills (e.g. "1/2 Bất kỳ ai duyệt", "2/2 Đồng thuận", "Đa số quá bán").
+3. **Combined Single Card for Liquidity & APY**:
+   - Integrated dual-track slider: Sky Blue L1 vs Emerald C-Chain.
+   - Replaced bulky 4-box simulator with 1-line inline return badge:
+     `💡 10 AVAX: 2 AVAX rút 0s • 8 AVAX sinh lãi ~0.51 AVAX/năm`.
 
-4. **Zero AI Slop**:
-   - Dark slate palette (`#0B0F19`, `#111827`, `#1E293B`) + emerald yield accents (`#10B981`).
-   - Strict 4/8dp rhythm, WCAG 2.1 AA compliant.
-   - Human-centric Vietnamese financial microcopy (MoMo / Revolut / Safe mental model).
+4. **Compact Member & Multi-sig Rows**:
+   - Member cards scaled down to `p-2.5`, avatar `w-8 h-8`.
+   - Threshold selector as horizontal segmented pill `[1/2]` `[2/2]`.
+
+5. **Ergonomic Bottom Sheet Modal**:
+   - Mobile: `rounded-t-3xl max-h-[92dvh]` with sticky bottom action dock.
+   - Desktop: Centered card `max-w-2xl rounded-2xl`.

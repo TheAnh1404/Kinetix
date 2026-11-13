@@ -17,38 +17,40 @@ export function StepIndicator({
   canNavigateToStep,
 }: StepIndicatorProps) {
   const steps = VAULT_MICROCOPY.wizard.steps;
+  const current = steps[currentStep - 1];
 
   return (
     <div className="w-full">
-      {/* Mobile Step Bar */}
-      <div className="block sm:hidden mb-4">
-        <div className="flex items-center justify-between text-xs font-medium text-slate-400 mb-2">
-          <span className="text-emerald-400 font-semibold uppercase tracking-wider">
+      {/* Mobile: Ultra-compact 1-line step bar (saves 60px vertical height) */}
+      <div className="block sm:hidden">
+        <div className="flex items-center justify-between text-xs mb-1.5 font-medium">
+          <span className="text-emerald-400 font-bold font-mono">
             Bước {currentStep}/4
           </span>
-          <span className="text-slate-200 font-medium">
-            {steps[currentStep - 1]?.title}
+          <span className="text-white font-semibold truncate max-w-[200px]">
+            {current?.title}: <span className="text-slate-400 font-normal">{current?.subtitle}</span>
           </span>
         </div>
-        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex">
+        {/* Sleek 3px progress track */}
+        <div className="h-1 w-full bg-slate-800 rounded-full overflow-hidden flex gap-0.5">
           {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
-              className={`h-full flex-1 transition-all duration-300 ${
+              className={`h-full flex-1 transition-all duration-200 ${
                 s <= currentStep
                   ? "bg-gradient-to-r from-emerald-500 to-teal-400"
                   : "bg-transparent"
-              } ${s < 4 ? "border-r border-slate-900" : ""}`}
+              }`}
             />
           ))}
         </div>
       </div>
 
-      {/* Desktop / Tablet Step Progress */}
+      {/* Desktop: Clean 4-step row */}
       <div className="hidden sm:block">
-        <nav aria-label="Tiến trình thiết lập hũ" className="relative">
+        <nav aria-label="Tiến trình thiết lập hũ">
           <ol className="grid grid-cols-4 gap-2">
-            {steps.map((s, idx) => {
+            {steps.map((s) => {
               const stepNum = s.id as StepNumber;
               const isCompleted = stepNum < currentStep;
               const isCurrent = stepNum === currentStep;
@@ -57,7 +59,7 @@ export function StepIndicator({
                 (canNavigateToStep && canNavigateToStep(stepNum));
 
               return (
-                <li key={s.id} className="relative">
+                <li key={s.id}>
                   <button
                     type="button"
                     disabled={!isClickable && !isCurrent}
@@ -66,29 +68,25 @@ export function StepIndicator({
                         onStepClick(stepNum);
                       }
                     }}
-                    className={`w-full group flex flex-col text-left p-2.5 rounded-xl transition-all duration-200 border ${
+                    className={`w-full group flex flex-col text-left p-2 rounded-xl transition-all border ${
                       isCurrent
-                        ? "bg-slate-800/80 border-emerald-500/40 shadow-sm shadow-emerald-500/10"
+                        ? "bg-slate-800/80 border-emerald-500/40 shadow-xs"
                         : isCompleted
-                        ? "bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40 cursor-pointer"
-                        : "bg-slate-900/30 border-slate-800/40 opacity-60 cursor-not-allowed"
+                        ? "bg-slate-900/60 border-slate-800 hover:border-slate-700 cursor-pointer"
+                        : "bg-slate-900/30 border-slate-800/40 opacity-50 cursor-not-allowed"
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 mb-1.5">
+                    <div className="flex items-center gap-2 mb-1">
                       <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
+                        className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 transition-all ${
                           isCompleted
-                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                             : isCurrent
-                            ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/25 ring-2 ring-emerald-400/20"
-                            : "bg-slate-800 text-slate-400 border border-slate-700/50"
+                            ? "bg-emerald-500 text-slate-950 font-black"
+                            : "bg-slate-800 text-slate-400"
                         }`}
                       >
-                        {isCompleted ? (
-                          <Check className="w-4 h-4 stroke-[2.5]" />
-                        ) : (
-                          <span>{s.id}</span>
-                        )}
+                        {isCompleted ? <Check className="w-3 h-3 stroke-[2.5]" /> : s.id}
                       </div>
                       <span
                         className={`text-xs font-semibold truncate ${
@@ -103,20 +101,9 @@ export function StepIndicator({
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-slate-400 truncate pl-9">
+                    <p className="text-[10px] text-slate-400 truncate pl-7">
                       {s.subtitle}
                     </p>
-
-                    {/* Active highlight bar */}
-                    <div
-                      className={`mt-2 h-0.5 w-full rounded-full transition-all ${
-                        isCurrent
-                          ? "bg-emerald-400"
-                          : isCompleted
-                          ? "bg-emerald-500/40"
-                          : "bg-slate-800"
-                      }`}
-                    />
                   </button>
                 </li>
               );
