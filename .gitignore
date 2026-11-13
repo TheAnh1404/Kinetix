@@ -19,12 +19,12 @@ backend/dist/
 dist/
 build/
 .next/
-.next-dev/
-.next-t1-check/
-.next-treasury-check/
-.next-auth/
-.next-unihack-check/
+.next-*/
+frontend/.next*/
 out/
+
+# Local audit & verification artifacts
+.audit-*.json
 
 # Editor / IDE
 .vscode/
