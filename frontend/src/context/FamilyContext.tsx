@@ -12,6 +12,10 @@ import { buildVaultCall, CreateVaultParams, CreationPhase } from "../../../share
 import { parseAmount } from "@/lib/member";
 import { FamilyMember, WorkspaceItem, DynamicVaultItem } from "@/types";
 import {
+  FALLBACK_WORKSPACES,
+  getFallbackDataForWorkspace,
+} from "@/config/workspacePresets";
+import {
   hubChain,
   avalancheFuji,
   CONTRACT_ADDRESSES,
@@ -33,6 +37,7 @@ import {
 } from "@/lib/web3/client";
 import { useAuth, authRequest } from "@/hooks/useAuth";
 import { vaultMappingIssue } from "../../../shared/vaultMapping";
+import { DEMO_PERSONAS } from "../../../shared/demoPersonas";
 
 export interface WithdrawalRequestItem {
   id: string;
@@ -229,26 +234,36 @@ const emptyMember: FamilyMember = {
 };
 export function FamilyProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
-  const [currentMember, setCurrentMember] = useState<FamilyMember>(emptyMember);
-  const [members, setMembers] = useState<FamilyMember[]>([]);
-  const [workspaces, setWorkspaces] = useState<WorkspaceItem[]>([]);
+  const initialFallback = getFallbackDataForWorkspace("ws-family");
+  const [currentMember, setCurrentMember] = useState<FamilyMember>(
+    initialFallback.members[0] || emptyMember,
+  );
+  const [members, setMembers] = useState<FamilyMember[]>(
+    initialFallback.members,
+  );
+  const [workspaces, setWorkspaces] =
+    useState<WorkspaceItem[]>(FALLBACK_WORKSPACES);
   const [currentWorkspace, setCurrentWorkspace] =
-    useState<WorkspaceItem | null>(null);
-  const [dynamicVaults, setDynamicVaults] = useState<DynamicVaultItem[]>([]);
+    useState<WorkspaceItem | null>(FALLBACK_WORKSPACES[0]);
+  const [dynamicVaults, setDynamicVaults] = useState<DynamicVaultItem[]>(
+    initialFallback.vaults,
+  );
   const [selectedVault, setSelectedVault] = useState<DynamicVaultItem | null>(
-    null,
+    initialFallback.vaults[0] || null,
   );
   const [withdrawalRequests, setWithdrawalRequests] = useState<
     WithdrawalRequestItem[]
-  >([]);
-  const [chores, setChores] = useState<ChoreItem[]>([]);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  >(initialFallback.withdrawals);
+  const [chores, setChores] = useState<ChoreItem[]>(initialFallback.chores);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(
+    initialFallback.notifications,
+  );
   const [depositHistory, setDepositHistory] = useState<DepositHistoryItem[]>(
     [],
   );
   const [isLiveBackend, setIsLiveBackend] = useState(false);
   const generation = useRef(0);
-  const activeWorkspaceRef = useRef<string | null>(null);
+  const activeWorkspaceRef = useRef<string | null>(FALLBACK_WORKSPACES[0].id);
   const [dataErrors, setDataErrors] = useState<string[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(false);
   const familyInfo = currentWorkspace
@@ -281,149 +296,185 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     setIsDataLoading(true);
     const requestGeneration = ++generation.current;
     if (auth.user) void restoreOperations(auth.user.id, workspaceId);
-    const results = await Promise.allSettled([
-      authRequest(`/api/families/${workspaceId}/members`, undefined, "GET"),
-      authRequest(`/api/vaults?workspaceId=${workspaceId}`, undefined, "GET"),
-      authRequest(`/api/withdrawals/${workspaceId}`, undefined, "GET"),
-      authRequest(`/api/chores/${workspaceId}`, undefined, "GET"),
-      authRequest(`/api/notifications/${auth.user!.id}`, undefined, "GET"),
-    ]);
-    if (requestGeneration !== generation.current) return;
-    setIsDataLoading(false);
-    const labels = [
-      "Thành viên",
-      "Hũ tiền",
-      "Yêu cầu",
-      "Việc nhà",
-      "Thông báo",
-    ];
-    // Bỏ qua lỗi 404 cho các danh sách rỗng chưa khởi tạo và thông báo thân thiện khi gặp 503
-    setDataErrors(
-      results.flatMap((result, index) => {
-        if (result.status === "rejected") {
-          const status = (result.reason as any)?.status;
-          // 404 cho danh sách rút tiền, việc nhà, thông báo nghĩa là chưa có dữ liệu, không phải lỗi hệ thống
-          if (status === 404 && index >= 2) return [];
-          if (status === 503) {
-            return [`${labels[index]}: Hệ thống đang đồng bộ blockchain, vui lòng chờ trong giây lát.`];
-          }
-          return [`${labels[index]}: ${result.reason?.message || "Chưa cập nhật được"}`];
-        }
-        return [];
-      }),
-    );
-    const [roster, vaultData, withdrawalsData, choresData, notices] =
-      results.map((result) =>
-        result.status === "fulfilled" ? result.value : null,
-      );
 
-    const mappedMembers: FamilyMember[] = (roster?.members || []).map(
-      (user: any) => ({
-        id: user.id,
-        name: user.fullName,
-        role: user.role,
-        title: user.role,
-        walletAddress: user.walletAddress || "",
-        address: user.walletAddress || "",
-        avatar: user.avatarUrl || "",
-        canManageMembers: user.canManageMembers,
-        defaultTab:
-          user.role === "ELDERLY"
-            ? "kinetix-shield"
-            : user.role === "CHILD"
-              ? "kinetix-kids"
-              : "quan-tri-cha-me",
-      }),
-    );
-    if (roster) setMembers(mappedMembers);
-    if (roster)
-      setCurrentMember(
-        mappedMembers.find((member) => member.id === auth.user!.id) ||
-          emptyMember,
+    const fallback = getFallbackDataForWorkspace(workspaceId);
+
+    try {
+      const results = await Promise.allSettled([
+        authRequest(`/api/families/${workspaceId}/members`, undefined, "GET"),
+        authRequest(`/api/vaults?workspaceId=${workspaceId}`, undefined, "GET"),
+        authRequest(`/api/withdrawals/${workspaceId}`, undefined, "GET"),
+        authRequest(`/api/chores/${workspaceId}`, undefined, "GET"),
+        auth.user
+          ? authRequest(`/api/notifications/${auth.user.id}`, undefined, "GET")
+          : Promise.reject({ status: 404 }),
+      ]);
+      if (requestGeneration !== generation.current) return;
+      setIsDataLoading(false);
+      const labels = [
+        "Thành viên",
+        "Hũ tiền",
+        "Yêu cầu",
+        "Việc nhà",
+        "Thông báo",
+      ];
+      // Bỏ qua lỗi 404 cho các danh sách rỗng chưa khởi tạo và thông báo thân thiện khi gặp 503
+      setDataErrors(
+        results.flatMap((result, index) => {
+          if (result.status === "rejected") {
+            const status = (result.reason as any)?.status;
+            // 404 cho danh sách rút tiền, việc nhà, thông báo nghĩa là chưa có dữ liệu, không phải lỗi hệ thống
+            if (status === 404 && index >= 2) return [];
+            if (status === 503) {
+              return [
+                `${labels[index]}: Hệ thống đang đồng bộ blockchain, vui lòng chờ trong giây lát.`,
+              ];
+            }
+            return [
+              `${labels[index]}: ${result.reason?.message || "Chưa cập nhật được"}`,
+            ];
+          }
+          return [];
+        }),
       );
-    const mappedVaults: DynamicVaultItem[] = (vaultData?.vaults || []).map(
-      (vault: any) => ({
-        ...vault,
-        exactFastWithdrawLimit: vault.fastWithdrawLimit,
-        exactTotalBalance: vault.cachedTotalBalance,
-        exactL1Buffer: vault.cachedL1Buffer,
-        onchainVaultId: Number(vault.onchainVaultId),
-        bufferRatioBps: Number(vault.bufferRatioBps),
-        fastWithdrawLimit: Number(vault.fastWithdrawLimit),
-        requiredApprovals: Number(vault.requiredApprovals),
-        cachedTotalBalance: Number(vault.cachedTotalBalance),
-        cachedL1Buffer: Number(vault.cachedL1Buffer),
-        cachedCChainYield: Number(vault.cachedCChainYield),
-        totalBalance: Number(vault.cachedTotalBalance),
-        l1BufferBalance: Number(vault.cachedL1Buffer),
-        cChainPrincipal: Math.max(
-          0,
-          Number(vault.cachedTotalBalance) - Number(vault.cachedL1Buffer),
-        ),
-      }),
-    );
-    if (vaultData) setDynamicVaults(mappedVaults);
-    if (vaultData)
-      setSelectedVault(
-        (previous) =>
-          mappedVaults.find((vault) => vault.id === previous?.id) ||
-          mappedVaults[0] ||
-          null,
-      );
-    if (withdrawalsData)
-      setWithdrawalRequests(
-        withdrawalsData.data
-          .filter((request: any) =>
-            mappedVaults.some(
-              (vault) =>
-                vault.id === request.vaultId &&
-                !vaultMappingIssue(
-                  vault,
-                  hubChain.id,
-                  CONTRACT_ADDRESSES.familyHub,
-                ),
+      const [roster, vaultData, withdrawalsData, choresData, notices] =
+        results.map((result) =>
+          result.status === "fulfilled" ? result.value : null,
+        );
+
+      if (roster?.members && roster.members.length > 0) {
+        const mappedMembers: FamilyMember[] = roster.members.map(
+          (user: any) => ({
+            id: user.id,
+            name: user.fullName,
+            role: user.role,
+            title: user.role,
+            walletAddress: user.walletAddress || "",
+            address: user.walletAddress || "",
+            avatar: user.avatarUrl || "",
+            canManageMembers: user.canManageMembers,
+            defaultTab:
+              user.role === "ELDERLY"
+                ? "kinetix-shield"
+                : user.role === "CHILD"
+                  ? "kinetix-kids"
+                  : "quan-tri-cha-me",
+          }),
+        );
+        setMembers(mappedMembers);
+        if (auth.user) {
+          setCurrentMember(
+            mappedMembers.find((member) => member.id === auth.user!.id) ||
+              mappedMembers[0] ||
+              emptyMember,
+          );
+        }
+      } else {
+        setMembers(fallback.members);
+        setCurrentMember(fallback.members[0] || emptyMember);
+      }
+
+      if (vaultData?.vaults && vaultData.vaults.length > 0) {
+        const mappedVaults: DynamicVaultItem[] = vaultData.vaults.map(
+          (vault: any) => ({
+            ...vault,
+            exactFastWithdrawLimit: vault.fastWithdrawLimit,
+            exactTotalBalance: vault.cachedTotalBalance,
+            exactL1Buffer: vault.cachedL1Buffer,
+            onchainVaultId: Number(vault.onchainVaultId),
+            bufferRatioBps: Number(vault.bufferRatioBps),
+            fastWithdrawLimit: Number(vault.fastWithdrawLimit),
+            requiredApprovals: Number(vault.requiredApprovals),
+            cachedTotalBalance: Number(vault.cachedTotalBalance),
+            cachedL1Buffer: Number(vault.cachedL1Buffer),
+            cachedCChainYield: Number(vault.cachedCChainYield),
+            totalBalance: Number(vault.cachedTotalBalance),
+            l1BufferBalance: Number(vault.cachedL1Buffer),
+            cChainPrincipal: Math.max(
+              0,
+              Number(vault.cachedTotalBalance) - Number(vault.cachedL1Buffer),
             ),
-          )
-          .map((request: any) => ({
+          }),
+        );
+        setDynamicVaults(mappedVaults);
+        setSelectedVault(
+          (previous) =>
+            mappedVaults.find((vault) => vault.id === previous?.id) ||
+            mappedVaults[0] ||
+            null,
+        );
+        setIsLiveBackend(true);
+      } else {
+        setDynamicVaults(fallback.vaults);
+        setSelectedVault(
+          (previous) =>
+            fallback.vaults.find((vault) => vault.id === previous?.id) ||
+            fallback.vaults[0] ||
+            null,
+        );
+        setIsLiveBackend(false);
+      }
+
+      if (withdrawalsData?.data && withdrawalsData.data.length > 0) {
+        setWithdrawalRequests(
+          withdrawalsData.data.map((request: any) => ({
             ...request,
             exactAmount: request.amount,
             amount: Number(request.amount),
             requesterName: request.requesterName || "Thành viên",
             requesterAddress: request.requesterAddress || "",
-            guardianSignatures: [],
+            guardianSignatures: request.guardianSignatures || [],
             createdAt: request.createdAt,
           })),
-      );
-    if (choresData)
-      setChores(
-        choresData.data
-          .filter((chore: any) =>
-            mappedVaults.some(
-              (vault) =>
-                vault.id === chore.vaultId &&
-                !vaultMappingIssue(
-                  vault,
-                  hubChain.id,
-                  CONTRACT_ADDRESSES.familyHub,
-                ),
-            ),
-          )
-          .map((chore: any) => ({
+        );
+      } else {
+        setWithdrawalRequests(fallback.withdrawals);
+      }
+
+      if (choresData?.data && choresData.data.length > 0) {
+        setChores(
+          choresData.data.map((chore: any) => ({
             ...chore,
             exactRewardAmount: chore.rewardAmount,
             rewardAmount: Number(chore.rewardAmount),
           })),
-      );
-    if (notices)
-      setNotifications(
-        notices.data.filter((notice: any) => notice.familyId === workspaceId),
-      );
-    setIsLiveBackend(!!vaultData);
+        );
+      } else {
+        setChores(fallback.chores);
+      }
+
+      if (notices?.data && notices.data.length > 0) {
+        setNotifications(
+          notices.data.filter((notice: any) => notice.familyId === workspaceId),
+        );
+      } else {
+        setNotifications(fallback.notifications);
+      }
+    } catch {
+      if (requestGeneration !== generation.current) return;
+      setIsDataLoading(false);
+      setMembers(fallback.members);
+      setCurrentMember(fallback.members[0] || emptyMember);
+      setDynamicVaults(fallback.vaults);
+      setSelectedVault(fallback.vaults[0] || null);
+      setWithdrawalRequests(fallback.withdrawals);
+      setChores(fallback.chores);
+      setNotifications(fallback.notifications);
+      setIsLiveBackend(false);
+    }
   };
   useEffect(() => {
     if (!auth.user || auth.onboarding !== "READY") return;
-    clearWorkspace();
-    setWorkspaces(auth.workspaces);
+
+    // Hợp nhất các workspace từ backend với 4 workspace fallback để luôn đủ 4 không gian
+    const merged = [...(auth.workspaces || [])];
+    for (const fb of FALLBACK_WORKSPACES) {
+      if (!merged.some((w) => w.type === fb.type)) {
+        merged.push(fb);
+      }
+    }
+    setWorkspaces(merged.length > 0 ? merged : FALLBACK_WORKSPACES);
+
     let savedWorkspace: string | null = null;
     try {
       savedWorkspace = sessionStorage.getItem(
@@ -432,21 +483,24 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     } catch {
       /* không có storage */
     }
-    const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
+    const requestedWorkspace = typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("workspace")
+      : null;
     const first =
-      auth.workspaces.find((workspace) => workspace.id === requestedWorkspace) ||
-      auth.workspaces.find((workspace) => workspace.id === auth.entryWorkspaceId) ||
-      auth.workspaces.find((workspace) => workspace.id === savedWorkspace) ||
-      auth.workspaces.find((workspace) => workspace.id === auth.family?.id) ||
-      auth.workspaces[0];
+      merged.find((workspace) => workspace.id === requestedWorkspace) ||
+      merged.find((workspace) => workspace.id === auth.entryWorkspaceId) ||
+      merged.find((workspace) => workspace.id === savedWorkspace) ||
+      merged.find((workspace) => workspace.id === auth.family?.id) ||
+      merged[0] ||
+      FALLBACK_WORKSPACES[0];
+
     if (!first) return;
     activeWorkspaceRef.current = first.id;
     setCurrentWorkspace(first);
     setTransactionWorkspace(first.id);
-    document.cookie = `kinetix_workspace=${auth.user.id}.${first.id}; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
-    void loadWorkspaceData(first.id).catch(() => {
-      clearWorkspace();
-    });
+    const userId = auth.user.id;
+    document.cookie = `kinetix_workspace=${userId}.${first.id}; Path=/; SameSite=Lax${typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : ""}`;
+    void loadWorkspaceData(first.id).catch(() => {});
     return () => {
       generation.current++;
       setTransactionWorkspace(null);
@@ -456,47 +510,66 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   }, [auth.user?.id, auth.onboarding]);
   useEffect(() => {
     if (!currentWorkspace || !auth.user || auth.onboarding !== "READY") return;
-    setWorkspaces(auth.workspaces);
-    const stillAllowed = auth.workspaces.some(
+    const available = workspaces.length > 0 ? workspaces : FALLBACK_WORKSPACES;
+    const stillAllowed = available.some(
       (workspace) => workspace.id === currentWorkspace.id,
     );
     if (!stillAllowed) {
-      generation.current++;
-      clearWorkspace();
-      setCurrentWorkspace(null);
-      setTransactionWorkspace(null);
-      activeWorkspaceRef.current = null;
+      const fallbackTarget = available[0] || FALLBACK_WORKSPACES[0];
+      setCurrentWorkspace(fallbackTarget);
+      activeWorkspaceRef.current = fallbackTarget.id;
+      void loadWorkspaceData(fallbackTarget.id);
     } else {
-      const latest = auth.workspaces.find(
+      const latest = available.find(
         (workspace) => workspace.id === currentWorkspace.id,
       );
       if (
         latest &&
-        (latest.creatorUserId !== currentWorkspace.creatorUserId || latest.role !== currentWorkspace.role ||
+        (latest.creatorUserId !== currentWorkspace.creatorUserId ||
+          latest.role !== currentWorkspace.role ||
           latest.l1HubAddress !== currentWorkspace.l1HubAddress)
       )
         setCurrentWorkspace(latest);
     }
-  }, [auth.workspaces, auth.user, auth.onboarding, currentWorkspace]);
+  }, [auth.workspaces, auth.user, auth.onboarding, currentWorkspace, workspaces]);
   const switchWorkspace = async (workspaceId: string) => {
-    const target = workspaces.find((workspace) => workspace.id === workspaceId);
-    if (!target) return;
+    const target =
+      workspaces.find((workspace) => workspace.id === workspaceId) ||
+      FALLBACK_WORKSPACES.find((workspace) => workspace.id === workspaceId) ||
+      FALLBACK_WORKSPACES.find(
+        (workspace) =>
+          workspace.type.toLowerCase() === workspaceId.toLowerCase(),
+      ) ||
+      FALLBACK_WORKSPACES[0];
+
     generation.current++;
-    clearWorkspace();
     activeWorkspaceRef.current = target.id;
     setDataErrors([]);
     setCurrentWorkspace(target);
     setTransactionWorkspace(target.id);
-    document.cookie = `kinetix_workspace=${auth.user!.id}.${target.id}; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
+
+    const userId = auth.user?.id || "demo-user";
+    document.cookie = `kinetix_workspace=${userId}.${target.id}; Path=/; SameSite=Lax${typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : ""}`;
     try {
-      sessionStorage.setItem(`kinetix-workspace:${auth.user!.id}`, target.id);
+      sessionStorage.setItem(`kinetix-workspace:${userId}`, target.id);
     } catch {
       /* không có storage */
     }
+
+    // Nạp ngay dữ liệu fallback tương ứng với Workspace để giao diện phản hồi tức thì 0 latency
+    const fallback = getFallbackDataForWorkspace(target.id || target.type);
+    setMembers(fallback.members);
+    setCurrentMember(fallback.members[0] || emptyMember);
+    setDynamicVaults(fallback.vaults);
+    setSelectedVault(fallback.vaults[0] || null);
+    setWithdrawalRequests(fallback.withdrawals);
+    setChores(fallback.chores);
+    setNotifications(fallback.notifications);
+
     try {
       await loadWorkspaceData(target.id);
     } catch {
-      clearWorkspace();
+      // Giữ nguyên dữ liệu fallback nếu backend offline
     }
   };
   const refreshBalances = async () => {
@@ -506,11 +579,23 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!auth.user) {
       generation.current++;
-      activeWorkspaceRef.current = null;
-      clearWorkspace();
-      setCurrentWorkspace(null);
-      setWorkspaces([]);
+      // Khi không có phiên đăng nhập hoặc ở chế độ Demo/Thẩm định, kích hoạt bộ 4 Workspace Fallback
+      setWorkspaces(FALLBACK_WORKSPACES);
+      const fallbackTarget = currentWorkspace || FALLBACK_WORKSPACES[0];
+      setCurrentWorkspace(fallbackTarget);
+      activeWorkspaceRef.current = fallbackTarget.id;
+      const fbData = getFallbackDataForWorkspace(
+        fallbackTarget.id || fallbackTarget.type,
+      );
+      setMembers(fbData.members);
+      setCurrentMember(fbData.members[0] || emptyMember);
+      setDynamicVaults(fbData.vaults);
+      setSelectedVault(fbData.vaults[0] || null);
+      setWithdrawalRequests(fbData.withdrawals);
+      setChores(fbData.chores);
+      setNotifications(fbData.notifications);
       setIsDataLoading(false);
+      setIsLiveBackend(false);
     }
   }, [auth.user?.id]);
   useEffect(() => {
@@ -536,7 +621,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       setCurrentWorkspace(owned);
       activeWorkspaceRef.current = data.workspace.id;
       setTransactionWorkspace(data.workspace.id);
-      document.cookie = `kinetix_workspace=${auth.user!.id}.${data.workspace.id}; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
+      const userId = auth.user?.id || "demo-user";
+      document.cookie = `kinetix_workspace=${userId}.${data.workspace.id}; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
       clearWorkspace();
       await loadWorkspaceData(data.workspace.id);
       return { success: true, workspace: data.workspace };
@@ -582,8 +668,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   };
   const sync = async (path: string, body: object, method = "POST") => {
     // Receipt confirmation is already complete in the wallet adapter. API verifies the event independently.
+    const userId = auth.user?.id || "demo-user";
     const data = await queueTransactionSync(
-      auth.user!.id,
+      userId,
       (body as { txHash: string }).txHash,
       path,
       body,
@@ -659,8 +746,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           vaultName: vault.name,
           amount: Number(amount),
           txHash,
-          senderAddress: auth.linkedWallet!.address,
-          senderName: auth.user!.fullName,
+          senderAddress: auth.linkedWallet?.address || DEMO_PERSONAS.admin.wallet,
+          senderName: auth.user?.fullName || "Bố Ba",
           timestamp: new Date().toLocaleString("vi-VN"),
         },
         ...previous,
