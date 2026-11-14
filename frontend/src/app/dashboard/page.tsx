@@ -7,6 +7,12 @@ import { AppShell } from "@/components/layout/AppShell";
 import { AdminConsole } from "@/components/admin/AdminConsole";
 import { ModernAdminDashboard } from "@/components/dashboard/modern/ModernAdminDashboard";
 import { RoscaView } from "@/components/views/RoscaView";
+import {
+  ElderlyDashboard,
+  RoscaTimeline,
+  FriendsGoalView,
+  CommunityTreasuryView,
+} from "@/components/views";
 import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { AccountStatus } from "@/components/auth/AccountStatus";
@@ -159,12 +165,18 @@ function DashboardContent() {
   const memberView =
     group === "tools" ? (
       <WorkspaceTools />
+    ) : family.currentWorkspace?.type === "SIBLINGS" || group === "rosca" ? (
+      <RoscaTimeline />
+    ) : family.currentWorkspace?.type === "FRIENDS" ? (
+      <FriendsGoalView />
+    ) : family.currentWorkspace?.type === "COMMUNITY" ? (
+      <CommunityTreasuryView />
+    ) : group === "elderly" || role === "ELDERLY" ? (
+      <ElderlyDashboard
+        onSwitchToAdmin={admin ? () => router.push("/dashboard/admin") : undefined}
+      />
     ) : group === "member" ? (
       <GuardianMobileView />
-    ) : group === "rosca" ? (
-      <RoscaView />
-    ) : group === "elderly" ? (
-      <ElderlyPortal preview={admin} />
     ) : (
       <KidsPortal preview={admin} />
     );
@@ -199,7 +211,11 @@ function DashboardContent() {
       ) : activeTab === "quan-tri-cha-me" ? (
         <ModernAdminDashboard key={`${auth.user?.id}:${family.currentWorkspace.id}`} />
       ) : activeTab === "quy-rosca" ? (
-        <RoscaView currentMember={family.currentMember} />
+        <RoscaTimeline />
+      ) : activeTab === "kinetix-shield" ? (
+        <ElderlyDashboard
+          onSwitchToAdmin={() => router.push("/dashboard/admin")}
+        />
       ) : (
         <div
           className={`member-preview ${group === "elderly" ? "elderly-theme" : "kids-theme"}`}
