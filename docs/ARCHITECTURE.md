@@ -1,5 +1,7 @@
 # Architecture
 
+Current implementation and custody reference. The proposed group-finance transition is specified in [GROUP_FINANCE_SPEC.md](GROUP_FINANCE_SPEC.md); phone interaction rules are in [MOBILE_UX_STANDARD.md](MOBILE_UX_STANDARD.md). Documentation changes do not alter contract generations or active deployments.
+
 ## Application Boundaries
 
 ```mermaid
@@ -14,7 +16,7 @@ flowchart LR
     Worker --> Hub
 ```
 
-The frontend provides role-based experiences. The same-origin proxy forwards application requests to Express; server-side services enforce workspace access, session state, wallet ownership, and action-specific policies. PostgreSQL stores accounts, memberships, requests, and indexed activity. The worker reconciles actual receipts and events; a database record is not proof that an on-chain payment occurred.
+The existing frontend provides role-based experiences, including family-specific portals. The target replaces age-based navigation with task-based group workflows; this has not yet been implemented by the documentation update. The same-origin proxy forwards application requests to Express; server-side services enforce workspace access, session state, wallet ownership, and action-specific policies. PostgreSQL stores accounts, memberships, requests, and indexed activity. The worker reconciles actual receipts and events; a database record is not proof that an on-chain payment occurred.
 
 ## Contract Paths and Custody
 
@@ -22,6 +24,7 @@ The frontend provides role-based experiences. The same-origin proxy forwards app
 | --- | --- | --- |
 | FamilyHub + VaultCashflow, T1 | Contracts on Avalanche Fuji, chain ID 43113 | Native AVAX; the manifest is enabled with finalized deployment receipts. Runtime checks still gate transactions. |
 | KinetixVaultV1 + factory | Individual clone contracts | Experimental alternative, not activated by the T1 manifest. Multi-approval vaults reject unilateral member edits and direct inter-vault transfers. |
+| KinetixFundV2 + factory | Independent immutable native-asset clones | Source implementation for operating/goal funds, quorum governance, spending caps and failed-goal refunds. Not publicly deployed or activated in application adapters; see [V2 reference](CONTRACTS_V2.md). |
 | Shared Core treasury | A designated wallet controlled by its holder | Custodial application ledger with receipt reconciliation. Independent of FamilyHub deployment and on-chain multisig rules. |
 | FamilyYieldVault | Standalone operator-controlled contract | Reserve-funded simulation, excluded from the T1 application deployment. |
 
@@ -54,3 +57,9 @@ Before activation, the project needs a funded asset-transfer adapter, durable me
 Transaction AllowList is an EVM/network permission control, not a hardware security boundary. It is distinct from the Hub's own allowlist. An L1 must activate its precompile configuration and govern Admin, Manager, and Enabled roles; see Avalanche's [Transaction AllowList](https://build.avax.network/docs/avalanche-l1s/precompiles/transaction-allowlist) and [AllowList interface](https://build.avax.network/docs/avalanche-l1s/precompiles/allowlist-interface) references.
 
 Zero-fee operation depends on verified L1 fee configuration or an implemented sponsorship mechanism. It does not apply automatically to Fuji. No verified zero-fee Family L1 configuration is shipped as an active deployment.
+
+## Target Transition Boundaries
+
+Workspace type is a setup preset; financial permissions belong to a fund and policy version. The backend owns group collaboration, private evidence, and indexed read models. A contract remains authoritative for its on-chain balances and approvals. A custodial wallet remains controlled by its holder. Shared UI labels must not merge these trust boundaries.
+
+Essential workflows must be complete on phones. Wallet app switching, receipt reconciliation, idempotent retries, and restored drafts are integration requirements, not cosmetic responsive work. See [transition specification](GROUP_FINANCE_SPEC.md) for proposed entities, authorization, and migration sequencing.

@@ -1,6 +1,6 @@
 # Contributing to Kinetix
 
-Thank you for helping improve shared finance for families and communities. Start with the [project status](docs/STATUS.md), [architecture](docs/ARCHITECTURE.md), and [security policy](SECURITY.md).
+Kinetix develops shared funds for clubs, communities, friends, siblings, and families. Start with the [project status](docs/STATUS.md), [architecture](docs/ARCHITECTURE.md), and [security policy](SECURITY.md).
 
 ## Development Setup
 
@@ -21,7 +21,7 @@ npm run db:migrate
 npm run dev:all
 ```
 
-The frontend uses port 3000 and the API defaults to port 4000. The event worker runs alongside them. For a UI-only exploration, set `NEXT_PUBLIC_DEMO_MODE=true` in the frontend environment, run `npm run dev:frontend`, and open `/demo`. Simulated activity is separate from real wallet transactions. The repository's disabled deployment manifest is intentional.
+The frontend uses port 3000 and the API defaults to port 4000. The event worker runs alongside them. For a UI-only exploration, set `NEXT_PUBLIC_DEMO_MODE=true` in the frontend environment, run `npm run dev:frontend`, and open `/demo`. Simulated activity is separate from real wallet transactions. Read the checked-in manifest and deployment evidence for the active network and supported features; do not assume a disabled deployment or reuse local fixture addresses.
 
 ## Validation
 
@@ -51,3 +51,11 @@ After changing contract ABIs, run `npm run export:abis` following compilation an
 Use scoped Conventional Commit titles, such as `fix(contracts): reject self-approved withdrawals`. Explain the concrete behavior change, relevant security and migration effects, and the checks you ran. Include screenshots for visual changes and identify any validation you could not perform. Keep generated Hardhat output, real credentials, database exports, and local logs out of commits.
 
 Use public issues for non-sensitive defects and feature proposals. Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
+
+## Product and Mobile Review
+
+Follow [product direction](docs/PRODUCT_DIRECTION.md), [group finance specification](docs/GROUP_FINANCE_SPEC.md), and [mobile UX standard](docs/MOBILE_UX_STANDARD.md). Treat target capabilities as planned until code and acceptance evidence exist. Keep financial permissions distinct from workspace administration and do not silently change legacy custody or roles.
+
+All essential tasks must be usable on phones, including settings, approvals, membership administration, and reports. Use [mobile acceptance](docs/MOBILE_ACCEPTANCE.md) for viewport, keyboard, accessibility, failure, and wallet checks. PRs with UI changes include phone screenshots and the tested device/browser/wallet versions; record untested environments explicitly. Review text density and actionable copy as well as layout. Avoid marketing filler and unnecessary visual effects in task screens.
+
+Documentation-only changes require `npm run docs:check`, local-link validation for the changed references, and `git diff --check`. Preserve dated evidence and mark superseded plans instead of rewriting past test results. Generic design skill reference libraries remain reusable; project-specific rules take precedence.

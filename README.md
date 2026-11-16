@@ -1,75 +1,49 @@
 # Kinetix
 
-**Shared finance for families and communities, built on Avalanche.**
+**Góp tiền, duyệt chi và theo dõi quỹ chung trên điện thoại.**
 
-Kinetix brings shared funds, member responsibilities, and financial approvals into one application. Designed for households and community groups, it combines familiar account experiences with blockchain-based financial rules to make collective money management clearer and more accountable.
+Kinetix dành cho câu lạc bộ, cộng đồng, nhóm bạn, anh em và gia đình. Mỗi nhóm có thành viên, quỹ theo mục đích và quy tắc sử dụng tiền rõ ràng. Hướng phát triển ưu tiên là Quỹ hoạt động và Quỹ mục tiêu, với toàn bộ luồng sử dụng trên điện thoại.
 
-From supporting an older family member's daily expenses to rewarding a child's progress or saving toward a shared goal, Kinetix gives each fund a defined purpose and each participant a clear role.
+> **Hiện trạng:** phần mềm thử nghiệm trên Avalanche Fuji (43113), dùng AVAX. Deployment T1 đã được ghi nhận trong repository; chưa có kiểm toán độc lập. Contracts V2 đã có trong source; backend/frontend V2 và deployment public chưa được kích hoạt. USDC/ERC20, cross-chain và yield đang tắt.
 
-> **Development status:** Experimental software with a verified, enabled T1 contract deployment on Avalanche Fuji (chain ID 43113). See [deployment evidence](docs/FUJI_DEPLOYMENT.md). T1 uses native AVAX; cross-chain transfers, ERC20/USDC, and yield are disabled. The contracts have not been independently audited.
+## Luồng sản phẩm mục tiêu
 
-## Product Vision
+Tạo nhóm → mời thành viên → thống nhất quy tắc quỹ → góp tiền → đề nghị chi → duyệt → thanh toán → đối soát.
 
-Managing money together requires more than a shared balance. Families and groups need to know who can contribute, who can request funds, how decisions are approved, and where to follow the outcome.
+Quyền quản lý nhóm và quyền sử dụng tiền tách biệt. Tiền đã góp không tự tạo quyền rút lại. Mỗi quỹ công bố nơi giữ tiền, người được duyệt và điều kiện chi/hoàn tiền. Quỹ ví chung do chủ ví kiểm soát không có cùng bảo đảm với quỹ smart contract.
 
-Kinetix translates those responsibilities into structured workflows. Its vision is to make shared finance accessible across generations while keeping participation, oversight, and transaction activity easy to understand.
+Nhóm thử nghiệm ưu tiên là CLB/cộng đồng nhỏ có thành viên trưởng thành và quen dùng ví. Đây là giả thuyết cần kiểm chứng.
 
-## Core Capabilities
+## Tài liệu
 
-- **Shared workspaces** — Organize a household or group with its own members, roles, and financial vaults.
-- **Purpose-driven vaults** — Define beneficiaries, guardians, spending rules, and approval requirements for each fund.
-- **Coordinated approvals** — Route eligible requests through guardian review according to the vault's policy.
-- **Activity tracking** — Follow requests, approvals, transaction history, and notifications in a unified interface.
-- **Role-based experiences** — Provide dedicated workflows for administrators, guardians, older adults, and children, with responsive layouts for desktop, tablet, and mobile.
+- [Định hướng sản phẩm](docs/PRODUCT_DIRECTION.md).
+- [Đặc tả contracts, backend, frontend và chuyển đổi](docs/GROUP_FINANCE_SPEC.md).
+- [Contracts V2: API, quyền và điều kiện tài chính](docs/CONTRACTS_V2.md).
+- [Chuẩn giao diện điện thoại và nội dung](docs/MOBILE_UX_STANDARD.md).
+- [Checklist nghiệm thu trên điện thoại](docs/MOBILE_ACCEPTANCE.md).
+- [Hiện trạng](docs/STATUS.md), [kiến trúc hiện tại](docs/ARCHITECTURE.md), [lộ trình](docs/ROADMAP.md).
+- [Danh mục tài liệu](docs/README.md), [đóng góp](CONTRIBUTING.md), [bảo mật](SECURITY.md).
 
-## Financial Experiences
+## Chạy cục bộ
 
-| Experience | Purpose | How it works |
-| --- | --- | --- |
-| **Kinetix Shield** | Everyday support with family oversight | Beneficiaries access funds within configured limits, while larger requests require guardian approval. |
-| **Kinetix Kids** | Financial learning through tasks and milestones | Children submit completed tasks for family review, with rewards released through the vault's approval process. |
-| **Kinetix ROSCA** | Structured rotating contributions | Members contribute on a defined schedule and receive the pooled funds in an established order. |
-| **Shared Goal** | Collective saving for a common purpose | Participants contribute toward a target, with release conditions and approval rules defined for the fund. |
-
-## Explore Locally
-
-Use Node.js 24.7 or newer in the Node 24 release line.
+Dùng Node.js 24.7 trở lên trong dòng Node 24. Cấu hình từ `.env.example` và `frontend/.env.example`, dùng database phát triển riêng và BFF secret riêng. Không commit file môi trường.
 
 ```bash
 npm ci
 npm --prefix backend ci
 npm --prefix frontend ci
-```
-
-Create local environment files from `.env.example` and `frontend/.env.example`, configure your own development database and BFF secret, then run:
-
-```bash
 npm run db:migrate
 npm run dev:all
 ```
 
-Open the frontend on port 3000. For a UI-only demo, set `NEXT_PUBLIC_DEMO_MODE=true` in the frontend environment, run `npm run dev:frontend`, and open `/demo`. Demo balances and approvals are simulated. See [contributing](CONTRIBUTING.md) for setup and validation details.
+Frontend chạy cổng 3000, API mặc định 4000. Chỉ chạy migration sau khi kiểm tra đúng database. Để xem UI mô phỏng, đặt `NEXT_PUBLIC_DEMO_MODE=true` trong môi trường frontend, chạy `npm run dev:frontend` và mở `/demo`. Demo không chuyển tiền thật.
 
-## Technology
+## Công nghệ và giới hạn
 
-| Layer | Foundation |
-| --- | --- |
-| Application interface | Next.js, React, TypeScript, and Tailwind CSS |
-| Application services | Node.js, Express, and TypeScript |
-| Blockchain integration | Avalanche, Solidity, and Web3 wallet connectivity |
+Next.js/React/TypeScript cho frontend; Express, PostgreSQL và Drizzle cho backend; Solidity trên Avalanche cho các luồng contract. Worker đối soát receipt/event; bản ghi database không chứng minh đã thanh toán.
 
-The application combines account access, wallet interaction, and blockchain event tracking to present financial activity within a consistent user experience.
+T1 FamilyHub, vault clone V1 và ví chung Core là các đường quản lý tiền khác nhau. FamilyYieldVault là thí nghiệm tích lũy từ quỹ dự phòng của operator, không phải nguồn yield DeFi đang hoạt động. Xem [bằng chứng triển khai](docs/FUJI_DEPLOYMENT.md).
 
-## Documentation
+## Giấy phép
 
-- [Current status and validation](docs/STATUS.md)
-- [Architecture and custody boundaries](docs/ARCHITECTURE.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Security policy](SECURITY.md)
-- [Documentation index](docs/README.md)
-
-The standalone yield experiment models reserve-funded accrual; it is not a live DeFi yield source. The shared Core treasury is a separate custodial workflow and does not inherit smart-contract multisig guarantees.
-
-## License
-
-Kinetix is available under the [MIT License](LICENSE).
+[MIT](LICENSE).

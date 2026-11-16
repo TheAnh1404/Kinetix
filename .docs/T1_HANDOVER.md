@@ -1,4 +1,4 @@
-> **Historical engineering note.** This document may describe superseded plans or validation results. See the [current project status](../docs/STATUS.md) for supported behavior and deployment evidence.
+> **Hồ sơ bàn giao lịch sử.** Định hướng sản phẩm từ 15/11/2026 ở [PRODUCT_DIRECTION.md](../docs/PRODUCT_DIRECTION.md); triển khai mới theo [GROUP_FINANCE_SPEC.md](../docs/GROUP_FINANCE_SPEC.md) và [MOBILE_UX_STANDARD.md](../docs/MOBILE_UX_STANDARD.md). Nội dung dưới đây không xác nhận tính năng hoặc nghiệm thu hiện tại.
 
 # Bàn giao nâng cấp T1 Fuji — 05/11/2026
 

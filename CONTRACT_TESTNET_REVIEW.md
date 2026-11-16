@@ -1,4 +1,4 @@
-> **Historical engineering note.** See [current project status](docs/STATUS.md) for supported behavior and deployment evidence.
+> **Historical contract review.** Preserve these dated findings. For the direction from 2026-11-15, use [product direction](docs/PRODUCT_DIRECTION.md), [target specification](docs/GROUP_FINANCE_SPEC.md), and [current status](docs/STATUS.md). This review is not evidence of new deployment or mobile acceptance.
 
 # Rà soát contract và kế hoạch sẵn sàng testnet
 

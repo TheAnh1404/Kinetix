@@ -2,20 +2,10 @@
 
 Suggested description:
 
-> Shared finance for families and communities on Avalanche. Native AVAX vaults, guardian approvals, and role-based experiences. Experimental; testnet only.
+> Shared funds for clubs, communities, friends, and families on Avalanche. Phone-first contributions, approvals, and reconciliation. Experimental; testnet only.
 
-Suggested topics:
+This describes product direction. Complete phone support and the group-finance transition still require implementation and device acceptance; see [status](STATUS.md).
 
-`avalanche`, `solidity`, `defi`, `nextjs`, `typescript`, `family-finance`, `multisig`, `web3`, `vietnam`, `testnet`
+Suggested topics: `avalanche`, `solidity`, `nextjs`, `typescript`, `group-finance`, `shared-funds`, `multisig`, `web3`, `vietnam`, `testnet`.
 
-These topics describe the project domain, including experimental research; they do not indicate an integrated DeFi yield product.
-
-If GitHub CLI is installed and authenticated with repository administration access, the metadata can be applied with:
-
-```bash
-gh repo edit TheAnh1404/Kinetix --description "Shared finance for families and communities on Avalanche. Native AVAX vaults, guardian approvals, and role-based experiences. Experimental; testnet only." --add-topic avalanche,solidity,defi,nextjs,typescript,family-finance,multisig,web3,vietnam,testnet
-```
-
-Repository description, topics, website, and private vulnerability reporting are GitHub settings; adding files locally does not update them. Do not set a public website until its URL and content have been verified. The previously advertised website, pitch video, and pitch deck could not be verified with the review's web tool and are excluded from current documentation; that result alone does not establish an HTTP 404.
-
-Maintainers should enable private vulnerability reporting in GitHub's security settings before advertising it as available. No private contact address is invented by this repository.
+Apply repository settings only when explicitly requested and with authenticated access. Editing this file does not change GitHub About, topics, website, or private reporting settings. Review and remove obsolete family-only/hackathon topics when updating settings. Do not publish a website link without verifying the URL and content. Do not advertise private vulnerability reporting until enabled.

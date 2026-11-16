@@ -1114,3 +1114,386 @@ export const vaultCreationDrafts = pgTable("vault_creation_drafts", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({ actorWorkspace: index("vault_creation_actor_workspace").on(table.userId, table.workspaceId, table.updatedAt), transaction: uniqueIndex("vault_creation_transaction").on(table.txHash) }));
+
+// =================================================================
+// 6. PHÂN HỆ QUỸ CHUNG (GROUP FINANCE DOMAIN MODELS)
+// =================================================================
+
+/**
+ * @notice Bảng Quỹ chung (Group Funds: Quỹ Hoạt động & Quỹ Mục tiêu)
+ */
+export const groupFunds = pgTable(
+  "group_funds",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .references(() => workspaces.id, { onDelete: "cascade" })
+      .notNull(),
+    name: text("name").notNull(),
+    description: text("description").default("").notNull(),
+    fundType: varchar("fund_type", { length: 20 }).notNull(), // 'OPERATING' | 'GOAL'
+    custodyType: varchar("custody_type", { length: 30 })
+      .default("SHARED_TREASURY")
+      .notNull(), // 'ONCHAIN_HUB' | 'SHARED_TREASURY'
+    onchainVaultId: integer("onchain_vault_id"),
+    onchainVaultAddress: varchar("onchain_vault_address", { length: 42 }),
+    balanceWei: decimal("balance_wei", { precision: 78, scale: 0 })
+      .default("0")
+      .notNull(),
+    reservedWei: decimal("reserved_wei", { precision: 78, scale: 0 })
+      .default("0")
+      .notNull(),
+    status: varchar("status", { length: 20 }).default("ACTIVE").notNull(), // 'ACTIVE' | 'PAUSED' | 'CLOSED'
+    targetAmountWei: decimal("target_amount_wei", {
+      precision: 78,
+      scale: 0,
+    })
+      .default("0")
+      .notNull(),
+    targetDeadline: timestamp("target_deadline", { withTimezone: true }),
+    createdBy: uuid("created_by")
+      .references(() => users.id)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    workspaceIdx: index("group_funds_workspace_idx").on(table.workspaceId),
+  }),
+);
+
+export const funds = groupFunds;
+
+/**
+ * @notice Bảng Chính sách Quỹ (Fund Policy Versions)
+ */
+export const fundPolicies = pgTable(
+  "fund_policies",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fundId: uuid("fund_id")
+      .references(() => groupFunds.id, { onDelete: "cascade" })
+      .notNull(),
+    version: integer("version").default(1).notNull(),
+    signers: jsonb("signers").$type<string[]>().default([]).notNull(),
+    quorum: integer("quorum").default(2).notNull(),
+    fastWithdrawLimitWei: decimal("fast_withdraw_limit_wei", {
+      precision: 78,
+      scale: 0,
+    })
+      .default("0")
+      .notNull(),
+    approvalWindowSeconds: integer("approval_window_seconds")
+      .default(172800)
+      .notNull(),
+    effectiveFrom: timestamp("effective_from", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    fundVersionUnique: uniqueIndex("fund_policy_version_unique").on(
+      table.fundId,
+      table.version,
+    ),
+  }),
+);
+
+/**
+ * @notice Bảng Nghĩa vụ Góp Quỹ (Contribution Obligations)
+ */
+export const contributionObligations = pgTable(
+  "contribution_obligations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fundId: uuid("fund_id")
+      .references(() => groupFunds.id, { onDelete: "cascade" })
+      .notNull(),
+    memberUserId: uuid("member_user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    amountWei: decimal("amount_wei", { precision: 78, scale: 0 }).notNull(),
+    cycle: varchar("cycle", { length: 20 }).default("MONTHLY").notNull(),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    status: varchar("status", { length: 20 }).default("PENDING").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    fundMemberIdx: index("contrib_obligation_fund_member_idx").on(
+      table.fundId,
+      table.memberUserId,
+    ),
+  }),
+);
+
+/**
+ * @notice Bảng Khoản Đóng Góp Quỹ (Confirmed & Reconciled Contributions)
+ */
+export const contributions = pgTable(
+  "contributions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fundId: uuid("fund_id")
+      .references(() => groupFunds.id, { onDelete: "cascade" })
+      .notNull(),
+    memberUserId: uuid("member_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    funderAddress: varchar("funder_address", { length: 42 }).notNull(),
+    amountWei: decimal("amount_wei", { precision: 78, scale: 0 }).notNull(),
+    asset: varchar("asset", { length: 10 }).default("AVAX").notNull(),
+    txHash: varchar("tx_hash", { length: 66 }),
+    blockNumber: bigint("block_number", { mode: "bigint" }),
+    logIndex: integer("log_index"),
+    status: varchar("status", { length: 20 }).default("CONFIRMED").notNull(),
+    intentId: text("intent_id"),
+    reconciledAt: timestamp("reconciled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    fundMemberIdx: index("contributions_fund_member_idx").on(
+      table.fundId,
+      table.memberUserId,
+    ),
+    txHashIdx: index("contributions_tx_hash_idx").on(table.txHash),
+  }),
+);
+
+/**
+ * @notice Bảng Đề Nghị Chi Tiêu Quỹ (Expense Requests)
+ */
+export const expenseRequests = pgTable(
+  "expense_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fundId: uuid("fund_id")
+      .references(() => groupFunds.id, { onDelete: "cascade" })
+      .notNull(),
+    policyVersionId: uuid("policy_version_id").references(
+      () => fundPolicies.id,
+    ),
+    proposerId: uuid("proposer_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    proposerAddress: varchar("proposer_address", { length: 42 }).notNull(),
+    recipientAddress: varchar("recipient_address", { length: 42 }).notNull(),
+    recipientName: text("recipient_name").notNull(),
+    amountWei: decimal("amount_wei", { precision: 78, scale: 0 }).notNull(),
+    title: text("title").notNull(),
+    purpose: text("purpose").notNull(),
+    category: varchar("category", { length: 50 }).default("OPERATING").notNull(),
+    deadline: timestamp("deadline", { withTimezone: true }).notNull(),
+    status: varchar("status", { length: 25 })
+      .default("PENDING_APPROVAL")
+      .notNull(),
+    receiptAttachmentUrl: text("receipt_attachment_url"),
+    receiptAttachmentHash: text("receipt_attachment_hash"),
+    approvalsCount: integer("approvals_count").default(0).notNull(),
+    requiredApprovals: integer("required_approvals").default(2).notNull(),
+    idempotencyKey: varchar("idempotency_key", { length: 64 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    fundStatusIdx: index("expense_requests_fund_status_idx").on(
+      table.fundId,
+      table.status,
+    ),
+    idempotencyUnique: uniqueIndex("expense_requests_idempotency_unique")
+      .on(table.fundId, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} IS NOT NULL`),
+  }),
+);
+
+/**
+ * @notice Bảng Phê Duyệt Đề Nghị Chi (Expense Approvals)
+ */
+export const expenseApprovals = pgTable(
+  "expense_approvals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    requestId: uuid("request_id")
+      .references(() => expenseRequests.id, { onDelete: "cascade" })
+      .notNull(),
+    approverUserId: uuid("approver_user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    approverAddress: varchar("approver_address", { length: 42 }).notNull(),
+    decision: varchar("decision", { length: 15 }).default("APPROVE").notNull(),
+    signature: text("signature"),
+    comment: text("comment"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    approvalUnique: uniqueIndex("expense_approval_unique").on(
+      table.requestId,
+      table.approverUserId,
+    ),
+  }),
+);
+
+/**
+ * @notice Bảng Thanh Toán & Giải Ngân (Settled Payments)
+ */
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    requestId: uuid("request_id")
+      .references(() => expenseRequests.id, { onDelete: "cascade" })
+      .notNull(),
+    fundId: uuid("fund_id")
+      .references(() => groupFunds.id, { onDelete: "cascade" })
+      .notNull(),
+    senderAddress: varchar("sender_address", { length: 42 }).notNull(),
+    recipientAddress: varchar("recipient_address", { length: 42 }).notNull(),
+    amountWei: decimal("amount_wei", { precision: 78, scale: 0 }).notNull(),
+    status: varchar("status", { length: 20 }).default("READY").notNull(),
+    txHash: varchar("tx_hash", { length: 66 }),
+    nonce: bigint("nonce", { mode: "bigint" }),
+    blockNumber: bigint("block_number", { mode: "bigint" }),
+    gasUsedWei: decimal("gas_used_wei", { precision: 78, scale: 0 }),
+    executedByUserId: uuid("executed_by_user_id").references(() => users.id),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    requestUnique: uniqueIndex("payments_request_unique").on(table.requestId),
+    txHashIdx: index("payments_tx_hash_idx").on(table.txHash),
+  }),
+);
+
+/**
+ * @notice Sổ Nhật Ký Kiểm Toán Nhóm (Group Audit Events - Immutable Log)
+ */
+export const groupAuditEvents = pgTable(
+  "group_audit_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .references(() => workspaces.id, { onDelete: "cascade" })
+      .notNull(),
+    fundId: uuid("fund_id").references(() => groupFunds.id, {
+      onDelete: "set null",
+    }),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorWallet: varchar("actor_wallet", { length: 42 }),
+    action: text("action").notNull(),
+    metadataDiff: jsonb("metadata_diff").default({}).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    wsCreatedIdx: index("group_audit_ws_created_idx").on(
+      table.workspaceId,
+      table.createdAt,
+    ),
+    fundCreatedIdx: index("group_audit_fund_created_idx").on(
+      table.fundId,
+      table.createdAt,
+    ),
+  }),
+);
+
+export const groupFundsRelations = relations(groupFunds, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [groupFunds.workspaceId],
+    references: [workspaces.id],
+  }),
+  policies: many(fundPolicies),
+  obligations: many(contributionObligations),
+  contributions: many(contributions),
+  expenses: many(expenseRequests),
+  payments: many(payments),
+  auditEvents: many(groupAuditEvents),
+}));
+
+export const fundPoliciesRelations = relations(fundPolicies, ({ one }) => ({
+  fund: one(groupFunds, {
+    fields: [fundPolicies.fundId],
+    references: [groupFunds.id],
+  }),
+}));
+
+export const expenseRequestsRelations = relations(
+  expenseRequests,
+  ({ one, many }) => ({
+    fund: one(groupFunds, {
+      fields: [expenseRequests.fundId],
+      references: [groupFunds.id],
+    }),
+    policy: one(fundPolicies, {
+      fields: [expenseRequests.policyVersionId],
+      references: [fundPolicies.id],
+    }),
+    proposer: one(users, {
+      fields: [expenseRequests.proposerId],
+      references: [users.id],
+    }),
+    approvals: many(expenseApprovals),
+    payment: one(payments, {
+      fields: [expenseRequests.id],
+      references: [payments.requestId],
+    }),
+  }),
+);
+
+export const expenseApprovalsRelations = relations(
+  expenseApprovals,
+  ({ one }) => ({
+    request: one(expenseRequests, {
+      fields: [expenseApprovals.requestId],
+      references: [expenseRequests.id],
+    }),
+    approver: one(users, {
+      fields: [expenseApprovals.approverUserId],
+      references: [users.id],
+    }),
+  }),
+);
+
+export type GroupFund = InferSelectModel<typeof groupFunds>;
+export type NewGroupFund = InferInsertModel<typeof groupFunds>;
+export type FundPolicy = InferSelectModel<typeof fundPolicies>;
+export type NewFundPolicy = InferInsertModel<typeof fundPolicies>;
+export type ContributionObligation = InferSelectModel<
+  typeof contributionObligations
+>;
+export type NewContributionObligation = InferInsertModel<
+  typeof contributionObligations
+>;
+export type Contribution = InferSelectModel<typeof contributions>;
+export type NewContribution = InferInsertModel<typeof contributions>;
+export type ExpenseRequest = InferSelectModel<typeof expenseRequests>;
+export type NewExpenseRequest = InferInsertModel<typeof expenseRequests>;
+export type ExpenseApproval = InferSelectModel<typeof expenseApprovals>;
+export type NewExpenseApproval = InferInsertModel<typeof expenseApprovals>;
+export type Payment = InferSelectModel<typeof payments>;
+export type NewPayment = InferInsertModel<typeof payments>;
+export type GroupAuditEvent = InferSelectModel<typeof groupAuditEvents>;
+export type NewGroupAuditEvent = InferInsertModel<typeof groupAuditEvents>;
+

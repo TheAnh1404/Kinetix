@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Bell, CheckCheck, ReceiptText, Target } from "lucide-react";
+import { Bell, CheckCheck, ReceiptText, Target, Landmark } from "lucide-react";
 import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import { useAuth } from "@/hooks/useAuth";
 import { useFamily } from "@/context/FamilyContext";
@@ -29,6 +29,10 @@ export function WorkspaceToolsLinks() {
   const tools = useTools();
   return (
     <nav className="vx-tool-links" aria-label="Công cụ của gia đình">
+      <Link href="/dashboard/finance">
+        <Landmark size={18} aria-hidden />
+        Quỹ chung (Group Finance)
+      </Link>
       {tools.map(({ id, title, Icon }) => (
         <Link key={id} href={`/dashboard/tools?section=${id}`}>
           <Icon size={18} aria-hidden />

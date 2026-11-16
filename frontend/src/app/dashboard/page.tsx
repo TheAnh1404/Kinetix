@@ -25,12 +25,14 @@ import { VaultExperience } from "@/components/vaults/VaultExperience";
 import { isWorkspaceOwner } from "../../../../shared/workspacePermissions";
 import { memberHome } from "@/lib/member";
 import { WorkspaceTools, WorkspaceToolsLinks } from "@/components/member/WorkspaceTools";
+import { GroupFinanceDashboard } from "@/components/group-finance/GroupFinanceDashboard";
 
 const tabRoutes: Record<string, string> = {
   "quan-tri-cha-me": "/dashboard/admin",
   "kinetix-shield": "/dashboard/elderly",
   "kinetix-kids": "/dashboard/kids",
   "quy-rosca": "/dashboard/rosca",
+  "group-finance": "/dashboard/finance",
 };
 function DashboardContent() {
   const auth = useAuth();
@@ -69,7 +71,7 @@ function DashboardContent() {
     previousWorkspace.current = family.currentWorkspace?.id;
     if (
       switched ||
-      (!admin && !["member", "elderly", "kids", "rosca", "tools"].includes(group))
+      (!admin && !["member", "elderly", "kids", "rosca", "tools", "finance"].includes(group))
     ) {
       router.replace(memberHome(role));
       return;
@@ -86,9 +88,11 @@ function DashboardContent() {
       chore: "kids/chores",
       hui: "rosca",
       guardian: admin ? "admin" : "member",
+      finance: "finance",
+      group: "finance",
     };
     if (aliases[group]) router.replace(`/dashboard/${aliases[group]}`);
-    else if (!["elderly", "kids", "admin", "member", "rosca", "tools"].includes(group))
+    else if (!["elderly", "kids", "admin", "member", "rosca", "tools", "finance"].includes(group))
       router.replace(memberHome(role));
   }, [
     auth.isLoading,
@@ -137,7 +141,7 @@ function DashboardContent() {
     );
   // Membership của workspace quyết định quyền, không dùng vai trò toàn cục hoặc nút preview.
   if (membership?.startRequired) return <Loading />;
-  if (!group || (!admin && !["member", "elderly", "kids", "rosca", "tools"].includes(group)))
+  if (!group || (!admin && !["member", "elderly", "kids", "rosca", "tools", "finance"].includes(group)))
     return <Loading />;
   const notices = (
     <>
@@ -162,15 +166,25 @@ function DashboardContent() {
       )}
     </>
   );
+
+  if (
+    group === "finance" ||
+    family.currentWorkspace?.type === "COMMUNITY" ||
+    family.currentWorkspace?.type === "FRIENDS"
+  ) {
+    return (
+      <div key={`${auth.user?.id}:${family.currentWorkspace.id}`}>
+        {notices}
+        <GroupFinanceDashboard />
+      </div>
+    );
+  }
+
   const memberView =
     group === "tools" ? (
       <WorkspaceTools />
     ) : family.currentWorkspace?.type === "SIBLINGS" || group === "rosca" ? (
       <RoscaTimeline />
-    ) : family.currentWorkspace?.type === "FRIENDS" ? (
-      <FriendsGoalView />
-    ) : family.currentWorkspace?.type === "COMMUNITY" ? (
-      <CommunityTreasuryView />
     ) : group === "elderly" || role === "ELDERLY" ? (
       <ElderlyDashboard
         onSwitchToAdmin={admin ? () => router.push("/dashboard/admin") : undefined}

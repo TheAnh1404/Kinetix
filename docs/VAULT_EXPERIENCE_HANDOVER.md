@@ -1,4 +1,4 @@
-> **Historical engineering note.** This document may describe superseded plans or validation results. See the [current project status](STATUS.md) for supported behavior and deployment evidence.
+> **Hồ sơ kỹ thuật trước định hướng 15/11/2026.** Giữ nội dung để tra cứu hành vi và bằng chứng theo thời điểm; các kế hoạch trong file không còn là ưu tiên sản phẩm mặc định. Xem [định hướng mới](PRODUCT_DIRECTION.md), [đặc tả chuyển đổi](GROUP_FINANCE_SPEC.md), [chuẩn điện thoại](MOBILE_UX_STANDARD.md) và [hiện trạng](STATUS.md). Không dùng số liệu/đánh giá cũ làm kết quả nghiệm thu hiện tại.
 
 # Bàn giao ba giao diện hũ
 
@@ -56,7 +56,7 @@ npm --prefix frontend run build
 Chấp nhận PostgreSQL dùng database riêng, không dùng DATABASE_URL của ứng dụng:
 
 ```powershell
-$env:TEST_DATABASE_URL="postgresql://user:password@127.0.0.1:5432/kinetix_tests"
+# Configure TEST_DATABASE_URL privately for an isolated disposable database.
 $env:AUTH_TEST_ALLOW_RESET="true"
 node scripts/run-local-postgres-tests.cjs --treasury
 ```

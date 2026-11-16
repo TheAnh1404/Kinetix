@@ -16,6 +16,11 @@ const contracts = [
     "KINETIX_VAULT_FACTORY_V1_ABI",
     "KinetixVaultFactoryV1.sol/KinetixVaultFactoryV1",
   ],
+  ["KINETIX_FUND_V2_ABI", "KinetixFundV2.sol/KinetixFundV2"],
+  [
+    "KINETIX_FUND_FACTORY_V2_ABI",
+    "KinetixFundFactoryV2.sol/KinetixFundFactoryV2",
+  ],
 ];
 for (const [file, constant] of [
   ["frontend/src/contracts/abis.ts", " as const"],

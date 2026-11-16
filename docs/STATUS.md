@@ -1,5 +1,9 @@
 # Project Status
 
+**Contracts V2 source update — 2026-11-15:** `KinetixFundV2`, `KinetixFundFactoryV2` and a separate interface implement operating/goal funds, explicit fund permissions, independent-recipient approvals, reservations, daily limited spending, timelocked policy replacement, quorum pause/resume, closure and failed-goal refunds. See [V2 contract reference](CONTRACTS_V2.md) and [implementation evidence](CONTRACTS_V2_IMPLEMENTATION.md). ABI exports and a separate disabled-record deployment script are provided. No public V2 deployment, asset migration, application adapter activation or independent audit is claimed. Earlier snapshots below remain dated evidence for T1/V1.
+
+**Documentation direction update — 2026-11-15:** Kinetix now targets shared funds for groups, with complete phone workflows and operating/goal funds prioritized. See [product direction](PRODUCT_DIRECTION.md), [target specification](GROUP_FINANCE_SPEC.md), and [mobile standard](MOBILE_UX_STANDARD.md). This update changes documentation only; new roles, schemas, contracts, pages, mobile wallet support, and pilot results are not claimed as implemented. The dated evidence below remains unchanged.
+
 Code review snapshot: **2026-11-11**. Fuji contract deployment updated on **2026-11-12**. Contract deployment evidence does not establish public frontend hosting or an independent audit.
 
 ## Deployment and Assets

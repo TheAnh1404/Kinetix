@@ -1,5 +1,7 @@
 # Avalanche Fuji T1 deployment
 
+These are dated T1 deployment records, retained unchanged by the 2026-11-15 product direction update. They do not establish deployment of the [target group-finance specification](GROUP_FINANCE_SPEC.md) or phone-wallet acceptance.
+
 Deployed and activated on **2026-11-12**, chain ID **43113**. These are contract deployment records; the frontend and API are running locally.
 
 ## Contracts
