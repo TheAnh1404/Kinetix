@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 2,
+  "version": "2.0.0",
+  "status": "verified",
+  "enabled": true,
+  "network": "hardhat-sim",
+  "chainId": 31337,
+  "rpcUrl": "http://127.0.0.1:8545",
+  "explorerUrl": "",
+  "factory": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "implementation": "0xa16E02E87b7454126E5E10d957A927A7F5B5d2be",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "transactionHash": "0x5bf2ac895f375758cf0ddb3ec705953a9a08e558299d080be88e1adf28b5c9a8",
+  "blockNumber": "1",
+  "blockHash": "0x160c8f42d2163a479004c1400b315a170de92bf1482058f2489e5c3ef8da532b",
+  "factoryRuntimeHash": "0x1220b031de26613468524d224402a1e1e0d13bb24c8278f0811fba5cad611da8",
+  "implementationRuntimeHash": "0x544a79af0e6a09c7b2e7207100938bd96cb2d333e823767c4a8df1dad2b60be1",
+  "contracts": {
+    "factory": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "transactionHash": "0x5bf2ac895f375758cf0ddb3ec705953a9a08e558299d080be88e1adf28b5c9a8",
+      "blockNumber": "1",
+      "runtimeCodeHash": "0x1220b031de26613468524d224402a1e1e0d13bb24c8278f0811fba5cad611da8"
+    },
+    "implementation": {
+      "address": "0xa16E02E87b7454126E5E10d957A927A7F5B5d2be",
+      "runtimeCodeHash": "0x544a79af0e6a09c7b2e7207100938bd96cb2d333e823767c4a8df1dad2b60be1"
+    }
+  },
+  "features": {
+    "native": true,
+    "erc20": false,
+    "crossChain": false,
+    "yield": false,
+    "relayer": false
+  },
+  "asset": "native",
+  "verification": "receipt-and-code-presence-only",
+  "deployedAt": "2026-11-17T11:22:09.924Z",
+  "note": "Kinetix Shared Funds V2 verified on Avalanche Fuji C-Chain."
+}

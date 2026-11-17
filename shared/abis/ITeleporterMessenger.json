@@ -1,0 +1,65 @@
+[
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "destinationBlockchainID",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "destinationAddress",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "feeTokenAddress",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct TeleporterFeeInfo",
+            "name": "feeInfo",
+            "type": "tuple"
+          },
+          {
+            "internalType": "uint256",
+            "name": "requiredGasLimit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address[]",
+            "name": "allowedRelayerAddresses",
+            "type": "address[]"
+          },
+          {
+            "internalType": "bytes",
+            "name": "message",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct TeleporterMessageInput",
+        "name": "messageInput",
+        "type": "tuple"
+      }
+    ],
+    "name": "sendCrossChainMessage",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "messageID",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

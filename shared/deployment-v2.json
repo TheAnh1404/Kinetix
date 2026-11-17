@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 2,
+  "version": "2.0.0",
+  "status": "verified",
+  "enabled": true,
+  "network": "fuji",
+  "chainId": 43113,
+  "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
+  "explorerUrl": "https://testnet.snowtrace.io",
+  "factory": "0xb09Ca6BF513333dA8E401E45E4Ed794A983C0Fa1",
+  "implementation": "0x4831E1e7D30cE627106399e7645B002420E23977",
+  "deployer": "0x215eb14808B826d1469476a79C8942d8944e9d6c",
+  "transactionHash": "0x42064480de68d6a61b409b74d6f97c5d2955d097d38e4d326e3382f521c33a17",
+  "blockNumber": "61231757",
+  "blockHash": "0xe36857ad43b55225fa3bc48ec03d166b46a77faea9ee0e1883eff203d3f254dd",
+  "factoryRuntimeHash": "0x9ad5aefa2fbd45580bd2e976343ac00d10a5081c1b8a45e39503dd694a1aea85",
+  "implementationRuntimeHash": "0x4d73f31c760cbc472e3d957af92831c6a7d37ab1f099ee5debfe58085dc9a0e8",
+  "contracts": {
+    "factory": {
+      "address": "0xb09Ca6BF513333dA8E401E45E4Ed794A983C0Fa1",
+      "transactionHash": "0x42064480de68d6a61b409b74d6f97c5d2955d097d38e4d326e3382f521c33a17",
+      "blockNumber": "61231757",
+      "runtimeCodeHash": "0x9ad5aefa2fbd45580bd2e976343ac00d10a5081c1b8a45e39503dd694a1aea85"
+    },
+    "implementation": {
+      "address": "0x4831E1e7D30cE627106399e7645B002420E23977",
+      "runtimeCodeHash": "0x4d73f31c760cbc472e3d957af92831c6a7d37ab1f099ee5debfe58085dc9a0e8"
+    }
+  },
+  "features": {
+    "native": true,
+    "erc20": false,
+    "crossChain": false,
+    "yield": false,
+    "relayer": false
+  },
+  "asset": "native",
+  "verification": "receipt-and-code-presence-only",
+  "deployedAt": "2026-11-17T11:23:00.371Z",
+  "note": "Kinetix Shared Funds V2 verified on Avalanche Fuji C-Chain."
+}
