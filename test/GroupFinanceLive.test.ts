@@ -140,6 +140,25 @@ describe("Live group-finance hook uses API truth", () => {
         if (name.includes("FamilyContext")) return { useFamily: () => family };
         if (name.includes("shared/groupFinance"))
           return require("../shared/groupFinance");
+        if (name.includes("useFundV2"))
+          return {
+            useFundV2: () => ({
+              status: "IDLE",
+              isExecuting: false,
+              isTransacting: false,
+              error: null,
+              clearError: () => {},
+              createFundOnchain: async () => ({ fundAddress: "0xMockFund", txHash: "0xMockTx" }),
+              depositOnchain: async () => ({ txHash: "0xMockTx" }),
+              proposeExpenseOnchain: async () => ({ expenseId: 1n, txHash: "0xMockTx" }),
+              approveExpenseOnchain: async () => ({ txHash: "0xMockTx" }),
+              executeExpenseOnchain: async () => ({ txHash: "0xMockTx" }),
+              refundFailedGoalOnchain: async () => ({ txHash: "0xMockTx" }),
+              proposePolicyOnchain: async () => ({ proposalId: 1n, txHash: "0xMockTx" }),
+              emergencyPauseOnchain: async () => ({ txHash: "0xMockTx" }),
+              emergencyResumeOnchain: async () => ({ txHash: "0xMockTx" }),
+            }),
+          };
         if (name.includes("web3/groupTransfers"))
           return {
             savedGroupHash: () => null,

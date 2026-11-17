@@ -4,6 +4,22 @@ Trạng thái: checklist cho lần triển khai tiếp theo; chưa có kết qu�
 
 Cập nhật source 16/11/2026: đã nối adapter ví cá nhân và chỉnh các form/điều hướng. Chrome bị từ chối quyền điều khiển nên chưa có ảnh viewport hoặc kết quả ví điện thoại thật; không đánh dấu checklist dưới đây là đạt từ build/typecheck. Xem [bằng chứng và phần chưa hỗ trợ](DEMO_TO_LIVE_2026-11-16.md).
 
+Cập nhật kiểm thử tự động & V2 UI di động 17/11/2026: Đã triển khai bộ modal nghiệp vụ di động và kiểm thử tự động V2:
+- **Bộ Modal V2 (Track 4)**:
+  - `CreateFundModal.tsx`: Cho phép chọn "Quỹ Smart Contract V2" hoặc "Quỹ Ví Cá Nhân", cấu hình hạn mức chi tiêu hàng ngày (`dailyLimit`).
+  - `RefundGoalModal.tsx`: Modal 1-chạm hoàn trả 100% tiền gốc cho Quỹ Mục Tiêu hết hạn không đạt; touch target 48px, hiển thị rõ số dư đã đóng góp.
+  - `PolicyGovernanceModal.tsx`: Quản trị chính sách approvers với đếm ngược timelock 24h và nút thực thi sau khi hết thời gian chờ.
+  - `EmergencyPauseModal.tsx`: Biểu quyết tạm dừng/tiếp tục quỹ khẩn cấp theo quorum.
+  - `group-finance.css`: Tối ưu viewport 320px (iPhone SE) và 360px (Galaxy S20); input tối thiểu 16px để ngăn zoom iOS Safari, touch target >= 44px, không có thanh cuộn ngang toàn trang.
+- **Kiểm thử tự động hợp đồng V2 (Track 5)**:
+  - `test/FundV2Integration.test.ts`: **10/10 passing** (Factory deploy, V2 fund initialization, contributions, multi-approval, payment execution, exact wei balances, failed-goal refund execution).
+  - `test/FundV2Governance.test.ts`: **6/6 passing** (24h timelock enforcement, revert before timelock, success after, policyEpoch increment, O(1) invalidation of old expenses, quorum pause/resume).
+  - `test/FrontendReviewRegressions.test.ts`: **17/17 passing** (P1 regressions: R01 reverted receipt fail closed, R02 no fallback to ID 1, R03 session wallet preflight, R04 onchain V2 contribution target, R07 ISO timestamp parsing).
+  - `scripts/verify-v2-full-integration.ts`: **8/8 phases passing** (vòng đời đầy đủ V2, bảo toàn số dư từng wei, timelock, pause, hoàn tiền mục tiêu).
+  - Toàn bộ Hardhat test suite: **428 passing, 0 failing**.
+  - Frontend typecheck & build: Đạt 100% không lỗi (`npm --prefix frontend run build`).
+- **Giới hạn môi trường**: Do chưa có quyền kết nối thiết bị di động thật và ví vật lý Avalanche Core trong phiên làm việc, việc nghiệm thu trên Safari iOS/Chrome Android với ví thật vẫn cần thực hiện trước khi công bố mainnet.
+
 ## Phạm vi kiểm tra
 
 | Môi trường | Mục đích |
