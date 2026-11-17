@@ -20,6 +20,7 @@ import {
 } from "@/lib/web3/client";
 import { avalancheFamilyL1 } from "@/contracts/config";
 import { shareReadRequest, clearReadRequests } from "@/lib/api/readRequests";
+import { safeAppReturn } from "../../../shared/startFlow";
 
 export interface AuthUser {
   id: string;
@@ -258,7 +259,14 @@ function useAuthState() {
   }, [user?.id, providerVersion]);
   const finish = async (data: any) => {
     accept(data);
-    window.location.assign(data.redirectUrl || "/dashboard");
+    let returnPath = safeAppReturn(new URLSearchParams(window.location.search).get("from"));
+    const returnKey = `kinetix-return:${data.user?.id}`;
+    try {
+      returnPath ||= safeAppReturn(sessionStorage.getItem(returnKey));
+      if (returnPath && data.onboarding !== "READY") sessionStorage.setItem(returnKey, returnPath);
+      if (data.onboarding === "READY") sessionStorage.removeItem(returnKey);
+    } catch { /* Return path is optional when storage is unavailable. */ }
+    window.location.assign(data.onboarding === "READY" && returnPath ? returnPath : data.redirectUrl || "/dashboard");
     return { success: true };
   };
   const login = async (username: string, password: string) =>

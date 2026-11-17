@@ -648,7 +648,7 @@ function ContractElderlyPortal({ preview = false }: ElderlyPortalProps) {
             </p>
             <p className="text-base font-semibold text-slate-600 dark:text-slate-400 inline-flex items-center gap-1.5">
               <TrendingUp className="w-5 h-5 text-emerald-700 dark:text-emerald-400 flex-shrink-0" aria-hidden="true" />
-              Tiền nhàn rỗi sinh lời ~8% APY trên Fuji C-Chain
+              AVAX thử nghiệm trên Fuji. Không có cam kết lợi nhuận; giao dịch có phí mạng.
             </p>
           </div>
         </div>

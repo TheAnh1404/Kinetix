@@ -5,7 +5,7 @@ import { Camera, ImagePlus } from "lucide-react";
 import { authRequest } from "@/hooks/useAuth";
 
 /** Chuẩn hóa ảnh tại trình duyệt; server vẫn kiểm chữ ký file/CRC/stream và bỏ metadata. */
-async function prepareImage(file: File) {
+export async function prepareImage(file: File) {
   if (
     !/^image\/(jpeg|png|webp)$/.test(file.type) ||
     file.size > 10 * 1024 * 1024

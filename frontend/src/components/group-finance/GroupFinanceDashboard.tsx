@@ -22,6 +22,8 @@ import { CreateFundModal } from "./CreateFundModal";
 import { ContributionModal } from "./ContributionModal";
 import { ExpenseRequestModal } from "./ExpenseRequestModal";
 import { PaymentExecutionModal } from "./PaymentExecutionModal";
+import { TransferRecovery } from "./TransferRecovery";
+import { GroupReportExport } from "./GroupReportExport";
 import { GroupExpenseRequest } from "@/types/groupFinance";
 
 export const GroupFinanceDashboard: React.FC = () => {
@@ -40,7 +42,20 @@ export const GroupFinanceDashboard: React.FC = () => {
     proposeExpense,
     approveExpense,
     rejectExpense,
+    cancelExpense,
     executePayment,
+    transfers,
+    unsupportedFunds,
+    resumeTransfer,
+    resolveTransfer,
+    isLoading,
+    isMutating,
+    error,
+    refresh,
+    hasMoreActivity,
+    isLoadingMore,
+    historyError,
+    loadMoreActivity,
   } = useGroupFinance();
 
   const [activeTab, setActiveTab] = useState<GroupFinanceTab>("overview");
@@ -76,16 +91,16 @@ export const GroupFinanceDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 overflow-x-hidden">
+    <div className="group-finance min-h-screen bg-slate-50 text-slate-900">
       {/* Top Bar Nhóm */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 px-3.5 py-2.5">
         <div className="max-w-lg mx-auto flex items-center justify-between gap-2">
           {/* Tên nhóm & Switcher */}
-          <div className="relative">
+          <div className="relative min-w-0 flex-1">
             <button
               type="button"
               onClick={() => setIsWorkspaceMenuOpen((v) => !v)}
-              className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-slate-100 transition-colors text-left"
+              className="flex min-h-[44px] w-full min-w-0 items-center gap-1.5 p-1 rounded-xl hover:bg-slate-100 transition-colors text-left"
               aria-expanded={isWorkspaceMenuOpen}
             >
               <div className="w-8 h-8 rounded-lg bg-[#E84142] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
@@ -154,7 +169,19 @@ export const GroupFinanceDashboard: React.FC = () => {
 
       {/* Nội dung chính màn hình điện thoại (Single Column, 360px -> 320px) */}
       <main className="max-w-lg mx-auto px-3.5 pt-3.5 pb-[calc(env(safe-area-inset-bottom)+88px)]">
-        {activeTab === "overview" && (
+        <nav aria-label="Công cụ nhóm" className="flex flex-wrap gap-3 mb-4">
+          <a href="/dashboard/finance/members" className="underline">Thành viên và quản lý</a>
+          <a href="/settings" className="underline">Tài khoản</a>
+        </nav>
+        <p className="finance-notice mb-4">Quỹ ví cá nhân: chủ ví giữ quyền kiểm soát tiền. Số dư hiển thị là sổ đã đối soát; phiếu duyệt ứng dụng không tạo multisig on-chain.</p>
+        {isLoading && <p role="status">Đang tải dữ liệu quỹ…</p>}
+        {!isLoading && unsupportedFunds.length > 0 && <div className="finance-notice mb-4"><p>Quỹ cũ chưa có binding ví/contract đã xác minh. Các số liệu này chưa được cộng vào số dư và chưa được bật giao dịch:</p><ul>{unsupportedFunds.map(fund => <li key={fund.id}>{fund.name}</li>)}</ul><p>Cần đối soát và chuyển đổi riêng; ứng dụng không tự đổi nơi giữ tiền.</p></div>}
+        {error && <div className="finance-error mb-4" role="alert"><p>{error}</p><button disabled={isLoading || isMutating} onClick={() => void refresh()} className="underline">Tải lại dữ liệu</button></div>}
+        {!isLoading && transfers.length > 0 && <section className="space-y-3 mb-4" aria-label="Lệnh cần hoàn tất">
+          <h2 className="font-semibold">Lệnh cần hoàn tất</h2>
+          {transfers.map(transfer => <TransferRecovery key={transfer.id} transfer={transfer} busy={isMutating} onResume={resumeTransfer} onResolve={resolveTransfer} />)}
+        </section>}
+        {!isLoading && !error && activeTab === "overview" && (
           <GroupFinanceOverview
             summary={summary}
             funds={funds}
@@ -170,7 +197,7 @@ export const GroupFinanceDashboard: React.FC = () => {
           />
         )}
 
-        {activeTab === "funds" && (
+        {!isLoading && !error && activeTab === "funds" && (
           <GroupFundsList
             funds={funds}
             onOpenContribute={handleOpenContribute}
@@ -179,17 +206,21 @@ export const GroupFinanceDashboard: React.FC = () => {
           />
         )}
 
-        {activeTab === "inbox" && (
+        {!isLoading && !error && activeTab === "inbox" && (
           <PendingApprovalsInbox
             expenses={expenses}
             onApprove={approveExpense}
             onReject={rejectExpense}
+            onCancel={cancelExpense}
             onOpenPayModal={(req) => setPaymentModalRequest(req)}
           />
         )}
 
-        {activeTab === "activity" && (
-          <AuditActivityLedger events={auditEvents} />
+        {!isLoading && !error && activeTab === "activity" && (
+          <><GroupReportExport /><AuditActivityLedger events={auditEvents} />
+            {historyError && <p role="alert">{historyError}</p>}
+            {hasMoreActivity && <button className="min-h-[48px] w-full border border-slate-400 rounded-lg mt-4" disabled={isLoadingMore} onClick={() => void loadMoreActivity()}>{isLoadingMore ? "Đang tải…" : "Tải hoạt động trước"}</button>}
+          </>
         )}
       </main>
 

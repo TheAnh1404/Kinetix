@@ -45,8 +45,8 @@ export const GroupFundsList: React.FC<GroupFundsListProps> = ({
   return (
     <div className="space-y-4">
       {/* Thanh Lọc & CTA Tạo Quỹ Mới */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
           <button
             type="button"
             onClick={() => setFilter("ALL")}
@@ -241,24 +241,27 @@ export const GroupFundsList: React.FC<GroupFundsListProps> = ({
                   )}
                   <span className="flex items-center gap-1">
                     <Users size={14} className="text-slate-500" />
-                    Đa chữ ký: {fund.requiredApprovals}/{fund.totalSigners} người duyệt
+                    Duyệt ứng dụng: {fund.requiredApprovals}/{fund.totalSigners} người
                   </span>
                 </div>
 
                 {/* Chi tiết người ký (Expandable) */}
                 {isExpanded && (
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5 animate-fadeIn">
+                    <p>Ví giữ tiền: <span className="break-all">{fund.treasuryWalletAddress || "Chưa xác minh adapter"}</span></p>
+                    <p>Chủ ví kiểm soát tiền. Phiếu duyệt không tạo multisig on-chain. Thay chính sách, bàn giao và đóng quỹ chưa hỗ trợ.</p>
+                    <p>Số dư chính xác: {fund.balanceWei} wei · Giữ chỗ: {fund.reservedWei} wei · Khả dụng: {fund.availableWei} wei</p>
                     <div className="font-semibold text-slate-800 mb-1">
                       Danh sách người ký quỹ ({fund.signers.length}):
                     </div>
                     {fund.signers.map((s, idx) => (
-                      <div key={idx} className="font-mono text-[11px] text-slate-600 truncate">
+                      <div key={idx} className="font-mono text-sm text-slate-600 break-all">
                         • {s}
                       </div>
                     ))}
                     {isGoal && (
                       <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-500 leading-snug">
-                        Chính sách hoàn tiền: Nếu mục tiêu bị hủy hoặc không đạt điều kiện giải ngân, tiền nạp sẽ được hoàn lại theo tỷ lệ đóng góp thực tế.
+                        Không tự hoàn tiền khi hết hạn. Người giữ tiền xử lý khoản hoàn theo thỏa thuận và đối soát; không có quyền claim on-chain trong adapter ví cá nhân.
                       </div>
                     )}
                   </div>
@@ -294,7 +297,7 @@ export const GroupFundsList: React.FC<GroupFundsListProps> = ({
                 <button
                   type="button"
                   onClick={() => toggleExpand(fund.id)}
-                  className="w-full text-center text-[11px] text-slate-500 hover:text-slate-800 font-medium py-1 flex items-center justify-center gap-1 transition-colors"
+                  className="w-full min-h-[44px] text-center text-sm text-slate-600 hover:text-slate-800 font-medium py-1 flex items-center justify-center gap-1 transition-colors"
                 >
                   <span>{isExpanded ? "Thu gọn chính sách" : "Xem chính sách & người ký"}</span>
                   {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}

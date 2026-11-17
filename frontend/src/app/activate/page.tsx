@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthFrame, PasswordField } from "@/components/auth/LoginView";
+import { safeAppReturn } from "../../../../shared/startFlow";
 
 export default function ActivatePage() {
   const auth = useAuth();
@@ -202,7 +203,11 @@ export default function ActivatePage() {
           </p>
           <button
             className="auth-primary"
-            onClick={() => window.location.assign(auth.redirectUrl)}
+            onClick={() => {
+              let target: string | null = null;
+              try { const key = `kinetix-return:${auth.user?.id}`; target = safeAppReturn(sessionStorage.getItem(key)); sessionStorage.removeItem(key); } catch { /* No saved task. */ }
+              window.location.assign(target || auth.redirectUrl);
+            }}
           >
             Tiếp tục thiết lập <ArrowRight size={20} />
           </button>

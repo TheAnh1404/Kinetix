@@ -55,6 +55,13 @@ export function startRedirect(
 ) {
   if (identity.onboarding !== "READY")
     return path === "/activate" ? null : "/activate";
+  if (
+    path === "/dashboard/finance" ||
+    path.startsWith("/dashboard/finance/") ||
+    path === "/settings" ||
+    path.startsWith("/settings/")
+  )
+    return null;
   if (path === "/start") return null;
   if (
     identity.startRequired ||
@@ -62,4 +69,27 @@ export function startRedirect(
   )
     return identity.redirectUrl || "/dashboard";
   return null;
+}
+
+/** Return to a local task after login; never accept external URLs or normalized traversal. */
+export function safeAppReturn(input: unknown): string | null {
+  if (
+    typeof input !== "string" ||
+    input.length > 2048 ||
+    !input.startsWith("/") ||
+    input.startsWith("//") ||
+    /[\\\u0000-\u0020]/.test(input)
+  )
+    return null;
+  try {
+    const parsed = new URL(input, "https://kinetix.invalid");
+    if (
+      parsed.origin !== "https://kinetix.invalid" ||
+      !/^\/(dashboard|settings)(\/|$)/.test(parsed.pathname)
+    )
+      return null;
+    return parsed.pathname + parsed.search + parsed.hash;
+  } catch {
+    return null;
+  }
 }

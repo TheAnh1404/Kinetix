@@ -189,7 +189,7 @@ export function GuardianMobileView() {
       if (ok) {
         showToast(
           "success",
-          `Đã duyệt việc "${chore.title}"! Thưởng +${amountLabel(chore.exactRewardAmount || chore.rewardAmount)} AVAX đã trao cho bé.`
+          `Đã xác nhận phiếu duyệt việc "${chore.title}". Khoản thưởng ${amountLabel(chore.exactRewardAmount || chore.rewardAmount)} AVAX chỉ được ghi đã trả sau khi đủ duyệt và đối soát.`
         );
         setSelectedProofChore(null);
       } else {
@@ -446,7 +446,7 @@ export function GuardianMobileView() {
                 Không có yêu cầu rút tiền nào cần duyệt
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                Tất cả các khoản rút của Ông Bà và Con Cái đều đã được xử lý hoặc giải ngân tức thì 0 gas từ đệm L1.
+                Chưa có yêu cầu đang chờ duyệt trong dữ liệu đã tải. Xem lịch sử để kiểm tra khoản đã thanh toán.
               </p>
             </div>
           ) : (
@@ -661,7 +661,7 @@ export function GuardianMobileView() {
               {displayedChores.map((chore) => {
                 const isRewardingThis = rewardingChoreId === chore.id;
                 const isSubmitted = chore.status === "SUBMITTED";
-                const isRewarded = chore.status === "REWARDED" || chore.status === "VERIFIED";
+                const isRewarded = chore.status === "REWARDED";
 
                 return (
                   <article
@@ -848,25 +848,25 @@ export function GuardianMobileView() {
             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
               <div className="p-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
                 <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 block uppercase">
-                  Đệm Family L1
+                  Thanh khoản theo sổ
                 </span>
                 <span className="text-sm font-black font-mono text-emerald-700 dark:text-emerald-400 block mt-0.5">
                   {liquiditySummary.totalBuffer.toFixed(4)} AVAX
                 </span>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">
-                  Rút tức thì &lt;1s · 0 gas phí
+                  Fuji có phí mạng · Chờ xác nhận giao dịch
                 </span>
               </div>
 
               <div className="p-2.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30">
                 <span className="text-[10px] font-bold text-blue-800 dark:text-blue-300 block uppercase">
-                  Sinh Lời C-Chain
+                  Phần phân bổ theo sổ
                 </span>
                 <span className="text-sm font-black font-mono text-blue-700 dark:text-blue-400 block mt-0.5">
                   {liquiditySummary.totalCChain.toFixed(4)} AVAX
                 </span>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">
-                  Fuji C-Chain · Lãi 8% APY
+                  Yield và cross-chain chưa được bật
                 </span>
               </div>
             </div>

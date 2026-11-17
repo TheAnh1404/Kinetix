@@ -47,6 +47,9 @@ export function StartShell({
           Đăng xuất
         </button>
       </header>
+      <Link href="/dashboard/finance" className="start-text-button" style={{ minHeight: 44, margin: "0 auto" }}>
+        Mở quỹ chung · Không cần cấu hình contract T1
+      </Link>
       <div className="start-layout">
         <aside className="start-story" aria-label="Chào mừng đến với Kinetix">
           <span className="start-eyebrow">KHỞI ĐẦU CÙNG GIA ĐÌNH</span>

@@ -3,7 +3,7 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Đăng Ký Không Gian Gia Đình Mới | Kinetix OS",
-  description: "Khởi tạo không gian tài chính gia đình đa thế hệ trên Avalanche với 0 gas và bảo vệ chống lừa đảo.",
+  description: "Tạo tài khoản để quản lý quỹ nhóm trên Avalanche Fuji. Có phí mạng khi giao dịch.",
 };
 
 export default function RegisterPage() {

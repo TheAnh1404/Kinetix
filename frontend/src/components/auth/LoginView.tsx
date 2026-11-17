@@ -94,7 +94,7 @@ export function AuthFrame({
             </h1>
 
             <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-              Không gian tài chính chung nơi Ông Bà, Cha Mẹ và Con Trẻ cùng gắn kết. Tự do phân quyền, bảo vệ chống lừa đảo và sinh lời 8% APY trên Avalanche.
+              Đăng nhập để góp tiền, đề nghị chi và theo dõi quỹ nhóm. AVAX thử nghiệm trên Avalanche Fuji; giao dịch có phí mạng.
             </p>
 
             <div className="pt-2 space-y-3.5">
@@ -103,8 +103,8 @@ export function AuthFrame({
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-xs font-bold text-white">0đ Phí Gas Giao Dịch</h2>
-                  <p className="text-[11px] text-slate-400">Custom Fee Config trên Family L1 Appchain</p>
+                  <h2 className="text-xs font-bold text-white">Giao dịch trên Fuji</h2>
+                  <p className="text-[11px] text-slate-400">Phí mạng trả bằng AVAX; chưa có tài trợ gas</p>
                 </div>
               </div>
 
@@ -113,8 +113,8 @@ export function AuthFrame({
                   <Users className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-xs font-bold text-white">Đa Chữ Ký Phân Tầng 2/3</h2>
-                  <p className="text-[11px] text-slate-400">Chặn đứng hành vi gian lận và rút tiền trái phép</p>
+                  <h2 className="text-xs font-bold text-white">Quy tắc theo từng quỹ</h2>
+                  <p className="text-[11px] text-slate-400">Đọc nơi giữ tiền và quyền duyệt trước khi góp</p>
                 </div>
               </div>
 

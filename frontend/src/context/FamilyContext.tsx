@@ -8,6 +8,7 @@ import React, {
   ReactNode,
 } from "react";
 import { parseEther } from "viem";
+import { usePathname } from "next/navigation";
 import { buildVaultCall, CreateVaultParams, CreationPhase } from "../../../shared/vaultCreation";
 import { parseAmount } from "@/lib/member";
 import { FamilyMember, WorkspaceItem, DynamicVaultItem } from "@/types";
@@ -234,7 +235,9 @@ const emptyMember: FamilyMember = {
 };
 export function FamilyProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
-  const initialFallback = getFallbackDataForWorkspace("ws-family");
+  const pathname = usePathname();
+  const isDemo = process.env.NEXT_PUBLIC_DEMO_MODE === "true" && pathname === "/demo" && !auth.user;
+  const initialFallback = isDemo ? getFallbackDataForWorkspace("ws-family") : { members: [], vaults: [], withdrawals: [], chores: [], notifications: [] };
   const [currentMember, setCurrentMember] = useState<FamilyMember>(
     initialFallback.members[0] || emptyMember,
   );
@@ -242,9 +245,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     initialFallback.members,
   );
   const [workspaces, setWorkspaces] =
-    useState<WorkspaceItem[]>(FALLBACK_WORKSPACES);
+    useState<WorkspaceItem[]>(isDemo ? FALLBACK_WORKSPACES : []);
   const [currentWorkspace, setCurrentWorkspace] =
-    useState<WorkspaceItem | null>(FALLBACK_WORKSPACES[0]);
+    useState<WorkspaceItem | null>(isDemo ? FALLBACK_WORKSPACES[0] : null);
   const [dynamicVaults, setDynamicVaults] = useState<DynamicVaultItem[]>(
     initialFallback.vaults,
   );
@@ -263,7 +266,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   );
   const [isLiveBackend, setIsLiveBackend] = useState(false);
   const generation = useRef(0);
-  const activeWorkspaceRef = useRef<string | null>(FALLBACK_WORKSPACES[0].id);
+  const activeWorkspaceRef = useRef<string | null>(isDemo ? FALLBACK_WORKSPACES[0].id : null);
   const [dataErrors, setDataErrors] = useState<string[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(false);
   const familyInfo = currentWorkspace
@@ -297,7 +300,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     const requestGeneration = ++generation.current;
     if (auth.user) void restoreOperations(auth.user.id, workspaceId);
 
-    const fallback = getFallbackDataForWorkspace(workspaceId);
+    const fallback = { members: [] as FamilyMember[], vaults: [] as DynamicVaultItem[], withdrawals: [], chores: [], notifications: [] };
 
     try {
       const results = await Promise.allSettled([
@@ -365,7 +368,6 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         if (auth.user) {
           setCurrentMember(
             mappedMembers.find((member) => member.id === auth.user!.id) ||
-              mappedMembers[0] ||
               emptyMember,
           );
         }
@@ -465,15 +467,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   };
   useEffect(() => {
     if (!auth.user || auth.onboarding !== "READY") return;
+    clearWorkspace();
 
-    // Hợp nhất các workspace từ backend với 4 workspace fallback để luôn đủ 4 không gian
     const merged = [...(auth.workspaces || [])];
-    for (const fb of FALLBACK_WORKSPACES) {
-      if (!merged.some((w) => w.type === fb.type)) {
-        merged.push(fb);
-      }
-    }
-    setWorkspaces(merged.length > 0 ? merged : FALLBACK_WORKSPACES);
+    setWorkspaces(merged);
 
     let savedWorkspace: string | null = null;
     try {
@@ -491,8 +488,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       merged.find((workspace) => workspace.id === auth.entryWorkspaceId) ||
       merged.find((workspace) => workspace.id === savedWorkspace) ||
       merged.find((workspace) => workspace.id === auth.family?.id) ||
-      merged[0] ||
-      FALLBACK_WORKSPACES[0];
+      merged[0];
 
     if (!first) return;
     activeWorkspaceRef.current = first.id;
@@ -510,15 +506,19 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   }, [auth.user?.id, auth.onboarding]);
   useEffect(() => {
     if (!currentWorkspace || !auth.user || auth.onboarding !== "READY") return;
-    const available = workspaces.length > 0 ? workspaces : FALLBACK_WORKSPACES;
+    const available = auth.workspaces;
+    setWorkspaces(available);
     const stillAllowed = available.some(
       (workspace) => workspace.id === currentWorkspace.id,
     );
     if (!stillAllowed) {
-      const fallbackTarget = available[0] || FALLBACK_WORKSPACES[0];
-      setCurrentWorkspace(fallbackTarget);
-      activeWorkspaceRef.current = fallbackTarget.id;
-      void loadWorkspaceData(fallbackTarget.id);
+      const fallbackTarget = available[0];
+      generation.current++;
+      clearWorkspace();
+      setCurrentWorkspace(fallbackTarget || null);
+      activeWorkspaceRef.current = fallbackTarget?.id || null;
+      setTransactionWorkspace(fallbackTarget?.id || null);
+      if (fallbackTarget) void loadWorkspaceData(fallbackTarget.id);
     } else {
       const latest = available.find(
         (workspace) => workspace.id === currentWorkspace.id,
@@ -531,16 +531,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       )
         setCurrentWorkspace(latest);
     }
-  }, [auth.workspaces, auth.user, auth.onboarding, currentWorkspace, workspaces]);
+  }, [auth.workspaces, auth.user, auth.onboarding, currentWorkspace]);
   const switchWorkspace = async (workspaceId: string) => {
     const target =
-      workspaces.find((workspace) => workspace.id === workspaceId) ||
-      FALLBACK_WORKSPACES.find((workspace) => workspace.id === workspaceId) ||
-      FALLBACK_WORKSPACES.find(
-        (workspace) =>
-          workspace.type.toLowerCase() === workspaceId.toLowerCase(),
-      ) ||
-      FALLBACK_WORKSPACES[0];
+      (isDemo ? FALLBACK_WORKSPACES : auth.workspaces).find((workspace) => workspace.id === workspaceId);
+    if (!target) throw new Error("Bạn không có quyền truy cập nhóm này.");
 
     generation.current++;
     activeWorkspaceRef.current = target.id;
@@ -556,21 +551,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       /* không có storage */
     }
 
-    // Nạp ngay dữ liệu fallback tương ứng với Workspace để giao diện phản hồi tức thì 0 latency
-    const fallback = getFallbackDataForWorkspace(target.id || target.type);
-    setMembers(fallback.members);
-    setCurrentMember(fallback.members[0] || emptyMember);
-    setDynamicVaults(fallback.vaults);
-    setSelectedVault(fallback.vaults[0] || null);
-    setWithdrawalRequests(fallback.withdrawals);
-    setChores(fallback.chores);
-    setNotifications(fallback.notifications);
-
-    try {
-      await loadWorkspaceData(target.id);
-    } catch {
-      // Giữ nguyên dữ liệu fallback nếu backend offline
-    }
+    clearWorkspace();
+    if (isDemo) {
+      const demo = getFallbackDataForWorkspace(target.id);
+      setMembers(demo.members); setCurrentMember(demo.members[0] || emptyMember);
+      setDynamicVaults(demo.vaults); setSelectedVault(demo.vaults[0] || null);
+      setWithdrawalRequests(demo.withdrawals); setChores(demo.chores); setNotifications(demo.notifications);
+    } else await loadWorkspaceData(target.id);
   };
   const refreshBalances = async () => {
     if (activeWorkspaceRef.current)
@@ -579,9 +566,15 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!auth.user) {
       generation.current++;
-      // Khi không có phiên đăng nhập hoặc ở chế độ Demo/Thẩm định, kích hoạt bộ 4 Workspace Fallback
+      clearWorkspace();
+      setTransactionWorkspace(null);
+      if (!isDemo) {
+        setWorkspaces([]); setCurrentWorkspace(null); activeWorkspaceRef.current = null;
+        setIsDataLoading(false); setDataErrors([]);
+        return;
+      }
       setWorkspaces(FALLBACK_WORKSPACES);
-      const fallbackTarget = currentWorkspace || FALLBACK_WORKSPACES[0];
+      const fallbackTarget = FALLBACK_WORKSPACES[0];
       setCurrentWorkspace(fallbackTarget);
       activeWorkspaceRef.current = fallbackTarget.id;
       const fbData = getFallbackDataForWorkspace(
@@ -597,7 +590,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       setIsDataLoading(false);
       setIsLiveBackend(false);
     }
-  }, [auth.user?.id]);
+  }, [auth.user?.id, isDemo]);
   useEffect(() => {
     if (!currentWorkspace || !auth.user) return;
     const refresh = () => {
@@ -746,7 +739,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           vaultName: vault.name,
           amount: Number(amount),
           txHash,
-          senderAddress: auth.linkedWallet?.address || DEMO_PERSONAS.admin.wallet,
+          senderAddress: auth.linkedWallet?.address || "",
           senderName: auth.user?.fullName || "Bố Ba",
           timestamp: new Date().toLocaleString("vi-VN"),
         },

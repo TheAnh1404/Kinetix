@@ -4,15 +4,8 @@ import React, { Suspense, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ActiveTab, RoleType } from "@/types";
 import { AppShell } from "@/components/layout/AppShell";
-import { AdminConsole } from "@/components/admin/AdminConsole";
-import { ModernAdminDashboard } from "@/components/dashboard/modern/ModernAdminDashboard";
+import { GuardianView } from "@/components/views/GuardianView";
 import { RoscaView } from "@/components/views/RoscaView";
-import {
-  ElderlyDashboard,
-  RoscaTimeline,
-  FriendsGoalView,
-  CommunityTreasuryView,
-} from "@/components/views";
 import { useFamily } from "@/context/FamilyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { AccountStatus } from "@/components/auth/AccountStatus";
@@ -21,11 +14,11 @@ import { MemberResponsiveShell } from "@/components/layout/MemberResponsiveShell
 import { ElderlyPortal } from "@/components/member/ElderlyPortal";
 import { KidsPortal } from "@/components/member/KidsPortal";
 import { GuardianMobileView } from "@/components/member/GuardianMobileView";
-import { VaultExperience } from "@/components/vaults/VaultExperience";
 import { isWorkspaceOwner } from "../../../../shared/workspacePermissions";
 import { memberHome } from "@/lib/member";
 import { WorkspaceTools, WorkspaceToolsLinks } from "@/components/member/WorkspaceTools";
 import { GroupFinanceDashboard } from "@/components/group-finance/GroupFinanceDashboard";
+import { GroupMembersPanel } from "@/components/group-finance/GroupMembersPanel";
 
 const tabRoutes: Record<string, string> = {
   "quan-tri-cha-me": "/dashboard/admin",
@@ -61,7 +54,7 @@ function DashboardContent() {
       return;
     }
     if (!role) return;
-    if (membership?.startRequired) {
+    if (membership?.startRequired && group !== "finance") {
       router.replace(`/start?workspace=${encodeURIComponent(family.currentWorkspace!.id)}`);
       return;
     }
@@ -73,12 +66,12 @@ function DashboardContent() {
       switched ||
       (!admin && !["member", "elderly", "kids", "rosca", "tools", "finance"].includes(group))
     ) {
-      router.replace(memberHome(role));
+      router.replace(group === "finance" ? "/dashboard/finance" : memberHome(role));
       return;
     }
     if (!group) {
       router.replace(
-        (admin && tabRoutes[search.get("tab") || ""]) || memberHome(role),
+        (admin && tabRoutes[search.get("tab") || ""]) || "/dashboard/finance",
       );
       return;
     }
@@ -88,7 +81,6 @@ function DashboardContent() {
       chore: "kids/chores",
       hui: "rosca",
       guardian: admin ? "admin" : "member",
-      finance: "finance",
       group: "finance",
     };
     if (aliases[group]) router.replace(`/dashboard/${aliases[group]}`);
@@ -140,14 +132,16 @@ function DashboardContent() {
       </div>
     );
   // Membership của workspace quyết định quyền, không dùng vai trò toàn cục hoặc nút preview.
-  if (membership?.startRequired) return <Loading />;
+  if (membership?.startRequired && group !== "finance") return <Loading />;
   if (!group || (!admin && !["member", "elderly", "kids", "rosca", "tools", "finance"].includes(group)))
     return <Loading />;
+  const groupFinanceRoute = group === "finance" ||
+    (["admin", "member"].includes(group) && ["COMMUNITY", "FRIENDS"].includes(family.currentWorkspace.type));
   const notices = (
     <>
       <AccountStatus />
       <StartReminder />
-      {family.dataErrors.length > 0 && (
+      {!groupFinanceRoute && family.dataErrors.length > 0 && (
         <div className="member-error" role="alert">
           <p>Một số dữ liệu chưa cập nhật. Kiểm tra lại trước khi giao dịch.</p>
           <ul>
@@ -167,15 +161,11 @@ function DashboardContent() {
     </>
   );
 
-  if (
-    group === "finance" ||
-    family.currentWorkspace?.type === "COMMUNITY" ||
-    family.currentWorkspace?.type === "FRIENDS"
-  ) {
+  if (groupFinanceRoute) {
     return (
       <div key={`${auth.user?.id}:${family.currentWorkspace.id}`}>
         {notices}
-        <GroupFinanceDashboard />
+        {group === "finance" && ["members", "manage"].includes(pathname.split("/")[3]) ? <GroupMembersPanel /> : <GroupFinanceDashboard />}
       </div>
     );
   }
@@ -184,11 +174,9 @@ function DashboardContent() {
     group === "tools" ? (
       <WorkspaceTools />
     ) : family.currentWorkspace?.type === "SIBLINGS" || group === "rosca" ? (
-      <RoscaTimeline />
+    <RoscaView />
     ) : group === "elderly" || role === "ELDERLY" ? (
-      <ElderlyDashboard
-        onSwitchToAdmin={admin ? () => router.push("/dashboard/admin") : undefined}
-      />
+      <ElderlyPortal preview={admin} />
     ) : group === "member" ? (
       <GuardianMobileView />
     ) : (
@@ -223,13 +211,11 @@ function DashboardContent() {
       {group === "tools" ? (
         <WorkspaceTools key={`${auth.user?.id}:${family.currentWorkspace.id}`} />
       ) : activeTab === "quan-tri-cha-me" ? (
-        <ModernAdminDashboard key={`${auth.user?.id}:${family.currentWorkspace.id}`} />
+        <GuardianView key={`${auth.user?.id}:${family.currentWorkspace.id}`} />
       ) : activeTab === "quy-rosca" ? (
-        <RoscaTimeline />
+        <RoscaView />
       ) : activeTab === "kinetix-shield" ? (
-        <ElderlyDashboard
-          onSwitchToAdmin={() => router.push("/dashboard/admin")}
-        />
+        <ElderlyPortal preview={admin} />
       ) : (
         <div
           className={`member-preview ${group === "elderly" ? "elderly-theme" : "kids-theme"}`}

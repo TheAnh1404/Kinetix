@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { startRedirect } from "../../shared/startFlow";
+import { startRedirect, safeAppReturn } from "../../shared/startFlow";
 
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
@@ -45,6 +45,12 @@ export async function middleware(req: NextRequest) {
   }
   if (!identity) {
     if (path === "/login") return NextResponse.next();
+    const returnPath = safeAppReturn(path + req.nextUrl.search);
+    if (returnPath) {
+      const login = new URL("/login", req.url);
+      login.searchParams.set("from", returnPath);
+      return NextResponse.redirect(login);
+    }
     return NextResponse.redirect(
       new URL(
         path === "/register" ? "/login?mode=register" : "/login",
@@ -52,6 +58,11 @@ export async function middleware(req: NextRequest) {
       ),
     );
   }
+  const returnPath =
+    path === "/login" && identity.onboarding === "READY"
+      ? safeAppReturn(req.nextUrl.searchParams.get("from"))
+      : null;
+  if (returnPath) return NextResponse.redirect(new URL(returnPath, req.url));
   const redirect = startRedirect(path, identity);
   if (redirect) return NextResponse.redirect(new URL(redirect, req.url));
   return NextResponse.next();

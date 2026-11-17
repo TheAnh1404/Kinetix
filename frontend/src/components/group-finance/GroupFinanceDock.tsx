@@ -70,7 +70,7 @@ export const GroupFinanceDock: React.FC<GroupFinanceDockProps> = ({
                 />
                 {typeof badge === "number" && badge > 0 && (
                   <span
-                    className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-[#E84142] text-white text-[10px] font-mono tabular-nums font-bold flex items-center justify-center border-2 border-white shadow-sm"
+                    className="absolute -top-2 -right-3 min-w-[22px] min-h-[22px] px-1 rounded-full bg-[#E84142] text-white text-sm font-mono tabular-nums font-bold flex items-center justify-center border-2 border-white shadow-sm"
                     aria-label={`${badge} mục chờ xử lý`}
                   >
                     {badge > 9 ? "9+" : badge}

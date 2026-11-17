@@ -624,15 +624,14 @@ export function MemberResponsiveShell({
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-900 dark:text-emerald-200">
                         <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        Family L1 (Appchain)
+                        Mạng riêng (chưa kích hoạt)
                       </div>
                       <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold px-1.5 py-0.2 rounded">
-                        0 Gas Fee
+                        Chưa hỗ trợ
                       </span>
                     </div>
                     <p className="text-[11px] text-emerald-800/90 dark:text-emerald-300/90 leading-relaxed">
-                      Mạng nội bộ riêng tư. Rút tiền tức thì (&lt;1 giây) từ bộ đệm L1
-                      cho các nhu cầu chi tiêu thường nhật.
+                      Ứng dụng hiện dùng AVAX trên Avalanche Fuji. Chưa có mạng riêng hoặc bảo đảm thời gian giải ngân.
                     </p>
                   </div>
 
@@ -644,12 +643,11 @@ export function MemberResponsiveShell({
                         Fuji C-Chain (Chain ID: 43113)
                       </div>
                       <span className="text-[10px] bg-red-100 dark:bg-red-900/60 text-red-800 dark:text-red-300 font-bold px-1.5 py-0.2 rounded">
-                        ~8% APY
+                        Có phí mạng
                       </span>
                     </div>
                     <p className="text-[11px] text-red-800/90 dark:text-red-300/90 leading-relaxed">
-                      Môi trường DeFi thanh khoản cao. Tiền nhàn rỗi được tự động
-                      chuyển qua Avalanche Teleporter để sinh lời tối ưu.
+                      Tiền không tự chuyển qua Teleporter. Yield và cross-chain chưa được bật trong T1.
                     </p>
                   </div>
                 </div>
