@@ -1,11 +1,10 @@
 import { expect } from "chai";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
-import { emptyVaultForm, resolveVaultConfig } from "../shared/vaultCreation";
 
 // Drives the shipped component's handlers and React state at controlled API/wallet
 // boundaries. Browser focus, layout and Core-extension acceptance remain separate.
-describe.skip("Vault creation component journey", () => {
+describe("Vault creation component journey", () => {
   const React = require("../frontend/node_modules/react");
   const {
     renderToStaticMarkup,
@@ -19,17 +18,16 @@ describe.skip("Vault creation component journey", () => {
     tree: any,
     Component: any,
     family: any,
-    requests: any[],
-    saved: any,
-    availability: string,
     phases: any[],
     closed: number;
   let originalDocument: any, originalWindow: any;
   const candidates = ids.map((id, index) => ({
     id,
+    name: ["Parent", "Child", "Friend"][index],
     fullName: ["Parent", "Child", "Friend"][index],
     role: index === 1 ? "CHILD" : "GUARDIAN",
     address: `0x${index + 1}`.padEnd(42, String(index + 1)),
+    walletAddress: `0x${index + 1}`.padEnd(42, String(index + 1)),
     linked: true,
     permission: "ALLOWED",
     reason: "Verified",
@@ -55,7 +53,9 @@ describe.skip("Vault creation component journey", () => {
   const button = (label: string) =>
     nodes(
       tree,
-      (node) => node.type === "button" && text(node).includes(label),
+      (node) =>
+        (node.type === "button" || node.props?.role === "button") &&
+        text(node).includes(label),
     )[0];
   const render = () => {
     cursor = 0;
@@ -70,7 +70,7 @@ describe.skip("Vault creation component journey", () => {
     const node = button(label);
     expect(node, label).to.exist;
     expect(!!node.props.disabled, label).to.equal(false);
-    node.props.onClick();
+    node.props.onClick?.({ preventDefault() {}, stopPropagation() {} });
     await settle();
   };
   const input = async (type: string, value: any) => {
@@ -85,9 +85,6 @@ describe.skip("Vault creation component journey", () => {
     slots = [];
     cursor = 0;
     effects = [];
-    requests = [];
-    saved = null;
-    availability = "READY";
     phases = [];
     closed = 0;
     originalDocument = (globalThis as any).document;
@@ -99,67 +96,24 @@ describe.skip("Vault creation component journey", () => {
       dispatchEvent() {},
     };
     family = {
-      currentWorkspace: { id: ids[0], name: "Our family" },
+      currentWorkspace: { id: ids[0], name: "Our family", type: "FAMILY" },
       dynamicVaults: [],
+      members: candidates,
       refreshBalances: async () => {},
       setSelectedVault() {},
       createCustomVault: async (params: any) => {
         phases.push(params);
-        params.onProgress({ status: "AWAITING_SIGNATURE" });
-        params.onProgress({ status: "BROADCAST", hash: `0x${"a".repeat(64)}` });
         return {
           success: true,
-          txHash: `0x${"a".repeat(64)}`,
           vault: {
             id: ids[2],
             onchainVaultId: 7,
             name: params.name,
             ruleTemplate: params.ruleTemplate,
+            bufferRatioBps: params.bufferRatioBps,
           },
         };
       },
-    };
-    const api = async (path: string, body: any, method = "POST") => {
-      requests.push({ path, body, method });
-      if (path.endsWith("vault-creation"))
-        return {
-          data: {
-            workspaceName: "Our family",
-            availability,
-            reason: "Deployment disabled; drafts available",
-            candidates,
-          },
-        };
-      if (method === "GET") return { drafts: [] };
-      if (path.endsWith("/preflight")) {
-        saved = {
-          ...saved,
-          preflight: {
-            contractConfig: resolveVaultConfig(
-              saved.config,
-              new Map(candidates.map((member) => [member.id, member.address])),
-              BigInt(Math.floor(Date.now() / 1000)),
-            ),
-            estimatedFeeWei: "1000000000000",
-            checkedAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 300000).toISOString(),
-            asOfBlock: "10",
-            actor: candidates[0].address,
-            hub: candidates[0].address,
-          },
-        };
-      } else
-        saved = {
-          id: ids[2],
-          config: body.config,
-          revision: saved ? saved.revision + 1 : 0,
-          step: body.step,
-          signaturePending: false,
-          txHash: null,
-          vaultId: null,
-          preflight: null,
-        };
-      return { draft: saved };
     };
     const hooks = {
       ...React,
@@ -180,6 +134,7 @@ describe.skip("Vault creation component journey", () => {
         return (slots[index] ||= { current: value });
       },
       useEffect: (effect: () => unknown) => effects.push(effect),
+      useMemo: (factory: () => any) => factory(),
     };
     const code = ts.transpileModule(
       readFileSync(
@@ -212,19 +167,33 @@ describe.skip("Vault creation component journey", () => {
             },
           );
         if (name.includes("FamilyContext")) return { useFamily: () => family };
-        if (name.includes("useAuth"))
+        if (name.includes("workspacePresets"))
           return {
-            useAuth: () => ({
-              user: { id: ids[0] },
-              walletMatches: true,
-              connectedAddress: candidates[0].address,
+            getWorkspacePreset: (type: string) => ({
+              type: type || "FAMILY",
+              titleVi: "Đại Gia Đình",
+              defaultVaultTemplates: [
+                {
+                  name: "Hũ Báo Hiếu Ông Bà",
+                  ruleTemplate: "SHIELD",
+                  bufferRatioBps: 1000,
+                  fastWithdrawLimit: 50,
+                  requiredApprovals: 2,
+                  description: "Bảo vệ tài sản hưu trí, rút nhanh 0 gas",
+                  icon: "🛡️",
+                },
+                {
+                  name: "Hũ Lì Xì Bé Na",
+                  ruleTemplate: "MILESTONE",
+                  bufferRatioBps: 1000,
+                  fastWithdrawLimit: 20,
+                  requiredApprovals: 2,
+                  description: "Quỹ nhiệm vụ Chore-to-Earn",
+                  icon: "🎁",
+                },
+              ],
             }),
-            authRequest: api,
           };
-        if (name.includes("web3/client"))
-          return { pendingTransactions: () => [] };
-        if (name.includes("contracts/config"))
-          return { SNOWTRACE_TESTNET_URL: "https://testnet.snowtrace.io" };
         if (name.includes("shared/vaultCreation"))
           return require("../shared/vaultCreation");
         return require(name);
@@ -241,111 +210,84 @@ describe.skip("Vault creation component journey", () => {
     (globalThis as any).document = originalDocument;
     (globalThis as any).window = originalWindow;
   });
-  const members = async (rosca = false) => {
-    const section = (heading: string) =>
-      nodes(
-        tree,
-        (node) =>
-          node.type === "section" &&
-          nodes(
-            node,
-            (child) => child.type === "h3" && text(child).includes(heading),
-          ).length > 0,
-      )[0];
-    const check = async (heading: string, index: number) => {
-      nodes(section(heading), (node) => node.type === "input")[
-        index
-      ].props.onChange();
-      await settle();
-    };
-    await check("Guardian", 0);
-    await check(rosca ? "Người góp" : "Người thụ hưởng", 1);
-    if (rosca) await check("Người góp", 2);
-  };
-  const begin = async (label?: string) => {
-    if (label) await click(label);
-    const name = nodes(
-      tree,
-      (node) => node.type === "input" && node.props.maxLength === 80,
-    )[0];
-    name.props.onChange({ target: { value: "Family trip" } });
-    await settle();
-    const description = nodes(tree, (node) => node.type === "textarea")[0];
-    description.props.onChange({ target: { value: "Private description" } });
-    await settle();
-    await click("Tiếp tục");
-  };
-  it("completes the four-step SHIELD journey, saves metadata and creates only after explicit review", async () => {
+
+  it("completes the four-step vault creation wizard and creates vault onchain", async () => {
     expect(renderToStaticMarkup(tree)).to.include(
-      "Một hũ tiền, một mục đích rõ ràng.",
+      "Bước 1: Chọn mẫu hũ phù hợp",
     );
-    await begin();
-    await members();
-    await click("Tiếp tục");
-    await input("range", "2300");
-    await click("Tiếp tục");
-    expect(phases).to.have.length(0);
-    await input("checkbox", true);
-    await click("Kiểm tra cấu hình & phí");
-    expect(saved.config.description).to.equal("Private description");
-    expect(saved.config.bufferRatioBps).to.equal(2300);
-    expect(renderToStaticMarkup(tree)).to.include("0.000001 AVAX");
-    await click("Xác nhận & mở Core");
-    expect(phases).to.have.length(1);
-    expect(phases[0].ruleTemplate).to.equal("SHIELD");
-    expect(phases[0].bufferRatioBps).to.equal(2300);
-    expect(text(tree)).to.match(/Đã tạo\s+Family trip/);
-    expect(button("Nạp tiền vào hũ")).to.exist;
-  });
-  it("keeps ROSCA order from member controls through review and signed configuration", async () => {
-    await begin("Góp xoay vòng");
-    await members(true);
-    await click("↓");
-    expect(saved.config.beneficiaryIds).to.deep.equal([]); // Reorder has not been saved yet.
-    await click("Tiếp tục");
-    await click("Tiếp tục");
-    await input("checkbox", true);
-    await click("Kiểm tra cấu hình & phí");
-    expect(saved.config.beneficiaryIds).to.deep.equal([ids[2], ids[1]]);
-    expect(text(tree)).to.include("chưa có cơ chế hủy");
-    await click("Xác nhận & mở Core");
-    expect(phases[0].beneficiaryWallets).to.deep.equal([
-      candidates[2].address,
-      candidates[1].address,
-    ]);
-    expect(button("Xem hũ để góp kỳ đầu")).to.exist;
-    expect(button("Nạp tiền vào hũ")).not.to.exist;
-  });
-  it("shows the goal's local deadline as a precise reviewed instant", async () => {
-    await begin("Mục tiêu chung");
-    await members();
-    await click("Tiếp tục");
-    const future = new Date(Date.now() + 7 * 86400000);
-    const local = new Date(
-      future.getTime() - future.getTimezoneOffset() * 60000,
-    )
-      .toISOString()
-      .slice(0, 16);
-    await input("datetime-local", local);
-    await click("Tiếp tục");
-    await input("checkbox", true);
-    await click("Kiểm tra cấu hình & phí");
-    expect(saved.config.targetDeadline).to.equal(new Date(local).toISOString());
-    expect(text(tree)).to.include("Điều kiện được kiểm tra lại lúc thực chi");
-  });
-  it("saves the draft without starting a wallet write and allows closing", async () => {
-    await begin();
-    await click("Lưu nháp");
-    expect(saved.step).to.equal(2);
-    expect(phases).to.have.length(0);
-    expect(
-      requests.filter((request) => request.path.endsWith("/preflight")),
-    ).to.have.length(0);
-    nodes(
+    expect(text(tree)).to.include("Hũ Báo Hiếu Ông Bà");
+
+    // Advance to Step 2
+    await click("Tiếp theo");
+    expect(text(tree)).to.include("Bước 2: Đặt tên và định mức tài chính");
+
+    // Enter vault name
+    const nameInput = nodes(
       tree,
-      (node) => node.props?.["aria-label"] === "Đóng tạo hũ",
-    )[0].props.onClick();
+      (node) => node.type === "input" && node.props?.type === "text",
+    )[0];
+    nameInput.props.onChange({ target: { value: "Quỹ Báo Hiếu Bố Mẹ" } });
     await settle();
+
+    // Advance to Step 3
+    await click("Tiếp theo");
+    expect(text(tree)).to.include("Bước 3: Phân bổ đệm rút nhanh");
+
+    // Advance to Step 4
+    await click("Tiếp theo");
+    expect(text(tree)).to.include("Bước 4: Chốt chặn an toàn");
+
+    // Submit vault creation
+    expect(phases).to.have.length(0);
+    await click("Tạo Hũ Tiền Ngay");
+
+    // Verified on-chain call
+    expect(phases).to.have.length(1);
+    expect(phases[0].name).to.equal("Quỹ Báo Hiếu Bố Mẹ");
+    expect(phases[0].ruleTemplate).to.equal("SHIELD");
+    expect(phases[0].bufferRatioBps).to.equal(1000);
+
+    // Shows success screen
+    expect(text(tree)).to.include("Đã Khởi Tạo Hũ Thành Công!");
+    expect(button("Nạp Tiền Vào Hũ Ngay")).to.exist;
+
+    // Closing after success increments closed
+    await click("Đóng");
+    expect(closed).to.equal(1);
+  });
+
+  it("validates that vault name is required before moving past step 2", async () => {
+    await click("Tiếp theo");
+    expect(text(tree)).to.include("Bước 2: Đặt tên và định mức tài chính");
+
+    // Clear name
+    const nameInput = nodes(
+      tree,
+      (node) => node.type === "input" && node.props?.type === "text",
+    )[0];
+    nameInput.props.onChange({ target: { value: "   " } });
+    await settle();
+
+    // Attempt to proceed
+    await click("Tiếp theo");
+    expect(text(tree)).to.include("Vui lòng nhập tên hũ tiền.");
+    expect(text(tree)).to.include("Bước 2: Đặt tên và định mức tài chính");
+  });
+
+  it("switches buffer presets and calculates effective APY breakdown in step 3", async () => {
+    await click("Tiếp theo");
+    await click("Tiếp theo");
+    expect(text(tree)).to.include("Bước 3: Phân bổ đệm rút nhanh");
+
+    // Click preset "Tích lũy tối đa" (0% L1 / 100% C-Chain)
+    await click("Tích lũy tối đa");
+    const html = renderToStaticMarkup(tree);
+    expect(html).to.include("Sinh Lời C-Chain: 100%");
+    expect(html).to.include("8.0% APY");
+  });
+
+  it("closes modal safely via cancel button", async () => {
+    await click("Hủy bỏ");
     expect(closed).to.equal(1);
   });
 });
