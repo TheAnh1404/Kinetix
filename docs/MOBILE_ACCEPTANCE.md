@@ -2,6 +2,8 @@
 
 Trạng thái: checklist cho lần triển khai tiếp theo; chưa có kết quả thiết bị trong đợt chuẩn hóa tài liệu 15/11/2026.
 
+Cập nhật source 16/11/2026: đã nối adapter ví cá nhân và chỉnh các form/điều hướng. Chrome bị từ chối quyền điều khiển nên chưa có ảnh viewport hoặc kết quả ví điện thoại thật; không đánh dấu checklist dưới đây là đạt từ build/typecheck. Xem [bằng chứng và phần chưa hỗ trợ](DEMO_TO_LIVE_2026-11-16.md).
+
 ## Phạm vi kiểm tra
 
 | Môi trường | Mục đích |

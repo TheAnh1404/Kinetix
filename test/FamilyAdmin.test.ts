@@ -77,6 +77,7 @@ describe("Family creator ownership and signed administration", () => {
       treasuryJobs: [],
       treasuryTransfers: [],
       vaults: [],
+      groupFunds: [],
       auditLogs: [],
       workspaceInvitations: [],
     };
@@ -221,6 +222,7 @@ describe("Family creator ownership and signed administration", () => {
             "treasuryTransfers",
             "auditLogs",
             "vaults",
+            "groupFunds",
           ].map((name) => [name, tables[name]]),
         ),
       },
@@ -472,6 +474,12 @@ describe("Family creator ownership and signed administration", () => {
     );
     expect(state.familyAdminIntents[0].status).to.equal("PENDING");
     expect(state.familyAdminState[0].revision).to.equal(0);
+  });
+  it("refuses archiving a group with a live group-finance fund", async () => {
+    state.groupFunds.push({ id: id(79), workspaceId: ws, status: "ACTIVE", balanceWei: "0", reservedWei: "0" });
+    const intent = await prepare("ARCHIVE", { reason: "Close group" });
+    await fails(async () => service.executeAdminIntent(auth, ws, intent.id, await sign(intent)), 409);
+    expect(state.familyAdminIntents[0].status).to.equal("PENDING");
   });
   it("exports only scoped transfers with exact wei, evidence hashes and CSV formula protection", async () => {
     state.treasuryTransfers.push(

@@ -5,9 +5,24 @@ import {
   needsStart,
   startRedirect,
   startSteps,
+  safeAppReturn,
 } from "../shared/startFlow";
 
 describe("Separate first-use entry and security routing", () => {
+  it("rejects external and traversing return paths", () => {
+    expect(safeAppReturn("/dashboard/finance?workspace=group-a")).to.equal(
+      "/dashboard/finance?workspace=group-a",
+    );
+    for (const value of [
+      "https://example.com",
+      "//example.com",
+      "/\\example.com",
+      "/dashboard/../../outside",
+      "/login",
+      "javascript:alert(1)",
+    ])
+      expect(safeAppReturn(value)).to.equal(null);
+  });
   const workspace = "00000000-0000-4000-8000-000000000001";
   it("keeps password and wallet activation mandatory before any start screen", () => {
     for (const state of ["SET_PASSWORD", "CHANGE_PASSWORD", "LINK_WALLET"]) {

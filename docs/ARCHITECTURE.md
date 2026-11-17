@@ -16,7 +16,7 @@ flowchart LR
     Worker --> Hub
 ```
 
-The existing frontend provides role-based experiences, including family-specific portals. The target replaces age-based navigation with task-based group workflows; this has not yet been implemented by the documentation update. The same-origin proxy forwards application requests to Express; server-side services enforce workspace access, session state, wallet ownership, and action-specific policies. PostgreSQL stores accounts, memberships, requests, and indexed activity. The worker reconciles actual receipts and events; a database record is not proof that an on-chain payment occurred.
+The frontend provides task-based group-fund screens at `/dashboard/finance` alongside compatible family-specific portals. The group adapter added on 2026-11-16 uses explicit personal-wallet custody and application approvals; it does not activate V2 contracts or enforce database votes on-chain. The same-origin proxy forwards application requests to Express; server-side services enforce workspace access, session state, wallet ownership, and action-specific policies. PostgreSQL stores accounts, memberships, requests and durable native-transfer instructions. The worker reconciles actual receipts and events; a database record is not proof that an on-chain payment occurred. See [the implementation boundary and mobile evidence](DEMO_TO_LIVE_2026-11-16.md).
 
 ## Contract Paths and Custody
 

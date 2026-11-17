@@ -1,6 +1,6 @@
 # Danh mục tài liệu Kinetix
 
-Cập nhật: 15/11/2026. Đọc theo thứ tự dưới đây. Tài liệu mục tiêu không xác nhận tính năng đã triển khai; báo cáo lịch sử không quyết định backlog mới.
+Cập nhật: 16/11/2026. Đọc theo thứ tự dưới đây. Tài liệu mục tiêu không xác nhận tính năng đã triển khai; báo cáo lịch sử không quyết định backlog mới.
 
 ## Định hướng và thực thi
 
@@ -23,6 +23,7 @@ Cập nhật: 15/11/2026. Đọc theo thứ tự dưới đây. Tài liệu mụ
 
 - [STATUS.md](STATUS.md): trạng thái/bằng chứng theo ngày, chưa phải kết quả cho kiến trúc mới.
 - [ARCHITECTURE.md](ARCHITECTURE.md): T1, V1, ví chung và ranh giới giữ tiền hiện tại.
+- [Chuyển demo sang dữ liệu thật, 16/11/2026](DEMO_TO_LIVE_2026-11-16.md): adapter lưu ký ví cá nhân, thay đổi UI/API, migration và các phần chưa nghiệm thu.
 - [FUJI_DEPLOYMENT.md](FUJI_DEPLOYMENT.md): địa chỉ và giao dịch T1 ngày 12/11/2026; không phải deployment V2.
 - [CONTRIBUTING.md](../CONTRIBUTING.md), [SECURITY.md](../SECURITY.md), [AGENTS.md](../AGENTS.md): quy trình phát triển, bảo mật và hướng dẫn agent.
 - [REPOSITORY_METADATA.md](REPOSITORY_METADATA.md): mô tả GitHub đề xuất; chưa áp dụng lên dịch vụ.

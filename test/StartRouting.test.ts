@@ -68,6 +68,28 @@ describe("Start page middleware routing and server workspace scope", () => {
       `http://localhost:3000/dashboard/guardian?workspace=${workspace}`,
     );
   });
+  it("allows the independent group adapter without legacy setup while retaining security activation", async () => {
+    expect((await middleware(request("/dashboard/finance"))).status).to.equal(
+      200,
+    );
+    expect(
+      (await middleware(request("/dashboard/finance/members"))).status,
+    ).to.equal(200);
+    identity.onboarding = "LINK_WALLET";
+    expect(
+      (await middleware(request("/dashboard/finance"))).headers.get("location"),
+    ).to.equal("http://localhost:3000/activate");
+  });
+  it("preserves a local group task through login", async () => {
+    const response = await middleware(
+      request("/dashboard/finance/members?workspace=" + workspace, false),
+    );
+    const redirect = new URL(response.headers.get("location")!);
+    expect(redirect.pathname).to.equal("/login");
+    expect(redirect.searchParams.get("from")).to.equal(
+      "/dashboard/finance/members?workspace=" + workspace,
+    );
+  });
   it("passes the explicit workspace and account-bound preference to the authenticated server", async () => {
     await middleware(request(`/start?workspace=${workspace}`));
     expect(new URL(requests[0].url).pathname).to.equal("/api/auth/me");

@@ -136,14 +136,15 @@ describe("Member page rendering and personal-data boundaries", function () {
     expect(html).not.to.include("unsplash");
     expect(html).not.to.include("0.08");
   });
-  it("renders a separate start shell with three dependent steps and no dashboard navigation", () => {
+  it("keeps legacy first-use steps separate while allowing entry to the independent group adapter", () => {
     const { StartShell } = load("frontend/src/components/auth/StartShell.tsx");
     const html = renderToStaticMarkup(React.createElement(StartShell, { name: user.fullName, familyName: "Family fixture", role: "CHILD", step: "WELCOME", steps: ["WELCOME", "READINESS", "FINISH"], busy: false, onLogout() {} }, "Private first-use content"));
     expect((html.match(/<main/g) || []).length).to.equal(1);
     expect((html.match(/aria-current="step"/g) || []).length).to.equal(1);
     expect(html).to.include("Private first-use content");
     expect(html).to.include("Family fixture");
-    expect(html).not.to.include("/dashboard/");
+    expect(html).to.include('href="/dashboard/finance"');
+    expect(html).to.include("Không cần cấu hình contract T1");
     expect(html).not.to.include("sidebar");
     expect(html).not.to.include("Gia đình của bạn</span>");
   });

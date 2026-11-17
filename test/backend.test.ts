@@ -236,6 +236,12 @@ describe("HTTP guards without a database", () => {
       await db.delete(schema.authRateLimits);
     });
     it("saves and restores private vault drafts with deployment disabled, without creating a financial resource", async () => {
+      const previousManifest = process.env.DEPLOYMENT_MANIFEST;
+      const fixturePath = require("path").resolve(".cache/vault-drafts-disabled-test.json");
+      require("fs").mkdirSync(require("path").dirname(fixturePath), { recursive: true });
+      require("fs").writeFileSync(fixturePath, JSON.stringify({ ...require("../shared/deployment.json"), enabled: false }));
+      process.env.DEPLOYMENT_MANIFEST = fixturePath;
+      try {
       const path = `/workspaces/${workspaceId}/vault-drafts`;
       const id = require("crypto").randomUUID();
       const config = { ...require("../shared/vaultCreation").emptyVaultForm(), bufferRatioBps: 2300, description: "Private family metadata" };
@@ -262,6 +268,10 @@ describe("HTTP guards without a database", () => {
       expect((await admin.request(`${path}/${id}/preflight`, { revision: latest.revision })).status).to.equal(503);
       expect((await admin.request(`${path}/${id}`, { config: { ...config, unexpected: true }, step: 2, revision: 1 }, "PATCH")).status).to.equal(400);
       expect(await db.select().from(schema.vaults)).to.deep.equal(before);
+      } finally {
+        if (previousManifest === undefined) delete process.env.DEPLOYMENT_MANIFEST;
+        else process.env.DEPLOYMENT_MANIFEST = previousManifest;
+      }
     });
     it("returns scoped first-use guidance for a fresh account and denies other workspaces", async () => {
       const response = await admin.request(`/workspaces/${workspaceId}/first-use`, undefined, "GET");

@@ -247,8 +247,10 @@ describe("GuardianMobileView Mobile UI & Executive Ergonomics", function () {
     const html = renderToStaticMarkup(React.createElement(GuardianMobileView));
 
     expect(html).to.include("Thanh Khoản Dual-Chain (L1 &amp; C-Chain)");
-    expect(html).to.include("Đệm Family L1");
-    expect(html).to.include("Sinh Lời C-Chain");
+    expect(html).to.include("Thanh khoản theo sổ");
+    expect(html).to.include("Phần phân bổ theo sổ");
+    expect(html).not.to.include("Lãi 8% APY");
+    expect(html).not.to.include("0 gas phí");
     expect(html).to.include("Nạp Quỹ");
     expect(html).to.include("Hũ Hưu Trí Ông Bà");
   });
