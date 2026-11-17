@@ -3,6 +3,7 @@ export type GroupFundStatus = "ACTIVE" | "PAUSED" | "CLOSED";
 export type GroupExpenseStatus =
   | "PENDING_APPROVAL"
   | "APPROVED"
+  | "PAYMENT_PENDING"
   | "EXECUTED"
   | "REJECTED"
   | "CANCELLED"
@@ -22,6 +23,8 @@ export interface GroupFundItem {
   description?: string;
   fundType: GroupFundKind;
   custodyType: "ONCHAIN_HUB" | "SHARED_TREASURY";
+  treasuryWalletAddress?: string;
+  canPay?: boolean;
   onchainVaultAddress?: string;
   onchainVaultId?: number;
   balanceWei: string;
@@ -65,6 +68,8 @@ export interface GroupExpensePayment {
 }
 
 export interface GroupExpenseRequest {
+  canApprove?: boolean;
+  canPay?: boolean;
   id: string;
   fundId: string;
   fundName: string;
@@ -127,14 +132,16 @@ export interface GroupAuditEvent {
 }
 
 export interface CreateFundParams {
+  idempotencyKey?: string;
+  treasuryWalletAddress?: string;
   name: string;
   description?: string;
   fundType: GroupFundKind;
   custodyType: "ONCHAIN_HUB" | "SHARED_TREASURY";
-  fastWithdrawLimitAvax?: number;
+  fastWithdrawLimitAvax?: string;
   requiredApprovals: number;
   guardianWallets: string[];
-  targetAmountAvax?: number;
+  targetAmountAvax?: string;
   targetDeadline?: string;
 }
 
@@ -143,9 +150,10 @@ export interface ProposeExpenseParams {
   title: string;
   purpose: string;
   category: string;
-  amountAvax: number;
+  amountAvax: string;
   recipientAddress: string;
   recipientName: string;
   receiptAttachmentUrl?: string;
   deadlineHours?: number;
+  idempotencyKey: string;
 }

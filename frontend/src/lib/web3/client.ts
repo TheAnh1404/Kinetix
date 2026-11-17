@@ -83,6 +83,7 @@ export const setTransactionWorkspace = (id: string | null) => {
 export const setWalletUseEnabled = (enabled: boolean) => {
   walletUseEnabled = enabled;
 };
+export const walletWriteScope = () => walletUseEnabled ? transactionWorkspace : null;
 export interface PendingTransaction {
   hash: `0x${string}`;
   chainId: number;
