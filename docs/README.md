@@ -1,6 +1,6 @@
 # Danh mục tài liệu Kinetix
 
-Cập nhật: 16/11/2026. Đọc theo thứ tự dưới đây. Tài liệu mục tiêu không xác nhận tính năng đã triển khai; báo cáo lịch sử không quyết định backlog mới.
+Cập nhật: 17/11/2026. Đọc theo thứ tự dưới đây. Tài liệu mục tiêu không xác nhận tính năng đã triển khai; báo cáo lịch sử không quyết định backlog mới.
 
 ## Định hướng và thực thi
 
@@ -37,13 +37,15 @@ Các file sau giữ nội dung theo thời điểm để đối chiếu code, s�
 | Nhóm | Tài liệu |
 | --- | --- |
 | Auth và vận hành | [Auth runbook](AUTH_IMPLEMENTATION_RUNBOOK.md), [Docker/CI](DOCKER_CICD.md) |
-| Quản trị cũ | [Implementation](FAMILY_ADMIN_IMPLEMENTATION.md), [Production plan](FAMILY_ADMIN_PRODUCTION_PLAN.md) |
-| Vault và treasury | [Contract redesign](KINETIX_VAULT_CONTRACT_REDESIGN.md), [Treasury](PROJECT_TREASURY.md), [Vault UI plan](VAULT_UI_REDESIGN_PLAN.md), [Experience handover](VAULT_EXPERIENCE_HANDOVER.md) |
+| Quản trị cũ | [Implementation](FAMILY_ADMIN_IMPLEMENTATION.md) |
+| Vault và treasury | [Treasury](PROJECT_TREASURY.md), [Experience handover](VAULT_EXPERIENCE_HANDOVER.md) |
 | Rà soát | [04/11](KINETIX_REVIEW_2026-11-04.md), [06/11](RECHECK_2026-11-06.md), [13/11](PRODUCT_READINESS_2026-11-13.md), [UI audit](UI_FUNCTIONALITY_AUDIT.md), [Contract testnet review](../CONTRACT_TESTNET_REVIEW.md) |
-| Hackathon | [Patch plan](UNIHACK_PATCH_PLAN.md), [Readiness recheck](UNIHACK_READINESS_RECHECK.md) |
+| Hackathon | [Readiness recheck](UNIHACK_READINESS_RECHECK.md) |
 | Bàn giao trước đây | [Functional workflows](../.docs/KINETIX_FUNCTIONAL_WORKFLOWS.md), [T1 handover](../.docs/T1_HANDOVER.md) |
 
 ## Quy tắc bảo trì
+
+Ngày 17/11/2026 đã xóa bốn bản kế hoạch cũ về quản trị gia đình, contract V1, giao diện hũ và vá UniHack. Dùng bộ đặc tả và lộ trình hiện hành để lập công việc mới; các báo cáo triển khai, bàn giao và kiểm chứng lịch sử vẫn được giữ. Chi tiết thay thế nằm trong [bảng rà soát tài liệu](DOCUMENTATION_AUDIT.md).
 
 Sửa định hướng ở PRODUCT_DIRECTION, đặc tả ở GROUP_FINANCE_SPEC, UX ở MOBILE_UX_STANDARD; tài liệu khác dẫn link thay vì sao chép nhiều bản. Mọi tính năng mới ghi rõ mục tiêu/đã triển khai/đã kiểm chứng. Không cập nhật số test hoặc deployment nếu chưa chạy kiểm chứng tương ứng. Ghi ngày và giới hạn bằng chứng khi báo cáo kết quả.
 

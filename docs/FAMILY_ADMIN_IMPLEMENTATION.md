@@ -4,7 +4,7 @@
 
 ## Quyền được triển khai
 
-Yêu cầu mới nhất thay thế phần chuyển giao và ủy quyền trong `FAMILY_ADMIN_PRODUCTION_PLAN.md`: **chỉ người tạo gia đình là chủ nhà**, và chỉ quản trị khi đang mở đúng gia đình đó. Không có quyền quản trị toàn ứng dụng và không có nút cấp quyền chủ nhà cho người được mời.
+Chính sách quản trị được triển khai: **chỉ người tạo gia đình là chủ nhà**, và chỉ quản trị khi đang mở đúng gia đình đó. Không có quyền quản trị toàn ứng dụng và không có nút cấp quyền chủ nhà cho người được mời.
 
 | Ngữ cảnh | Quản trị gia đình | Hoạt động tài chính |
 | --- | --- | --- |

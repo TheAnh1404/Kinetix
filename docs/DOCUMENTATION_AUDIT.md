@@ -2,6 +2,17 @@
 
 Ngày: 15/11/2026. Phạm vi gồm tài liệu dự án, hồ sơ lịch sử, hướng dẫn agent và thư viện skill được quản lý trong repository. Không bao gồm node_modules, output sinh tự động hoặc `.git`.
 
+## Dọn kế hoạch cũ — 17/11/2026
+
+Đã xóa bốn bản kế hoạch không còn dùng làm hướng dẫn triển khai. Các báo cáo kiểm chứng, bàn giao và deployment vẫn được giữ; thay đổi này không cập nhật mã hoặc trạng thái triển khai.
+
+| File đã xóa | Tài liệu thay thế |
+| --- | --- |
+| `docs/FAMILY_ADMIN_PRODUCTION_PLAN.md` | [Triển khai quản trị gia đình](FAMILY_ADMIN_IMPLEMENTATION.md), [ranh giới quyền hiện hành](GROUP_FINANCE_SPEC.md) |
+| `docs/KINETIX_VAULT_CONTRACT_REDESIGN.md` | [Contracts V2](CONTRACTS_V2.md), [kiến trúc và ranh giới legacy](ARCHITECTURE.md) |
+| `docs/VAULT_UI_REDESIGN_PLAN.md` | [Chuẩn UX điện thoại](MOBILE_UX_STANDARD.md), [tạo và quản lý quỹ](FUND_CREATION_MANAGEMENT.md); phần đã triển khai tra cứu tại [bàn giao giao diện hũ](VAULT_EXPERIENCE_HANDOVER.md) |
+| `docs/UNIHACK_PATCH_PLAN.md` | [Lộ trình hiện hành](ROADMAP.md); bằng chứng đợt cũ tra cứu tại [UniHack recheck](UNIHACK_READINESS_RECHECK.md) |
+
 ## Kết quả và giới hạn
 
 - Đã chuẩn hóa định hướng, đặc tả kỹ thuật, quy chuẩn điện thoại, nội dung và checklist nghiệm thu.
@@ -87,11 +98,11 @@ Ngày: 15/11/2026. Phạm vi gồm tài liệu dự án, hồ sơ lịch sử, h
 | `docs/AUTH_IMPLEMENTATION_RUNBOOK.md` | Thêm nhãn lịch sử và link chuẩn mới; giữ bằng chứng cũ |
 | `docs/DOCKER_CICD.md` | Thêm nhãn lịch sử và link chuẩn mới; giữ bằng chứng cũ |
 | `docs/FAMILY_ADMIN_IMPLEMENTATION.md` | Thêm nhãn lịch sử và link chuẩn mới; giữ bằng chứng cũ |
-| `docs/FAMILY_ADMIN_PRODUCTION_PLAN.md` | Thêm nhãn lịch sử và link chuẩn mới; giữ bằng chứng cũ |
+| `docs/FAMILY_ADMIN_PRODUCTION_PLAN.md` | Đã gắn nhãn lịch sử ngày 15/11; xóa kế hoạch cũ ngày 17/11, xem tài liệu thay thế ở trên |
 | `docs/FUJI_DEPLOYMENT.md` | Giữ địa chỉ/receipt; làm rõ phạm vi T1 theo ngày |
 | `docs/GROUP_FINANCE_SPEC.md` | Chuẩn hóa tài liệu hiện hành hoặc thêm đặc tả mục tiêu |
 | `docs/KINETIX_REVIEW_2026-11-04.md` | Thêm nhãn lịch sử và link chuẩn mới; giữ bằng chứng cũ |
-| `docs/KINETIX_VAULT_CONTRACT_REDESIGN.md` | Thêm nhãn lịch sử và link chuẩn mới; giữ bằng chứng cũ |
+| `docs/KINETIX_VAULT_CONTRACT_REDESIGN.md` | Đã gắn nhãn lịch sử ngày 15/11; xóa đề xuất cũ ngày 17/11, xem tài liệu thay thế ở trên |
 | `docs/MOBILE_ACCEPTANCE.md` | Chuẩn hóa tài liệu hiện hành hoặc thêm đặc tả mục tiêu |
 | `docs/MOBILE_UX_STANDARD.md` | Chuẩn hóa tài liệu hiện hành hoặc thêm đặc tả mục tiêu |
 | `docs/PRODUCT_DIRECTION.md` | Chuẩn hóa tài liệu hiện hành hoặc thêm đặc tả mục tiêu |
@@ -103,10 +114,10 @@ Ngày: 15/11/2026. Phạm vi gồm tài liệu dự án, hồ sơ lịch sử, h
 | `docs/ROADMAP.md` | Chuẩn hóa tài liệu hiện hành hoặc thêm đặc tả mục tiêu |
 | `docs/STATUS.md` | Thêm định hướng mới; giữ snapshot kiểm chứng cũ |
 | `docs/UI_FUNCTIONALITY_AUDIT.md` | Thêm nhãn lịch sử và link chuẩn mới; giữ bằng chứng cũ |
-| `docs/UNIHACK_PATCH_PLAN.md` | Thêm nhãn lịch sử và link chuẩn mới; giữ bằng chứng cũ |
+| `docs/UNIHACK_PATCH_PLAN.md` | Đã gắn nhãn lịch sử ngày 15/11; xóa kế hoạch cũ ngày 17/11, giữ báo cáo kiểm chứng riêng |
 | `docs/UNIHACK_READINESS_RECHECK.md` | Thêm nhãn lịch sử và link chuẩn mới; giữ bằng chứng cũ |
 | `docs/VAULT_EXPERIENCE_HANDOVER.md` | Thêm nhãn lịch sử và link chuẩn mới; giữ bằng chứng cũ |
-| `docs/VAULT_UI_REDESIGN_PLAN.md` | Thêm nhãn lịch sử và link chuẩn mới; giữ bằng chứng cũ |
+| `docs/VAULT_UI_REDESIGN_PLAN.md` | Đã gắn nhãn lịch sử ngày 15/11; xóa kế hoạch cũ ngày 17/11, giữ tài liệu bàn giao riêng |
 | `docs/agent-guidance/README.md` | Bản chuẩn bị chờ áp dụng vào thư mục được bảo vệ |
 | `docs/agent-guidance/blockchain-contracts.md` | Bản chuẩn bị chờ áp dụng vào thư mục được bảo vệ |
 | `docs/agent-guidance/frontend-web3.md` | Bản chuẩn bị chờ áp dụng vào thư mục được bảo vệ |
