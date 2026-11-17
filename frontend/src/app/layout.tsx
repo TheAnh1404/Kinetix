@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./member.css";
 import "./vault-experience.css";
+import "./group-finance.css";
 import { AppProviders } from "@/context/AppProviders";
 
 export const metadata: Metadata = {
-  title: "Kinetix OS - The Multi-Space Vault OS on Avalanche",
+  title: "Kinetix · Quỹ chung cho nhóm",
   description:
-    "Quản lý hũ gia đình trên Avalanche Fuji: hỗ trợ người thân, việc nhà và góp vốn minh bạch với sổ giao dịch có thể đối soát.",
+    "Góp tiền, duyệt chi và đối soát quỹ chung trên Avalanche Fuji.",
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },

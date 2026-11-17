@@ -1,0 +1,784 @@
+.page {
+  --paper: #090d16;
+  --ink: #f0f2f7;
+  --muted: #a7afbd;
+  --line: #2b303b;
+  background: var(--paper);
+  color: var(--ink);
+  color-scheme: dark;
+  font:
+    400 16px/1.65 "Inter",
+    sans-serif;
+}
+.page *,
+.page *::before,
+.page *::after {
+  box-sizing: border-box;
+}
+.page :is(h1, h2, h3, p, figure) {
+  margin: 0;
+}
+.page :is(section, div, article) {
+  min-width: 0;
+}
+.page a {
+  text-decoration: none;
+  color: inherit;
+}
+.page button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.page :is(a, button, summary):focus-visible {
+  outline: 2px solid #ff9b90;
+  outline-offset: 5px;
+}
+.page :is(button, summary) {
+  touch-action: manipulation;
+}
+.page svg {
+  flex-shrink: 0;
+}
+.page section[id],
+.heroPreview {
+  scroll-margin-top: 90px;
+}
+.container {
+  width: min(1080px, calc(100% - 64px));
+  margin-inline: auto;
+}
+.skipLink {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  padding: 12px 20px;
+  z-index: 100;
+  background: white;
+  color: #090d16 !important;
+}
+.skipLink:focus {
+  top: 12px;
+}
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.navbar {
+  width: min(1280px, calc(100% - 64px));
+  min-height: 80px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  position: relative;
+}
+.brandLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+.desktopNav {
+  display: flex;
+  gap: 28px;
+}
+.desktopNav a,
+.loginLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+}
+.desktopNav a {
+  color: var(--muted);
+}
+.desktopNav a:hover {
+  color: white;
+}
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.loginLink {
+  gap: 10px;
+}
+.mobileMenu {
+  display: none;
+}
+.hero {
+  padding-block: 72px 64px;
+}
+.heroIntro {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  align-items: end;
+  gap: 64px;
+}
+.hero h1 {
+  font:
+    650 clamp(48px, 5.3vw, 72px)/1.08 "Plus Jakarta Sans",
+    sans-serif;
+  letter-spacing: -0.055em;
+}
+.hero h1 > span {
+  color: #e84142;
+}
+.heroCopy {
+  padding-bottom: 4px;
+}
+.heroCopy > p:first-child {
+  font-size: 18px;
+  line-height: 1.7;
+  color: #c1c7d2;
+  max-width: 440px;
+}
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  min-height: 50px;
+  margin-top: 24px;
+  padding: 12px 20px;
+  border: 1px solid #ee5c5d;
+  border-radius: 6px;
+  background: #d93b40;
+  color: white !important;
+  font-size: 16px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.primaryButton:hover {
+  background: #ed484b;
+}
+.networkNote {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 14px !important;
+}
+.heroPreview {
+  margin-top: 48px;
+}
+.previewTabs {
+  display: flex;
+  gap: 28px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+.previewTabs button {
+  min-height: 48px;
+  padding: 8px 0 12px;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 14px;
+}
+.previewTabs button[aria-pressed="true"] {
+  border-bottom-color: #e84142;
+  color: #fff;
+}
+.previewTabs button:hover {
+  color: #fff;
+}
+.appWindow {
+  background: #111722;
+  border: 1px solid #333a46;
+  border-radius: 10px;
+}
+.appTopbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 14px 28px;
+  border-bottom: 1px solid #2b3340;
+}
+.workspaceIcon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: #bbc4d3;
+  background: #29313e;
+  border-radius: 6px;
+}
+.appTopbar strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.previewLabel {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  color: #a7afbd;
+}
+.appBody {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.fundSummary {
+  padding: 28px 32px;
+  border-right: 1px solid #2b3340;
+}
+.fundType {
+  color: #a7afbd;
+  font-size: 12px;
+}
+.fundSummary h3 {
+  margin-top: 4px;
+  font-size: 17px;
+  font-weight: 550;
+}
+.balance {
+  margin-top: 24px;
+}
+.balance > span {
+  color: #a7afbd;
+  font-size: 12px;
+}
+.balance > p {
+  font:
+    600 48px/1.25 "Plus Jakarta Sans",
+    sans-serif;
+  letter-spacing: -0.045em;
+  margin-top: 4px;
+}
+.balance p > span {
+  color: #a7afbd;
+  font:
+    400 14px/1.6 "Inter",
+    sans-serif;
+  letter-spacing: 0;
+}
+.reservation {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin: 22px 0 0;
+  min-height: 48px;
+  border-block: 1px solid #2b3340;
+  font-size: 12px;
+}
+.reservation dt {
+  color: #a7afbd;
+}
+.reservation dd {
+  margin: 0;
+  white-space: nowrap;
+}
+.goalProgress {
+  margin-top: 22px;
+  min-height: 48px;
+  color: #a7afbd;
+  font-size: 11px;
+}
+.goalProgress > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+.goalProgress strong {
+  color: #d9dfe9;
+  font-weight: 500;
+}
+.progressTrack {
+  height: 4px;
+  background: #333d4c;
+  margin-block: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progressTrack > span {
+  display: block;
+  width: 64%;
+  height: 100%;
+  background: #d86668;
+}
+.appFootnote {
+  color: #a7afbd;
+  font-size: 11px;
+  margin-top: 18px;
+}
+.activity {
+  padding: 28px 32px;
+}
+.activityHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 14px;
+}
+.activityHeading > span {
+  color: #a7afbd;
+  font-size: 12px;
+  font-weight: 400;
+}
+.activityRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-block: 18px;
+  border-bottom: 1px solid #2b3340;
+}
+.activityRow:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.activityRow > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.activityRow strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.activityRow div > span {
+  font-size: 11px;
+  color: #a7afbd;
+}
+.activityRow div > .awaiting {
+  color: #e3b78c;
+}
+.activityRow p {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.activityRow p > span {
+  font-size: 10px;
+  font-weight: 400;
+  color: #a7afbd;
+}
+.activityRow .received {
+  color: #b2cdbd;
+}
+.previewFigure figcaption {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 12px;
+}
+.fundsSection {
+  padding-block: 44px 56px;
+  border-top: 1px solid var(--line);
+}
+.page h2 {
+  font:
+    550 28px/1.35 "Plus Jakarta Sans",
+    sans-serif;
+  letter-spacing: -0.035em;
+}
+.fundModels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  margin-top: 32px;
+}
+.fundModels article {
+  padding-left: 20px;
+  border-left: 2px solid #6a3c42;
+}
+.fundModels article + article {
+  border-left-color: #596579;
+}
+.fundModels h3 {
+  font-size: 19px;
+  font-weight: 550;
+  margin-bottom: 12px;
+}
+.fundModels p {
+  font-size: 16px;
+  color: var(--muted);
+}
+.fundModels button {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 44px;
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  margin-top: 10px;
+  font-size: 14px;
+}
+.fundModels button:hover {
+  color: #ffb5ae;
+}
+.fundTerms {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 28px !important;
+}
+.workflow {
+  border-top: 1px solid var(--line);
+  padding-block: 56px;
+}
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+  list-style: none;
+  margin: 32px 0 0;
+  padding: 0;
+}
+.steps li > span {
+  color: #909aab;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.steps h3 {
+  margin-block: 12px 8px;
+  font-size: 17px;
+  font-weight: 550;
+}
+.steps p {
+  font-size: 16px;
+  color: var(--muted);
+}
+.faq {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 64px;
+  padding-block: 56px 72px;
+  border-top: 1px solid var(--line);
+}
+.questions details {
+  border-bottom: 1px solid var(--line);
+}
+.questions summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  min-height: 60px;
+  padding-block: 18px;
+  font-size: 16px;
+  font-weight: 500;
+  list-style: none;
+  cursor: pointer;
+}
+.questions details:first-child summary {
+  padding-top: 4px;
+}
+.questions summary::-webkit-details-marker {
+  display: none;
+}
+.questions summary svg {
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.questions details[open] summary svg {
+  transform: rotate(180deg);
+}
+.questions details > p {
+  padding-bottom: 24px;
+  color: var(--muted);
+  font-size: 16px;
+}
+.footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px 32px;
+  border-top: 1px solid var(--line);
+  padding-block: 24px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.footer a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .desktopNav {
+    gap: 18px;
+  }
+  .heroIntro {
+    gap: 32px;
+  }
+  .hero h1 {
+    font-size: 56px;
+  }
+  .heroCopy > p:first-child {
+    font-size: 16px;
+  }
+  .fundSummary,
+  .activity {
+    padding: 24px;
+  }
+  .activityRow {
+    gap: 12px;
+  }
+  .fundModels {
+    gap: 32px;
+  }
+  .steps {
+    gap: 24px;
+  }
+  .faq {
+    grid-template-columns: 0.6fr 1.4fr;
+    gap: 32px;
+  }
+}
+@media (max-width: 760px) {
+  .container,
+  .navbar {
+    width: calc(100% - 40px);
+  }
+  .navbar {
+    min-height: 72px;
+    gap: 16px;
+  }
+  .desktopNav {
+    display: none;
+  }
+  .mobileMenu {
+    display: block;
+  }
+  .mobileMenu summary {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .mobileMenu summary::-webkit-details-marker {
+    display: none;
+  }
+  .mobileMenu nav {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    padding: 8px;
+    border: 1px solid #394152;
+    border-radius: 8px;
+    background: #151c29;
+    box-shadow: 0 16px 32px #0005;
+  }
+  .mobileMenu nav a {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    padding: 10px 14px;
+    font-size: 16px;
+  }
+  .mobileMenu nav a:hover {
+    background: #252e3d;
+  }
+  .hero {
+    padding-top: 44px;
+    padding-bottom: 40px;
+  }
+  .heroIntro {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .hero h1 {
+    font-size: 54px;
+  }
+  .heroCopy > p:first-child {
+    max-width: 480px;
+  }
+  .heroPreview {
+    margin-top: 32px;
+  }
+  .appBody {
+    grid-template-columns: 1fr;
+  }
+  .fundSummary {
+    border-right: 0;
+    border-bottom: 1px solid #2b3340;
+  }
+  .activityRow {
+    gap: 24px;
+  }
+  .fundsSection,
+  .workflow {
+    padding-block: 40px;
+  }
+  .fundModels {
+    gap: 28px;
+  }
+  .steps {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .steps li {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    column-gap: 16px;
+  }
+  .steps li > span {
+    grid-row: 1/3;
+    padding-top: 3px;
+  }
+  .steps h3 {
+    margin-top: 0;
+  }
+  .steps p {
+    grid-column: 2;
+  }
+  .faq {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding-block: 40px;
+  }
+}
+@media (max-width: 480px) {
+  .container,
+  .navbar {
+    width: calc(100% - 32px);
+  }
+  .navbar {
+    gap: 12px;
+    min-height: 68px;
+  }
+  .headerActions {
+    gap: 10px;
+  }
+  .loginLink {
+    font-size: 14px;
+  }
+  .loginLink svg {
+    display: none;
+  }
+  .hero {
+    padding-top: 36px;
+  }
+  .hero h1 {
+    font-size: 48px;
+  }
+  .heroIntro {
+    gap: 20px;
+  }
+  .primaryButton {
+    margin-top: 20px;
+    width: 100%;
+    justify-content: space-between;
+  }
+  .networkNote {
+    font-size: 14px;
+  }
+  .previewTabs {
+    gap: 24px;
+    margin-bottom: 16px;
+  }
+  .previewTabs button {
+    font-size: 14px;
+  }
+  .appTopbar {
+    padding: 14px 18px;
+    gap: 8px;
+  }
+  .appTopbar strong {
+    font-size: 12px;
+  }
+  .workspaceIcon {
+    width: 26px;
+    height: 26px;
+  }
+  .previewLabel {
+    font-size: 8px;
+  }
+  .fundSummary,
+  .activity {
+    padding: 20px;
+  }
+  .fundSummary h3 {
+    font-size: 16px;
+  }
+  .balance > p {
+    font-size: 44px;
+  }
+  .reservation {
+    font-size: 11px;
+  }
+  .activityRow {
+    gap: 12px;
+  }
+  .activityRow strong {
+    font-size: 12px;
+  }
+  .activityRow p {
+    font-size: 13px;
+  }
+  .activityRow p > span {
+    font-size: 9px;
+  }
+  .page h2 {
+    font-size: 25px;
+  }
+  .fundModels {
+    grid-template-columns: 1fr;
+    margin-top: 28px;
+  }
+  .fundModels article {
+    padding-left: 16px;
+  }
+  .fundModels h3 {
+    font-size: 18px;
+  }
+  .footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+@media (max-width: 359px) {
+  .hero h1 {
+    font-size: 44px;
+  }
+  .headerActions {
+    gap: 6px;
+  }
+  .navbar {
+    gap: 8px;
+  }
+  .appTopbar {
+    padding-inline: 14px;
+  }
+  .fundSummary,
+  .activity {
+    padding-inline: 16px;
+  }
+  .previewLabel {
+    letter-spacing: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page *,
+  .page *::before,
+  .page *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
