@@ -19,9 +19,11 @@ interface Props {
     params: CreateFundParams,
   ) => Promise<{ success: boolean; error?: string }>;
 }
+
 export function CreateFundModal(props: Props) {
   return props.isOpen ? <CreateForm {...props} /> : null;
 }
+
 function CreateForm({ onClose, onCreateFund }: Props) {
   const { linkedWallet, user } = useAuth();
   const { currentWorkspace } = useFamily();
@@ -31,6 +33,8 @@ function CreateForm({ onClose, onCreateFund }: Props) {
       name: "",
       description: "",
       kind: "OPERATING" as GroupFundKind,
+      custodyType: "ONCHAIN_V2" as "ONCHAIN_V2" | "SHARED_TREASURY",
+      dailyLimit: "10",
       target: "",
       deadline: "",
       selected: [] as string[],
@@ -45,6 +49,10 @@ function CreateForm({ onClose, onCreateFund }: Props) {
   const [name, setName] = useState(saved.name);
   const [description, setDescription] = useState(saved.description);
   const [kind, setKind] = useState<GroupFundKind>(saved.kind);
+  const [custodyType, setCustodyType] = useState<"ONCHAIN_V2" | "SHARED_TREASURY">(
+    saved.custodyType || "ONCHAIN_V2"
+  );
+  const [dailyLimit, setDailyLimit] = useState(saved.dailyLimit || "10");
   const [target, setTarget] = useState(saved.target);
   const [deadline, setDeadline] = useState(saved.deadline);
   const [roster, setRoster] = useState<
@@ -55,10 +63,13 @@ function CreateForm({ onClose, onCreateFund }: Props) {
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
   const currentDraft = {
     name,
     description,
     kind,
+    custodyType,
+    dailyLimit,
     target,
     deadline,
     selected,
@@ -66,9 +77,11 @@ function CreateForm({ onClose, onCreateFund }: Props) {
     requestKey: requestKey.current,
     fingerprint: fingerprint.current,
   };
+
   useEffect(() => {
     saveGroupDraft(draftKey, currentDraft);
-  }, [draftKey, name, description, kind, target, deadline, selected, quorum]);
+  }, [draftKey, name, description, kind, custodyType, dailyLimit, target, deadline, selected, quorum]);
+
   useEffect(() => {
     let live = true;
     void authRequest(`/api/groups/${currentWorkspace?.id}`, undefined, "GET")
@@ -82,10 +95,16 @@ function CreateForm({ onClose, onCreateFund }: Props) {
       live = false;
     };
   }, [currentWorkspace?.id]);
+
   const next = () => {
     setError("");
     try {
       if (step === 1 && !name.trim()) throw new Error("Nhập tên quỹ.");
+      if (step === 1 && kind === "OPERATING") {
+        if (!dailyLimit || Number(dailyLimit) <= 0) {
+          throw new Error("Nhập hạn mức chi tiêu theo ngày hợp lệ.");
+        }
+      }
       if (step === 1 && kind === "GOAL") {
         groupAmount(target);
         if (!deadline || new Date(deadline).getTime() <= Date.now())
@@ -100,6 +119,7 @@ function CreateForm({ onClose, onCreateFund }: Props) {
       setError((err as Error).message);
     }
   };
+
   return (
     <FinanceDialog title="Tạo quỹ chung" onClose={onClose} busy={busy}>
       <form
@@ -120,6 +140,8 @@ function CreateForm({ onClose, onCreateFund }: Props) {
               name,
               description,
               kind,
+              custodyType,
+              dailyLimit,
               target,
               deadline,
               selected,
@@ -138,15 +160,18 @@ function CreateForm({ onClose, onCreateFund }: Props) {
               name,
               description,
               fundType: kind,
-              custodyType: "SHARED_TREASURY",
-              treasuryWalletAddress: linkedWallet.address,
+              custodyType: custodyType as any,
+              treasuryWalletAddress:
+                custodyType === "SHARED_TREASURY" ? linkedWallet.address : undefined,
               idempotencyKey: requestKey.current,
               guardianWallets: selected,
               requiredApprovals: quorum,
+              fastWithdrawLimitAvax: kind === "OPERATING" ? dailyLimit : undefined,
+              dailyLimitAvax: kind === "OPERATING" ? dailyLimit : undefined,
               targetAmountAvax: kind === "GOAL" ? target : undefined,
               targetDeadline:
                 kind === "GOAL" ? new Date(deadline).toISOString() : undefined,
-            });
+            } as any);
             if (result.success) {
               clearGroupDraft(draftKey);
               onClose();
@@ -166,6 +191,24 @@ function CreateForm({ onClose, onCreateFund }: Props) {
         )}
         {step === 1 && (
           <>
+            <label>
+              Mô hình lưu ký quỹ
+              <select
+                value={custodyType}
+                onChange={(event) =>
+                  setCustodyType(
+                    event.target.value as "ONCHAIN_V2" | "SHARED_TREASURY"
+                  )
+                }
+              >
+                <option value="ONCHAIN_V2">
+                  Quỹ Hợp Đồng On-Chain V2 (Tự động hóa qua Smart Contract)
+                </option>
+                <option value="SHARED_TREASURY">
+                  Quỹ Ví Cá Nhân (Shared Treasury)
+                </option>
+              </select>
+            </label>
             <label>
               Mẫu quỹ
               <select
@@ -195,6 +238,21 @@ function CreateForm({ onClose, onCreateFund }: Props) {
                 maxLength={500}
               />
             </label>
+            {kind === "OPERATING" && (
+              <label>
+                Hạn mức chi theo ngày (Daily Limit AVAX)
+                <input
+                  inputMode="decimal"
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  value={dailyLimit}
+                  onChange={(event) => setDailyLimit(event.target.value)}
+                  placeholder="10"
+                  required
+                />
+              </label>
+            )}
             {kind === "GOAL" && (
               <>
                 <label>
@@ -222,7 +280,11 @@ function CreateForm({ onClose, onCreateFund }: Props) {
         {step === 2 && (
           <>
             <fieldset>
-              <legend>Người duyệt có ví đã liên kết</legend>
+              <legend>
+                {custodyType === "ONCHAIN_V2"
+                  ? "Người duyệt & người ký On-Chain (Multisig)"
+                  : "Người duyệt có ví đã liên kết"}
+              </legend>
               {roster
                 .filter((person) => person.walletAddress)
                 .map((person) => (
@@ -252,7 +314,7 @@ function CreateForm({ onClose, onCreateFund }: Props) {
                 ))}
             </fieldset>
             <label>
-              Số người cần duyệt
+              Số người cần duyệt (Quorum)
               <input
                 type="number"
                 min={1}
@@ -272,14 +334,30 @@ function CreateForm({ onClose, onCreateFund }: Props) {
             <dl>
               <dt>Quỹ</dt>
               <dd>{name}</dd>
+              <dt>Mô hình lưu ký</dt>
+              <dd>
+                {custodyType === "ONCHAIN_V2"
+                  ? "Quỹ Hợp Đồng On-Chain V2 (KinetixFundV2)"
+                  : "Quỹ Ví Cá Nhân (Shared Treasury)"}
+              </dd>
               <dt>Tài sản và mạng</dt>
-              <dd>AVAX · Avalanche Fuji · Phí mạng do ví gửi trả</dd>
-              <dt>Ví giữ tiền</dt>
-              <dd>{linkedWallet?.address || "Chưa liên kết ví"}</dd>
-              <dt>Duyệt chi trong ứng dụng</dt>
+              <dd>AVAX · Avalanche Fuji (Chain ID 43113)</dd>
+              {custodyType === "SHARED_TREASURY" && (
+                <>
+                  <dt>Ví giữ tiền</dt>
+                  <dd>{linkedWallet?.address || "Chưa liên kết ví"}</dd>
+                </>
+              )}
+              <dt>Ngưỡng duyệt chi</dt>
               <dd>
                 {quorum}/{selected.length} người duyệt
               </dd>
+              {kind === "OPERATING" && (
+                <>
+                  <dt>Hạn mức chi ngày (UTC)</dt>
+                  <dd>{dailyLimit} AVAX</dd>
+                </>
+              )}
               {kind === "GOAL" && (
                 <>
                   <dt>Mục tiêu / hạn góp</dt>
@@ -289,18 +367,22 @@ function CreateForm({ onClose, onCreateFund }: Props) {
                 </>
               )}
             </dl>
-            <p className="finance-notice">
-              Tiền nằm trong ví cá nhân đã công bố. Chủ ví vẫn kiểm soát tiền;
-              phiếu duyệt trong ứng dụng không tạo multisig on-chain. Số dư quỹ
-              là sổ khoản góp đã đối soát, có thể khác số dư ví.
-            </p>
-            <p>
-              {kind === "GOAL"
-                ? "Ứng dụng chỉ cho đề nghị chi khi đạt mục tiêu. Hết hạn chưa đạt không tự hoàn tiền; cần người giữ tiền xử lý và đối soát. "
-                : "Quỹ hoạt động không có quyền rút lại khoản góp tự động. "}
-              Tiền góp không tạo quyền sở hữu theo tỷ lệ. Bàn giao, đổi chính
-              sách và đóng quỹ chưa được hỗ trợ ở adapter này.
-            </p>
+            {custodyType === "ONCHAIN_V2" ? (
+              <p className="finance-notice">
+                Quỹ On-Chain V2 giữ tiền trực tiếp trên Smart Contract độc lập.
+                Mọi khoản chi vượt hạn mức hoặc thay đổi chính sách yêu cầu ký
+                duyệt đa chữ ký (multisig) on-chain theo đúng ngưỡng đã thiết lập.
+                {kind === "GOAL"
+                  ? " Nếu mục tiêu không đạt trước hạn chót, thành viên có quyền rút lại 100% tiền đã góp trực tiếp từ smart contract."
+                  : " Quỹ hoạt động tuân thủ hạn mức chi theo ngày và giải ngân minh bạch."}
+              </p>
+            ) : (
+              <p className="finance-notice">
+                Tiền nằm trong ví cá nhân đã công bố. Chủ ví vẫn kiểm soát tiền;
+                phiếu duyệt trong ứng dụng không tạo multisig on-chain. Số dư quỹ
+                là sổ khoản góp đã đối soát, có thể khác số dư ví.
+              </p>
+            )}
             <label className="finance-choice">
               <input
                 type="checkbox"
@@ -308,8 +390,7 @@ function CreateForm({ onClose, onCreateFund }: Props) {
                 onChange={(event) => setAccepted(event.target.checked)}
               />
               <span>
-                Tôi hiểu và chấp nhận các điều khoản lưu ký, chi và hoàn tiền
-                trên.
+                Tôi hiểu và chấp nhận các điều khoản lưu ký, chi và quản trị quỹ trên.
               </span>
             </label>
           </>
