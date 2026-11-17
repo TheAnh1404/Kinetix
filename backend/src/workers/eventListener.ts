@@ -180,9 +180,24 @@ const groupTick = async () => {
 };
 void groupTick();
 const groupTimer = setInterval(() => void groupTick(), 15000);
+
+// V2 On-Chain Funds Indexer: 15-second tick for syncing smart contract V2 funds
+import { syncV2Funds } from "../services/fundV2IndexerService";
+let v2Running = false;
+const v2IndexerTick = async () => {
+  if (v2Running) return;
+  v2Running = true;
+  try { await syncV2Funds(); }
+  catch (error) { console.error("V2 funds indexer reconciliation unavailable; retrying next poll.", error); }
+  finally { v2Running = false; }
+};
+void v2IndexerTick();
+const v2Timer = setInterval(() => void v2IndexerTick(), 15000);
+
 const stopTreasury = () => {
   clearInterval(treasuryTimer);
   clearInterval(groupTimer);
+  clearInterval(v2Timer);
   void pool.end().finally(() => process.exit(0));
   setTimeout(() => process.exit(0), 5000).unref();
 };

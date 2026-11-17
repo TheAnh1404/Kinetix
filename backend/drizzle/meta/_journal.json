@@ -148,6 +148,13 @@
       "when": 1793901500000,
       "tag": "0019_group_finance_transfers",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1793901600000,
+      "tag": "0020_onchain_fund_v2",
+      "breakpoints": true
     }
   ]
 }

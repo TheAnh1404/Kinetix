@@ -23,6 +23,15 @@ import {
   submitGroupTransfer,
   resolveGroupTransfer,
   exportGroupReport,
+  registerOnchainFund,
+  getFundGovernance,
+  getRefundEligibility,
+  syncV2Expense,
+  proposeGovernancePolicy,
+  proposeGovernanceAction,
+  approveGovernance,
+  executeGovernance,
+  recordRefundClaim,
 } from "../services/groupFinanceService";
 
 export const groupFinanceRouter = Router();
@@ -124,6 +133,127 @@ groupFinanceRouter.get("/workspaces/:id/funds/:fundId", getFundDetailHandler);
 
 groupFinanceRouter.patch("/groups/:groupId/funds/:fundId/policy", updatePolicyHandler);
 groupFinanceRouter.patch("/workspaces/:id/funds/:fundId/policy", updatePolicyHandler);
+
+const registerOnchainFundHandler = endpoint(async (req, res) => {
+  const groupId = req.params.groupId || req.params.id || req.body.groupId || req.body.workspaceId;
+  const data = await registerOnchainFund(req.auth!, groupId, req.body);
+  res.json({ success: true, data });
+});
+
+groupFinanceRouter.post("/funds/register-onchain", registerOnchainFundHandler);
+groupFinanceRouter.post("/groups/:groupId/funds/register-onchain", registerOnchainFundHandler);
+groupFinanceRouter.post("/workspaces/:id/funds/register-onchain", registerOnchainFundHandler);
+
+const getGovernanceHandler = endpoint(async (req, res) => {
+  const data = await getFundGovernance(
+    req.auth!,
+    req.params.groupId || req.params.id || req.params.fundId,
+    req.params.groupId || req.params.id ? req.params.fundId : (req.query as any),
+    req.params.groupId || req.params.id ? (req.query as any) : undefined,
+  );
+  res.json({ success: true, data });
+});
+
+groupFinanceRouter.get("/funds/:fundId/governance", getGovernanceHandler);
+groupFinanceRouter.get("/groups/:groupId/funds/:fundId/governance", getGovernanceHandler);
+groupFinanceRouter.get("/workspaces/:id/funds/:fundId/governance", getGovernanceHandler);
+
+const proposePolicyHandler = endpoint(async (req, res) => {
+  const data = await proposeGovernancePolicy(
+    req.auth!,
+    req.params.groupId || req.params.id || req.params.fundId,
+    req.params.groupId || req.params.id ? req.params.fundId : req.body,
+    req.params.groupId || req.params.id ? req.body : undefined,
+  );
+  res.json({ success: true, data });
+});
+
+groupFinanceRouter.post("/funds/:fundId/governance/propose-policy", proposePolicyHandler);
+groupFinanceRouter.post("/groups/:groupId/funds/:fundId/governance/propose-policy", proposePolicyHandler);
+groupFinanceRouter.post("/workspaces/:id/funds/:fundId/governance/propose-policy", proposePolicyHandler);
+
+const proposeActionHandler = endpoint(async (req, res) => {
+  const data = await proposeGovernanceAction(
+    req.auth!,
+    req.params.groupId || req.params.id || req.params.fundId,
+    req.params.groupId || req.params.id ? req.params.fundId : req.body,
+    req.params.groupId || req.params.id ? req.body : undefined,
+  );
+  res.json({ success: true, data });
+});
+
+groupFinanceRouter.post("/funds/:fundId/governance/propose-action", proposeActionHandler);
+groupFinanceRouter.post("/groups/:groupId/funds/:fundId/governance/propose-action", proposeActionHandler);
+groupFinanceRouter.post("/workspaces/:id/funds/:fundId/governance/propose-action", proposeActionHandler);
+
+const approveGovernanceHandler = endpoint(async (req, res) => {
+  const data = await approveGovernance(
+    req.auth!,
+    req.params.groupId || req.params.id || req.params.fundId,
+    req.params.groupId || req.params.id ? req.params.fundId : req.params.proposalId,
+    req.params.groupId || req.params.id ? req.params.proposalId : undefined,
+  );
+  res.json({ success: true, data });
+});
+
+groupFinanceRouter.post("/funds/:fundId/governance/:proposalId/approve", approveGovernanceHandler);
+groupFinanceRouter.post("/groups/:groupId/funds/:fundId/governance/:proposalId/approve", approveGovernanceHandler);
+groupFinanceRouter.post("/workspaces/:id/funds/:fundId/governance/:proposalId/approve", approveGovernanceHandler);
+
+const executeGovernanceHandler = endpoint(async (req, res) => {
+  const data = await executeGovernance(
+    req.auth!,
+    req.params.groupId || req.params.id || req.params.fundId,
+    req.params.groupId || req.params.id ? req.params.fundId : req.params.proposalId,
+    req.params.groupId || req.params.id ? req.params.proposalId : undefined,
+  );
+  res.json({ success: true, data });
+});
+
+groupFinanceRouter.post("/funds/:fundId/governance/:proposalId/execute", executeGovernanceHandler);
+groupFinanceRouter.post("/groups/:groupId/funds/:fundId/governance/:proposalId/execute", executeGovernanceHandler);
+groupFinanceRouter.post("/workspaces/:id/funds/:fundId/governance/:proposalId/execute", executeGovernanceHandler);
+
+const getRefundEligibilityHandler = endpoint(async (req, res) => {
+  const data = await getRefundEligibility(
+    req.auth!,
+    req.params.groupId || req.params.id || req.params.fundId,
+    req.params.groupId || req.params.id ? req.params.fundId : undefined,
+  );
+  res.json({ success: true, data });
+});
+
+groupFinanceRouter.get("/funds/:fundId/refund-eligibility", getRefundEligibilityHandler);
+groupFinanceRouter.get("/groups/:groupId/funds/:fundId/refund-eligibility", getRefundEligibilityHandler);
+groupFinanceRouter.get("/workspaces/:id/funds/:fundId/refund-eligibility", getRefundEligibilityHandler);
+
+const claimRefundHandler = endpoint(async (req, res) => {
+  const data = await recordRefundClaim(
+    req.auth!,
+    req.params.groupId || req.params.id || req.params.fundId,
+    req.params.groupId || req.params.id ? req.params.fundId : req.body,
+    req.params.groupId || req.params.id ? req.body : undefined,
+  );
+  res.json({ success: true, data });
+});
+
+groupFinanceRouter.post("/funds/:fundId/refund", claimRefundHandler);
+groupFinanceRouter.post("/groups/:groupId/funds/:fundId/refund", claimRefundHandler);
+groupFinanceRouter.post("/workspaces/:id/funds/:fundId/refund", claimRefundHandler);
+
+const syncV2ExpenseHandler = endpoint(async (req, res) => {
+  const data = await syncV2Expense(
+    req.auth!,
+    req.params.groupId || req.params.id || req.params.fundId,
+    req.params.groupId || req.params.id ? req.params.fundId : req.body,
+    req.params.groupId || req.params.id ? req.body : undefined,
+  );
+  res.json({ success: true, data });
+});
+
+groupFinanceRouter.post("/funds/:fundId/sync-v2-expense", syncV2ExpenseHandler);
+groupFinanceRouter.post("/groups/:groupId/funds/:fundId/sync-v2-expense", syncV2ExpenseHandler);
+groupFinanceRouter.post("/workspaces/:id/funds/:fundId/sync-v2-expense", syncV2ExpenseHandler);
 
 // =================================================================
 // 3. ĐÓNG GÓP & NGHĨA VỤ (CONTRIBUTIONS & OBLIGATIONS)

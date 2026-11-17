@@ -1138,6 +1138,12 @@ export const groupFunds = pgTable(
     onchainVaultId: integer("onchain_vault_id"),
     onchainVaultAddress: varchar("onchain_vault_address", { length: 42 }),
     treasuryWalletAddress: varchar("treasury_wallet_address", { length: 42 }),
+    contractAddress: varchar("contract_address", { length: 42 }),
+    factoryAddress: varchar("factory_address", { length: 42 }),
+    policyEpoch: integer("policy_epoch").default(0).notNull(),
+    termsHash: varchar("terms_hash", { length: 66 }),
+    goalReached: boolean("goal_reached").default(false).notNull(),
+    isPaused: boolean("is_paused").default(false).notNull(),
     balanceWei: decimal("balance_wei", { precision: 78, scale: 0 })
       .default("0")
       .notNull(),
@@ -1164,6 +1170,9 @@ export const groupFunds = pgTable(
   },
   (table) => ({
     workspaceIdx: index("group_funds_workspace_idx").on(table.workspaceId),
+    contractAddressIdx: index("group_funds_contract_idx").on(
+      table.contractAddress,
+    ),
   }),
 );
 
@@ -1323,6 +1332,7 @@ export const expenseRequests = pgTable(
     receiptAttachmentHash: text("receipt_attachment_hash"),
     approvalsCount: integer("approvals_count").default(0).notNull(),
     requiredApprovals: integer("required_approvals").default(2).notNull(),
+    onchainExpenseId: integer("onchain_expense_id"),
     idempotencyKey: varchar("idempotency_key", { length: 64 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -1335,6 +1345,10 @@ export const expenseRequests = pgTable(
     fundStatusIdx: index("expense_requests_fund_status_idx").on(
       table.fundId,
       table.status,
+    ),
+    onchainExpenseIdx: index("expense_requests_onchain_idx").on(
+      table.fundId,
+      table.onchainExpenseId,
     ),
     idempotencyUnique: uniqueIndex("expense_requests_idempotency_unique")
       .on(table.fundId, table.idempotencyKey)
@@ -1439,18 +1453,140 @@ export const groupAuditEvents = pgTable(
   }),
 );
 
+/**
+ * @notice Bảng Đề xuất Chính sách Timelock (Fund Policy Proposals)
+ */
+export const fundPolicyProposals = pgTable(
+  "fund_policy_proposals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fundId: uuid("fund_id")
+      .references(() => groupFunds.id, { onDelete: "cascade" })
+      .notNull(),
+    onchainProposalId: integer("onchain_proposal_id").notNull(),
+    proposerAddress: varchar("proposer_address", { length: 42 }).notNull(),
+    quorum: integer("quorum").notNull(),
+    dailyLimitWei: decimal("daily_limit_wei", { precision: 78, scale: 0 }).notNull(),
+    termsHash: varchar("terms_hash", { length: 66 }).notNull(),
+    timelockEndsAt: timestamp("timelock_ends_at", { withTimezone: true }),
+    status: varchar("status", { length: 20 }).default("PENDING").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    fundIdx: index("fund_policy_proposals_fund_idx").on(table.fundId),
+    proposalUnique: uniqueIndex("fund_policy_proposal_unique").on(
+      table.fundId,
+      table.onchainProposalId,
+    ),
+  }),
+);
+
+/**
+ * @notice Bảng Hành động Quản trị On-chain (Fund Governance Actions)
+ */
+export const fundGovernanceActions = pgTable(
+  "fund_governance_actions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fundId: uuid("fund_id")
+      .references(() => groupFunds.id, { onDelete: "cascade" })
+      .notNull(),
+    onchainProposalId: integer("onchain_proposal_id").notNull(),
+    action: varchar("action", { length: 20 }).notNull(), // 'POLICY' | 'PAUSE' | 'RESUME' | 'CLOSE' | 'SURPLUS'
+    proposerAddress: varchar("proposer_address", { length: 42 }).notNull(),
+    epoch: integer("epoch").default(0).notNull(),
+    commitment: varchar("commitment", { length: 66 }),
+    approvalsCount: integer("approvals_count").default(0).notNull(),
+    readyAt: timestamp("ready_at", { withTimezone: true }),
+    status: varchar("status", { length: 20 }).default("PENDING").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    fundIdx: index("fund_gov_actions_fund_idx").on(table.fundId),
+    proposalUnique: uniqueIndex("fund_gov_action_unique").on(
+      table.fundId,
+      table.onchainProposalId,
+    ),
+  }),
+);
+
+/**
+ * @notice Bảng Rút Hoàn Tiền Mục Tiêu (Fund Refund Claims)
+ */
+export const fundRefundClaims = pgTable(
+  "fund_refund_claims",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fundId: uuid("fund_id")
+      .references(() => groupFunds.id, { onDelete: "cascade" })
+      .notNull(),
+    claimantAddress: varchar("claimant_address", { length: 42 }).notNull(),
+    amountWei: decimal("amount_wei", { precision: 78, scale: 0 }).notNull(),
+    txHash: varchar("tx_hash", { length: 66 }).notNull(),
+    claimedAt: timestamp("claimed_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    fundIdx: index("fund_refund_claims_fund_idx").on(table.fundId),
+    txHashUnique: uniqueIndex("fund_refund_claims_tx_hash_unique").on(
+      table.txHash,
+    ),
+  }),
+);
+
 export const groupFundsRelations = relations(groupFunds, ({ one, many }) => ({
   workspace: one(workspaces, {
     fields: [groupFunds.workspaceId],
     references: [workspaces.id],
   }),
   policies: many(fundPolicies),
+  policyProposals: many(fundPolicyProposals),
+  governanceActions: many(fundGovernanceActions),
+  refundClaims: many(fundRefundClaims),
   obligations: many(contributionObligations),
   contributions: many(contributions),
   expenses: many(expenseRequests),
   payments: many(payments),
   auditEvents: many(groupAuditEvents),
 }));
+
+export const fundPolicyProposalsRelations = relations(
+  fundPolicyProposals,
+  ({ one }) => ({
+    fund: one(groupFunds, {
+      fields: [fundPolicyProposals.fundId],
+      references: [groupFunds.id],
+    }),
+  }),
+);
+
+export const fundGovernanceActionsRelations = relations(
+  fundGovernanceActions,
+  ({ one }) => ({
+    fund: one(groupFunds, {
+      fields: [fundGovernanceActions.fundId],
+      references: [groupFunds.id],
+    }),
+  }),
+);
+
+export const fundRefundClaimsRelations = relations(
+  fundRefundClaims,
+  ({ one }) => ({
+    fund: one(groupFunds, {
+      fields: [fundRefundClaims.fundId],
+      references: [groupFunds.id],
+    }),
+  }),
+);
 
 export const fundPoliciesRelations = relations(fundPolicies, ({ one }) => ({
   fund: one(groupFunds, {
@@ -1516,4 +1652,10 @@ export type Payment = InferSelectModel<typeof payments>;
 export type NewPayment = InferInsertModel<typeof payments>;
 export type GroupAuditEvent = InferSelectModel<typeof groupAuditEvents>;
 export type NewGroupAuditEvent = InferInsertModel<typeof groupAuditEvents>;
+export type FundPolicyProposal = InferSelectModel<typeof fundPolicyProposals>;
+export type NewFundPolicyProposal = InferInsertModel<typeof fundPolicyProposals>;
+export type FundGovernanceAction = InferSelectModel<typeof fundGovernanceActions>;
+export type NewFundGovernanceAction = InferInsertModel<typeof fundGovernanceActions>;
+export type FundRefundClaim = InferSelectModel<typeof fundRefundClaims>;
+export type NewFundRefundClaim = InferInsertModel<typeof fundRefundClaims>;
 

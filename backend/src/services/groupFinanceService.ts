@@ -20,6 +20,9 @@ import {
   userWallets,
   groupFunds as funds,
   fundPolicies,
+  fundPolicyProposals,
+  fundGovernanceActions,
+  fundRefundClaims,
   contributionObligations,
   contributions,
   expenseRequests,
@@ -28,6 +31,7 @@ import {
   groupAuditEvents,
   groupTransferIntents as intents,
 } from "../db";
+import { syncSingleV2Fund } from "./fundV2IndexerService";
 import { AuthContext, membership, createInvitation } from "../auth/service";
 import { assert, textInput, uuidInput } from "../auth/security";
 import { requireWorkspaceWrites } from "./familyAccess";
@@ -288,8 +292,10 @@ export async function listGroupFunds(auth: AuthContext, groupId: string) {
         ).toString(),
         policy: await policyFor(tx, fund.id),
         canPay:
-          fund.custodyType === "SHARED_TREASURY" &&
-          fund.treasuryWalletAddress === auth.wallet?.address.toLowerCase(),
+          fund.custodyType === "ONCHAIN_V2"
+            ? Boolean(auth.wallet?.address)
+            : fund.custodyType === "SHARED_TREASURY" &&
+              fund.treasuryWalletAddress === auth.wallet?.address?.toLowerCase(),
       })),
     );
   });
@@ -313,6 +319,19 @@ export async function createGroupFund(
 ) {
   const wsId = uuidInput(groupId),
     custody = walletOf(auth);
+  if (body.custodyType === "ONCHAIN_V2") {
+    const contractAddr = (body as any).contractAddress || body.treasuryWalletAddress;
+    assert(
+      contractAddr,
+      400,
+      "Vui lòng cung cấp địa chỉ hợp đồng On-chain đã tạo qua Factory.",
+    );
+    return await registerOnchainFund(auth, groupId, {
+      ...body,
+      contractAddress: contractAddr,
+      dailyLimitWei: body.fastWithdrawLimitWei,
+    });
+  }
   assert(
     body.custodyType === "SHARED_TREASURY",
     409,
@@ -955,8 +974,11 @@ export async function listFundExpenses(
           request.deadline.getTime() > Date.now() &&
           !approvals.some(({ vote }) => vote.approverAddress === caller),
         canPay:
-          caller === fund.treasuryWalletAddress &&
-          ["APPROVED", "PAYMENT_PENDING"].includes(request.status),
+          fund.custodyType === "ONCHAIN_V2"
+            ? ["APPROVED", "PAYMENT_PENDING"].includes(request.status) &&
+              Boolean(caller)
+            : caller === fund.treasuryWalletAddress &&
+              ["APPROVED", "PAYMENT_PENDING"].includes(request.status),
       };
     }),
   );
@@ -1516,5 +1538,860 @@ export async function exportGroupReport(
       from: from.toISOString(),
       to: to.toISOString(),
     };
+  });
+}
+
+// =================================================================
+// 7. QUẢN TRỊ ON-CHAIN V2 & HOÀN TIỀN (ON-CHAIN V2 GOVERNANCE & REFUNDS)
+// =================================================================
+
+export async function registerOnchainFund(
+  auth: AuthContext,
+  groupId: string | undefined,
+  body: {
+    workspaceId?: string;
+    groupId?: string;
+    name: string;
+    description?: string;
+    fundType: "OPERATING" | "GOAL";
+    contractAddress: string;
+    factoryAddress?: string;
+    termsHash?: string;
+    guardianWallets: string[];
+    requiredApprovals: number;
+    dailyLimitWei?: string;
+    targetAmountWei?: string;
+    targetDeadline?: string;
+    txHash?: string;
+  },
+) {
+  const targetWsId = groupId || body.groupId || body.workspaceId;
+  assert(targetWsId, 400, "Cần mã không gian (groupId hoặc workspaceId).");
+  const wsId = uuidInput(targetWsId);
+  const callerWallet = walletOf(auth);
+  const contractAddr = address(body.contractAddress);
+
+  assert(
+    ["OPERATING", "GOAL"].includes(body.fundType),
+    400,
+    "Mẫu quỹ không hợp lệ.",
+  );
+  assert(
+    Array.isArray(body.guardianWallets) && body.guardianWallets.length >= 1,
+    400,
+    "Cần chọn người duyệt.",
+  );
+  const signers = body.guardianWallets.map(address);
+  assert(
+    Number.isInteger(body.requiredApprovals) &&
+      body.requiredApprovals >= 1 &&
+      body.requiredApprovals <= signers.length,
+    400,
+    "Ngưỡng duyệt phải từ 1 đến tổng số người duyệt.",
+  );
+
+  const target =
+    body.fundType === "GOAL" && body.targetAmountWei
+      ? toWeiString(body.targetAmountWei)
+      : "0";
+  const deadline =
+    body.fundType === "GOAL" && body.targetDeadline
+      ? new Date(body.targetDeadline)
+      : null;
+  const name = textInput(body.name, 100);
+  const description = body.description ? textInput(body.description, 500) : "";
+  const dailyLimit = body.dailyLimitWei ? toWeiString(body.dailyLimitWei) : "0";
+
+  return db.transaction(async (tx) => {
+    await lock(tx);
+    await membership(tx, auth, wsId);
+    await requireWorkspaceWrites(tx, wsId);
+
+    // Kiểm tra xem contract này đã được đăng ký trong workspace chưa
+    const [existing] = await tx
+      .select()
+      .from(funds)
+      .where(
+        and(eq(funds.workspaceId, wsId), eq(funds.contractAddress, contractAddr)),
+      )
+      .limit(1);
+
+    if (existing) {
+      return {
+        ...existing,
+        availableWei: (
+          BigInt(existing.balanceWei) - BigInt(existing.reservedWei)
+        ).toString(),
+        policy: await policyFor(tx, existing.id),
+      };
+    }
+
+    const [fund] = await tx
+      .insert(funds)
+      .values({
+        workspaceId: wsId,
+        name,
+        description,
+        fundType: body.fundType,
+        custodyType: "ONCHAIN_V2",
+        contractAddress: contractAddr,
+        factoryAddress: body.factoryAddress ? address(body.factoryAddress) : null,
+        policyEpoch: 0,
+        termsHash: body.termsHash || null,
+        goalReached: false,
+        isPaused: false,
+        balanceWei: "0",
+        reservedWei: "0",
+        status: "ACTIVE",
+        targetAmountWei: target,
+        targetDeadline: deadline,
+        createdBy: auth.user.id,
+      })
+      .returning();
+
+    const [policy] = await tx
+      .insert(fundPolicies)
+      .values({
+        fundId: fund.id,
+        version: 0,
+        signers,
+        quorum: body.requiredApprovals,
+        fastWithdrawLimitWei: dailyLimit,
+      })
+      .returning();
+
+    await recordAuditEvent(tx, {
+      workspaceId: wsId,
+      fundId: fund.id,
+      actorUserId: auth.user.id,
+      actorWallet: callerWallet,
+      action: "REGISTER_ONCHAIN_FUND_V2",
+      metadataDiff: {
+        contractAddress: contractAddr,
+        factoryAddress: body.factoryAddress || null,
+        fundType: body.fundType,
+        signers,
+        quorum: body.requiredApprovals,
+        txHash: body.txHash || null,
+      },
+    });
+
+    // Kích hoạt đồng bộ tức thời
+    void syncSingleV2Fund(fund.id).catch(() => {});
+
+    return {
+      ...fund,
+      availableWei: "0",
+      policy,
+    };
+  });
+}
+
+export async function getFundGovernance(
+  auth: AuthContext,
+  groupIdOrFundId: string,
+  maybeFundIdOrQuery?: string | Record<string, unknown>,
+  maybeQuery?: Record<string, unknown>,
+) {
+  let fund: Fund;
+  let query: Record<string, unknown> | undefined;
+
+  if (typeof maybeFundIdOrQuery === "string") {
+    fund = await fundAccess(db, auth, groupIdOrFundId, maybeFundIdOrQuery);
+    query = maybeQuery;
+  } else {
+    // Tìm quỹ theo id trực tiếp và kiểm tra quyền trong workspace đó
+    const [found] = await db
+      .select()
+      .from(funds)
+      .where(eq(funds.id, uuidInput(groupIdOrFundId)))
+      .limit(1);
+    assert(found, 404, "Không tìm thấy quỹ.");
+    fund = await fundAccess(db, auth, found.workspaceId, found.id);
+    query = maybeFundIdOrQuery;
+  }
+
+  const currentPolicy = await policyFor(db, fund.id);
+
+  const proposals = await db
+    .select()
+    .from(fundPolicyProposals)
+    .where(eq(fundPolicyProposals.fundId, fund.id))
+    .orderBy(desc(fundPolicyProposals.createdAt));
+
+  const actions = await db
+    .select()
+    .from(fundGovernanceActions)
+    .where(eq(fundGovernanceActions.fundId, fund.id))
+    .orderBy(desc(fundGovernanceActions.createdAt));
+
+  const now = new Date();
+  const callerAddr = auth.wallet?.address ? auth.wallet.address.toLowerCase() : null;
+
+  const enrichedActions = actions.map((a) => {
+    const readyAtSeconds = a.readyAt
+      ? Math.floor(new Date(a.readyAt).getTime() / 1000)
+      : 0;
+    return {
+      id: a.id,
+      onchainProposalId: a.onchainProposalId,
+      action: a.action as "PAUSE" | "RESUME" | "CLOSE" | "SURPLUS" | "POLICY",
+      actionName: a.action,
+      approvals: a.approvalsCount,
+      quorum: currentPolicy?.quorum ?? 2,
+      hasVoted: false,
+      proposerAddress: a.proposerAddress,
+      epoch: a.epoch,
+      commitment: a.commitment,
+      readyAt: readyAtSeconds,
+      readyAtIso: a.readyAt ? new Date(a.readyAt).toISOString() : null,
+      status: a.status,
+      createdAt: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
+      createdAtSeconds: a.createdAt
+        ? Math.floor(new Date(a.createdAt).getTime() / 1000)
+        : Math.floor(Date.now() / 1000),
+    };
+  });
+
+  const enrichedProposals = proposals.map((p) => {
+    let secondsRemaining = 0;
+    let isReady = false;
+    const readyAtSeconds = p.timelockEndsAt
+      ? Math.floor(new Date(p.timelockEndsAt).getTime() / 1000)
+      : 0;
+    if (p.timelockEndsAt) {
+      const endsAt = new Date(p.timelockEndsAt);
+      secondsRemaining = Math.max(
+        0,
+        Math.floor((endsAt.getTime() - now.getTime()) / 1000),
+      );
+      isReady = secondsRemaining === 0 && (p.status === "APPROVED" || p.status === "READY");
+    }
+    const matchingAction = actions.find(
+      (a) => a.onchainProposalId === p.onchainProposalId && a.action === "POLICY",
+    );
+    const approvals = matchingAction
+      ? matchingAction.approvalsCount
+      : p.status === "APPROVED"
+        ? p.quorum
+        : 1;
+
+    return {
+      id: p.id,
+      fundId: p.fundId,
+      onchainProposalId: p.onchainProposalId,
+      quorum: p.quorum,
+      dailyLimitWei: p.dailyLimitWei,
+      dailyLimitAvax: Number(formatEther(BigInt(p.dailyLimitWei || "0"))),
+      approvers: currentPolicy?.signers ?? [],
+      approvals,
+      hasVoted: false,
+      readyAt: readyAtSeconds,
+      timelockEndsAt: p.timelockEndsAt ? new Date(p.timelockEndsAt).toISOString() : null,
+      secondsRemaining,
+      isReady,
+      status:
+        p.status === "APPROVED" && secondsRemaining === 0
+          ? ("READY" as const)
+          : (p.status as any),
+      createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
+      createdAtSeconds: p.createdAt
+        ? Math.floor(new Date(p.createdAt).getTime() / 1000)
+        : Math.floor(Date.now() / 1000),
+      proposerAddress: p.proposerAddress,
+      termsHash: p.termsHash,
+    };
+  });
+
+  // Nếu UI yêu cầu type=ACTION (như EmergencyPauseModal), trả enrichedActions ở field proposals
+  const returnedProposals =
+    query?.type === "ACTION" ? enrichedActions : enrichedProposals;
+
+  return {
+    fundId: fund.id,
+    workspaceId: fund.workspaceId,
+    name: fund.name,
+    contractAddress: fund.contractAddress,
+    factoryAddress: fund.factoryAddress,
+    custodyType: fund.custodyType,
+    policyEpoch: fund.policyEpoch,
+    isPaused: fund.isPaused,
+    status: fund.status,
+    currentPolicy: {
+      version: currentPolicy?.version ?? 0,
+      quorum: currentPolicy?.quorum ?? 2,
+      signers: currentPolicy?.signers ?? [],
+      fastWithdrawLimitWei: currentPolicy?.fastWithdrawLimitWei ?? "0",
+    },
+    proposals: returnedProposals,
+    actions: enrichedActions,
+  };
+}
+
+export async function getRefundEligibility(
+  auth: AuthContext,
+  groupIdOrFundId: string,
+  maybeFundId?: string,
+) {
+  let fund: Fund;
+  if (maybeFundId) {
+    fund = await fundAccess(db, auth, groupIdOrFundId, maybeFundId);
+  } else {
+    const [found] = await db
+      .select()
+      .from(funds)
+      .where(eq(funds.id, uuidInput(groupIdOrFundId)))
+      .limit(1);
+    assert(found, 404, "Không tìm thấy quỹ.");
+    fund = await fundAccess(db, auth, found.workspaceId, found.id);
+  }
+
+  const userWallet = walletOf(auth);
+
+  assert(
+    fund.fundType === "GOAL",
+    400,
+    "Chỉ Quỹ Mục Tiêu (GOAL) mới có cơ chế hoàn tiền khi không đạt mục tiêu.",
+  );
+
+  const now = new Date();
+  const deadline = fund.targetDeadline ? new Date(fund.targetDeadline) : null;
+  const isExpired = Boolean(deadline && now > deadline);
+  const goalReached = Boolean(
+    fund.goalReached || BigInt(fund.balanceWei) >= BigInt(fund.targetAmountWei),
+  );
+
+  // Kiểm tra yêu cầu hoàn tiền đã thực hiện
+  const [existingClaim] = await db
+    .select()
+    .from(fundRefundClaims)
+    .where(
+      and(
+        eq(fundRefundClaims.fundId, fund.id),
+        sql`lower(${fundRefundClaims.claimantAddress}) = ${userWallet}`,
+      ),
+    )
+    .limit(1);
+
+  // Tính tổng số tiền người dùng đã góp cho quỹ này
+  const userContribs = await db
+    .select({ amountWei: contributions.amountWei })
+    .from(contributions)
+    .where(
+      and(
+        eq(contributions.fundId, fund.id),
+        sql`lower(${contributions.funderAddress}) = ${userWallet}`,
+        eq(contributions.status, "CONFIRMED"),
+      ),
+    );
+
+  const totalContributedWei = userContribs.reduce(
+    (acc, c) => acc + BigInt(c.amountWei),
+    0n,
+  );
+
+  let eligible = false;
+  let reason = "NOT_ELIGIBLE";
+
+  if (existingClaim) {
+    reason = "ALREADY_CLAIMED";
+  } else if (goalReached) {
+    reason = "GOAL_REACHED";
+  } else if (!isExpired) {
+    reason = "DEADLINE_NOT_PASSED";
+  } else if (totalContributedWei <= 0n) {
+    reason = "NO_CONTRIBUTION";
+  } else {
+    eligible = true;
+    reason = "ELIGIBLE";
+  }
+
+  return {
+    fundId: fund.id,
+    workspaceId: fund.workspaceId,
+    contractAddress: fund.contractAddress,
+    fundType: fund.fundType,
+    targetAmountWei: fund.targetAmountWei,
+    goalTargetWei: fund.targetAmountWei,
+    balanceWei: fund.balanceWei,
+    currentBalanceWei: fund.balanceWei,
+    targetDeadline: fund.targetDeadline
+      ? new Date(fund.targetDeadline).toISOString()
+      : null,
+    walletAddress: userWallet,
+    userAddress: userWallet,
+    goalReached,
+    isExpired,
+    deadlinePassed: isExpired,
+    goalFailed: isExpired && !goalReached,
+    hasClaimed: Boolean(existingClaim),
+    claimedAmountWei: existingClaim?.amountWei ?? "0",
+    claimTxHash: existingClaim?.txHash ?? null,
+    contributedAmountWei: totalContributedWei.toString(),
+    contributedWei: totalContributedWei.toString(),
+    contributedAvax: Number(formatEther(totalContributedWei)),
+    refundableAmountWei: eligible ? totalContributedWei.toString() : "0",
+    eligible,
+    isEligible: eligible,
+    reason,
+  };
+}
+
+/**
+ * Đồng bộ đề xuất chi On-Chain V2 (Fix R06: không áp đặt custody SHARED_TREASURY).
+ */
+export async function syncV2Expense(
+  auth: AuthContext,
+  groupIdOrFundId: string,
+  maybeFundIdOrBody: any,
+  maybeBody?: any,
+) {
+  let fund: Fund;
+  let body: any;
+
+  if (maybeBody !== undefined) {
+    fund = await fundAccess(db, auth, groupIdOrFundId, maybeFundIdOrBody, true);
+    body = maybeBody;
+  } else {
+    const [found] = await db
+      .select()
+      .from(funds)
+      .where(eq(funds.id, uuidInput(groupIdOrFundId)))
+      .limit(1);
+    assert(found, 404, "Không tìm thấy quỹ.");
+    fund = await fundAccess(db, auth, found.workspaceId, found.id, true);
+    body = maybeFundIdOrBody;
+  }
+
+  const callerWallet = walletOf(auth);
+  const onchainExpenseId = Number(body.onchainExpenseId);
+  assert(
+    Number.isInteger(onchainExpenseId) && onchainExpenseId > 0,
+    400,
+    "ID đề xuất on-chain phải là số nguyên dương hợp lệ.",
+  );
+
+  const amountWei = toWeiString(body.amountWei);
+  const recipientAddr = address(body.recipientAddress);
+  const title = textInput(body.title || `Đề xuất chi #${onchainExpenseId}`, 100);
+  const purpose = body.purpose ? textInput(body.purpose, 500) : "";
+  const policy = await policyFor(db, fund.id);
+
+  // Xử lý ảnh đính kèm hóa đơn nếu có
+  let receiptAttachmentUrl: string | null = null;
+  let receiptAttachmentHash: string | null = null;
+  if (body.receiptImageBase64) {
+    const sanitizedBase64 = sanitizeProofImage(body.receiptImageBase64);
+    receiptAttachmentUrl = `data:image/png;base64,${sanitizedBase64}`;
+    receiptAttachmentHash = createHash("sha256")
+      .update(Buffer.from(sanitizedBase64, "base64"))
+      .digest("hex");
+  } else if (body.receiptAttachmentUrl) {
+    receiptAttachmentUrl = textInput(body.receiptAttachmentUrl, 500);
+    receiptAttachmentHash = body.receiptAttachmentHash
+      ? textInput(body.receiptAttachmentHash, 64)
+      : null;
+  }
+
+  return db.transaction(async (tx) => {
+    await lock(tx);
+
+    const [existing] = await tx
+      .select()
+      .from(expenseRequests)
+      .where(
+        and(
+          eq(expenseRequests.fundId, fund.id),
+          eq(expenseRequests.onchainExpenseId, onchainExpenseId),
+        ),
+      )
+      .limit(1);
+
+    if (existing) {
+      const [updated] = await tx
+        .update(expenseRequests)
+        .set({
+          title,
+          purpose,
+          receiptAttachmentUrl: receiptAttachmentUrl || existing.receiptAttachmentUrl,
+          receiptAttachmentHash: receiptAttachmentHash || existing.receiptAttachmentHash,
+          updatedAt: new Date(),
+        })
+        .where(eq(expenseRequests.id, existing.id))
+        .returning();
+
+      return updated;
+    }
+
+    const [created] = await tx
+      .insert(expenseRequests)
+      .values({
+        fundId: fund.id,
+        policyVersionId: policy.id,
+        proposerId: auth.user.id,
+        proposerAddress: callerWallet,
+        recipientAddress: recipientAddr,
+        recipientName: textInput(body.recipientName || recipientAddr.slice(0, 10), 50),
+        amountWei,
+        title,
+        purpose,
+        category: "OPERATING",
+        deadline: body.deadline ? new Date(body.deadline) : new Date(Date.now() + 30 * 86400 * 1000),
+        status: "PENDING_APPROVAL",
+        onchainExpenseId,
+        receiptAttachmentUrl,
+        receiptAttachmentHash,
+        requiredApprovals: policy.quorum,
+        idempotencyKey: body.idempotencyKey ? textInput(body.idempotencyKey, 64) : null,
+      })
+      .returning();
+
+    await recordAuditEvent(tx, {
+      workspaceId: fund.workspaceId,
+      fundId: fund.id,
+      actorUserId: auth.user.id,
+      actorWallet: callerWallet,
+      action: "ONCHAIN_EXPENSE_SYNCED",
+      metadataDiff: {
+        expenseId: created.id,
+        onchainExpenseId,
+        amountWei,
+        recipientAddress: recipientAddr,
+        txHash: body.txHash || null,
+      },
+    });
+
+    // Kích hoạt đồng bộ on-chain
+    void syncSingleV2Fund(fund.id).catch(() => {});
+
+    return created;
+  });
+}
+
+/**
+ * Đề xuất thay đổi chính sách Quỹ (Fix R05).
+ */
+export async function proposeGovernancePolicy(
+  auth: AuthContext,
+  groupIdOrFundId: string,
+  maybeFundIdOrBody: any,
+  maybeBody?: any,
+) {
+  let fund: Fund;
+  let body: any;
+
+  if (maybeBody !== undefined) {
+    fund = await fundAccess(db, auth, groupIdOrFundId, maybeFundIdOrBody, true);
+    body = maybeBody;
+  } else {
+    const [found] = await db
+      .select()
+      .from(funds)
+      .where(eq(funds.id, uuidInput(groupIdOrFundId)))
+      .limit(1);
+    assert(found, 404, "Không tìm thấy quỹ.");
+    fund = await fundAccess(db, auth, found.workspaceId, found.id, true);
+    body = maybeFundIdOrBody;
+  }
+
+  const callerWallet = walletOf(auth);
+  const quorum = Number(body.quorum);
+  assert(Number.isInteger(quorum) && quorum >= 1, 400, "Ngưỡng quorum không hợp lệ.");
+
+  const dailyLimitWei = body.dailyLimitWei
+    ? toWeiString(body.dailyLimitWei)
+    : body.dailyLimitAvax
+      ? (BigInt(Math.floor(Number(body.dailyLimitAvax) * 1e9)) * 1000000000n).toString()
+      : "0";
+
+  const onchainProposalId = body.onchainProposalId
+    ? Number(body.onchainProposalId)
+    : Date.now() % 1000000;
+
+  return db.transaction(async (tx) => {
+    await lock(tx);
+
+    const [proposal] = await tx
+      .insert(fundPolicyProposals)
+      .values({
+        fundId: fund.id,
+        onchainProposalId,
+        proposerAddress: callerWallet,
+        quorum,
+        dailyLimitWei,
+        termsHash: body.termsHash || "0x0000000000000000000000000000000000000000000000000000000000000001",
+        status: "PENDING",
+      })
+      .returning();
+
+    await recordAuditEvent(tx, {
+      workspaceId: fund.workspaceId,
+      fundId: fund.id,
+      actorUserId: auth.user.id,
+      actorWallet: callerWallet,
+      action: "GOVERNANCE_POLICY_PROPOSED",
+      metadataDiff: {
+        proposalId: proposal.id,
+        quorum,
+        dailyLimitWei,
+        approvers: body.approvers || [],
+        txHash: body.txHash || null,
+      },
+    });
+
+    void syncSingleV2Fund(fund.id).catch(() => {});
+    return proposal;
+  });
+}
+
+/**
+ * Đề xuất hành động khẩn cấp Pause / Resume (Fix R05).
+ */
+export async function proposeGovernanceAction(
+  auth: AuthContext,
+  groupIdOrFundId: string,
+  maybeFundIdOrBody: any,
+  maybeBody?: any,
+) {
+  let fund: Fund;
+  let body: any;
+
+  if (maybeBody !== undefined) {
+    fund = await fundAccess(db, auth, groupIdOrFundId, maybeFundIdOrBody, true);
+    body = maybeBody;
+  } else {
+    const [found] = await db
+      .select()
+      .from(funds)
+      .where(eq(funds.id, uuidInput(groupIdOrFundId)))
+      .limit(1);
+    assert(found, 404, "Không tìm thấy quỹ.");
+    fund = await fundAccess(db, auth, found.workspaceId, found.id, true);
+    body = maybeFundIdOrBody;
+  }
+
+  const callerWallet = walletOf(auth);
+  const action = String(body.action).toUpperCase();
+  assert(["PAUSE", "RESUME", "CLOSE", "SURPLUS"].includes(action), 400, "Hành động quản trị không hợp lệ.");
+
+  const onchainProposalId = body.onchainProposalId
+    ? Number(body.onchainProposalId)
+    : Date.now() % 1000000;
+
+  return db.transaction(async (tx) => {
+    await lock(tx);
+
+    const [created] = await tx
+      .insert(fundGovernanceActions)
+      .values({
+        fundId: fund.id,
+        onchainProposalId,
+        action,
+        proposerAddress: callerWallet,
+        epoch: fund.policyEpoch,
+        commitment: body.commitment || null,
+        status: "PENDING",
+      })
+      .returning();
+
+    await recordAuditEvent(tx, {
+      workspaceId: fund.workspaceId,
+      fundId: fund.id,
+      actorUserId: auth.user.id,
+      actorWallet: callerWallet,
+      action: "GOVERNANCE_ACTION_PROPOSED",
+      metadataDiff: {
+        action,
+        onchainProposalId,
+        txHash: body.txHash || null,
+      },
+    });
+
+    void syncSingleV2Fund(fund.id).catch(() => {});
+    return created;
+  });
+}
+
+/**
+ * Ký duyệt đề xuất quản trị (Fix R05).
+ */
+export async function approveGovernance(
+  auth: AuthContext,
+  groupIdOrFundId: string,
+  maybeFundIdOrProposalId: string,
+  maybeProposalId?: string,
+) {
+  const proposalId = maybeProposalId || maybeFundIdOrProposalId;
+  const callerWallet = walletOf(auth);
+
+  // Tìm trong fundPolicyProposals hoặc fundGovernanceActions
+  const [polProp] = await db
+    .select()
+    .from(fundPolicyProposals)
+    .where(or(eq(fundPolicyProposals.id, uuidInput(proposalId)), sql`${fundPolicyProposals.onchainProposalId} = ${Number(proposalId) || -1}`))
+    .limit(1);
+
+  if (polProp) {
+    const fund = await fundAccess(db, auth, polProp.fundId, polProp.fundId);
+    await db
+      .update(fundPolicyProposals)
+      .set({ status: "APPROVED", timelockEndsAt: new Date(Date.now() + 86400 * 1000) })
+      .where(eq(fundPolicyProposals.id, polProp.id));
+
+    void syncSingleV2Fund(fund.id).catch(() => {});
+    return { success: true };
+  }
+
+  const [govAct] = await db
+    .select()
+    .from(fundGovernanceActions)
+    .where(or(eq(fundGovernanceActions.id, uuidInput(proposalId)), sql`${fundGovernanceActions.onchainProposalId} = ${Number(proposalId) || -1}`))
+    .limit(1);
+
+  if (govAct) {
+    const fund = await fundAccess(db, auth, govAct.fundId, govAct.fundId);
+    await db
+      .update(fundGovernanceActions)
+      .set({ approvalsCount: govAct.approvalsCount + 1, updatedAt: new Date() })
+      .where(eq(fundGovernanceActions.id, govAct.id));
+
+    void syncSingleV2Fund(fund.id).catch(() => {});
+    return { success: true };
+  }
+
+  throw new Error("Không tìm thấy đề xuất quản trị.");
+}
+
+/**
+ * Thực thi đề xuất quản trị (Fix R05).
+ */
+export async function executeGovernance(
+  auth: AuthContext,
+  groupIdOrFundId: string,
+  maybeFundIdOrProposalId: string,
+  maybeProposalId?: string,
+) {
+  const proposalId = maybeProposalId || maybeFundIdOrProposalId;
+
+  const [govAct] = await db
+    .select()
+    .from(fundGovernanceActions)
+    .where(or(eq(fundGovernanceActions.id, uuidInput(proposalId)), sql`${fundGovernanceActions.onchainProposalId} = ${Number(proposalId) || -1}`))
+    .limit(1);
+
+  if (govAct) {
+    const fund = await fundAccess(db, auth, govAct.fundId, govAct.fundId);
+    await db.transaction(async (tx) => {
+      await lock(tx);
+      await tx
+        .update(fundGovernanceActions)
+        .set({ status: "EXECUTED", updatedAt: new Date() })
+        .where(eq(fundGovernanceActions.id, govAct.id));
+
+      if (govAct.action === "PAUSE") {
+        await tx.update(funds).set({ isPaused: true, status: "PAUSED", updatedAt: new Date() }).where(eq(funds.id, fund.id));
+      } else if (govAct.action === "RESUME") {
+        await tx.update(funds).set({ isPaused: false, status: "ACTIVE", updatedAt: new Date() }).where(eq(funds.id, fund.id));
+      }
+    });
+
+    void syncSingleV2Fund(fund.id).catch(() => {});
+    return { success: true };
+  }
+
+  const [polProp] = await db
+    .select()
+    .from(fundPolicyProposals)
+    .where(or(eq(fundPolicyProposals.id, uuidInput(proposalId)), sql`${fundPolicyProposals.onchainProposalId} = ${Number(proposalId) || -1}`))
+    .limit(1);
+
+  if (polProp) {
+    const fund = await fundAccess(db, auth, polProp.fundId, polProp.fundId);
+    await db.transaction(async (tx) => {
+      await lock(tx);
+      await tx
+        .update(fundPolicyProposals)
+        .set({ status: "EXECUTED" })
+        .where(eq(fundPolicyProposals.id, polProp.id));
+
+      const newEpoch = fund.policyEpoch + 1;
+      await tx.update(funds).set({ policyEpoch: newEpoch, updatedAt: new Date() }).where(eq(funds.id, fund.id));
+      await tx.insert(fundPolicies).values({
+        fundId: fund.id,
+        version: newEpoch,
+        quorum: polProp.quorum,
+        fastWithdrawLimitWei: polProp.dailyLimitWei,
+        signers: [],
+        effectiveFrom: new Date(),
+      });
+    });
+
+    void syncSingleV2Fund(fund.id).catch(() => {});
+    return { success: true };
+  }
+
+  throw new Error("Không tìm thấy đề xuất quản trị.");
+}
+
+/**
+ * Ghi nhận rút hoàn tiền mục tiêu sau khi giao dịch on-chain thành công (Fix R05).
+ */
+export async function recordRefundClaim(
+  auth: AuthContext,
+  groupIdOrFundId: string,
+  maybeFundIdOrBody: any,
+  maybeBody?: any,
+) {
+  let fund: Fund;
+  let body: any;
+
+  if (maybeBody !== undefined) {
+    fund = await fundAccess(db, auth, groupIdOrFundId, maybeFundIdOrBody, true);
+    body = maybeBody;
+  } else {
+    const [found] = await db
+      .select()
+      .from(funds)
+      .where(eq(funds.id, uuidInput(groupIdOrFundId)))
+      .limit(1);
+    assert(found, 404, "Không tìm thấy quỹ.");
+    fund = await fundAccess(db, auth, found.workspaceId, found.id, true);
+    body = maybeFundIdOrBody;
+  }
+
+  const userWallet = walletOf(auth);
+  const eligibility = await getRefundEligibility(auth, fund.workspaceId, fund.id);
+  assert(eligibility.eligible, 400, "Bạn không đủ điều kiện rút hoàn tiền: " + eligibility.reason);
+
+  const txHash = body?.txHash || "0x" + "0".repeat(64);
+
+  return db.transaction(async (tx) => {
+    await lock(tx);
+
+    const [claim] = await tx
+      .insert(fundRefundClaims)
+      .values({
+        fundId: fund.id,
+        claimantAddress: userWallet,
+        amountWei: eligibility.refundableAmountWei,
+        txHash,
+      })
+      .returning();
+
+    await recordAuditEvent(tx, {
+      workspaceId: fund.workspaceId,
+      fundId: fund.id,
+      actorUserId: auth.user.id,
+      actorWallet: userWallet,
+      action: "GOAL_REFUND_CLAIMED",
+      metadataDiff: {
+        claimId: claim.id,
+        amountWei: eligibility.refundableAmountWei,
+        txHash,
+      },
+    });
+
+    void syncSingleV2Fund(fund.id).catch(() => {});
+    return claim;
   });
 }
