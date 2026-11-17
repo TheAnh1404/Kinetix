@@ -6,7 +6,10 @@ import type { Server } from "http";
 
 const { assertIsolatedDatabase } = require("../scripts/auth-test-safety.cjs");
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
-const originalDatabaseUrl = process.env.DATABASE_URL;
+const originalDatabaseUrl =
+  process.env.__ORIGINAL_DATABASE_URL__ !== undefined
+    ? process.env.__ORIGINAL_DATABASE_URL__
+    : process.env.DATABASE_URL;
 if (testDatabaseUrl)
   assertIsolatedDatabase(
     testDatabaseUrl,

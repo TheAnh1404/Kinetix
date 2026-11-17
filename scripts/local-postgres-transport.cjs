@@ -12,6 +12,7 @@ assertIsolatedDatabase(
   process.env.DATABASE_URL,
   process.env.AUTH_TEST_ALLOW_RESET,
 );
+process.env.__ORIGINAL_DATABASE_URL__ = process.env.DATABASE_URL;
 
 const target = new URL(process.env.TEST_DATABASE_URL);
 if (!["127.0.0.1", "localhost"].includes(target.hostname))

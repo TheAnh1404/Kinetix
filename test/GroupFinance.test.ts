@@ -3,15 +3,10 @@ import { AddressInfo } from "net";
 import type { Server } from "http";
 import { toWeiString } from "../backend/src/services/groupFinanceService";
 
-const testDatabaseUrl = process.env.TEST_DATABASE_URL;
-process.env.DATABASE_URL =
-  testDatabaseUrl ||
-  "postgresql://isolated:isolated@127.0.0.1:1/kinetix_auth_tests";
 process.env.NODE_ENV = "test";
 process.env.APP_ORIGIN = "http://localhost:3000";
 
 const app = require("../backend/src/server").default;
-const { pool } = require("../backend/src/db") as typeof import("../backend/src/db");
 
 let server: Server;
 let base: string;
