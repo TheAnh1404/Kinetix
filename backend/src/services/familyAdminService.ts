@@ -15,6 +15,7 @@ import {
   treasuryTransfers as transfers,
   auditLogs,
   vaults,
+  groupFunds,
 } from "../db";
 import { AuthContext, membership, liveAuth } from "../auth/service";
 import {
@@ -506,6 +507,10 @@ export async function executeAdminIntent(
       }
     } else if (["ARCHIVE", "RESTORE"].includes(intent.action)) {
       if (intent.action === "ARCHIVE") {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext('kinetix:group-finance'))`);
+        const groupFundRows = await tx.select().from(groupFunds).where(eq(groupFunds.workspaceId, workspaceId));
+        assert(groupFundRows.every(fund => fund.status === "CLOSED" && fund.balanceWei === "0" && fund.reservedWei === "0"),
+          409, "Nhóm còn quỹ chung hoạt động hoặc còn tiền. Cần hoàn tất quỹ và đối soát trước khi lưu trữ.");
         const funded = await tx
           .select({ id: jars.id })
           .from(jars)

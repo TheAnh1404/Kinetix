@@ -86,7 +86,10 @@ try {
     if (addr && typeof addr === "object") {
       process.env.LOCAL_PG_WS_PROXY = `127.0.0.1:${addr.port}`;
     }
-    if (process.argv.includes("--treasury")) {
+    if (process.argv.includes("--group-finance")) {
+      require("ts-node/register/transpile-only");
+      require("./verify-group-finance-integration.ts");
+    } else if (process.argv.includes("--treasury")) {
       require("ts-node/register/transpile-only");
       require("./verify-treasury-integration.ts");
     } else if (process.argv.includes("--v2")) {

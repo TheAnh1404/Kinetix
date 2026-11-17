@@ -27,6 +27,7 @@ import { assert } from "../auth/security";
 import { recordReceiptActivity } from "../services/activityService";
 import { deploymentManifest, verifiedDeployment } from "../services/deploymentService";
 import { vaultMappingIssue } from "../../../shared/vaultMapping";
+import { reconcilePendingGroupTransfers } from "../services/groupFinanceService";
 
 // The worker is a service identity with DB access. It never creates users, sessions,
 // memberships or workspace mappings from arbitrary wallet addresses/events.
@@ -168,8 +169,20 @@ const treasuryTick = async () => {
 };
 void treasuryTick();
 const treasuryTimer = setInterval(() => void treasuryTick(), 15000);
+// Group custody records have a separate adapter; no T1 deployment is required.
+let groupRunning = false;
+const groupTick = async () => {
+  if (groupRunning) return;
+  groupRunning = true;
+  try { await reconcilePendingGroupTransfers(); }
+  catch { console.error("Group transfer reconciliation unavailable; retrying next poll."); }
+  finally { groupRunning = false; }
+};
+void groupTick();
+const groupTimer = setInterval(() => void groupTick(), 15000);
 const stopTreasury = () => {
   clearInterval(treasuryTimer);
+  clearInterval(groupTimer);
   void pool.end().finally(() => process.exit(0));
   setTimeout(() => process.exit(0), 5000).unref();
 };

@@ -19,9 +19,26 @@ import {
   preparePayment,
   verifyAndSettlePayment,
   getGroupAuditEvents,
+  listGroupTransfers,
+  submitGroupTransfer,
+  resolveGroupTransfer,
+  exportGroupReport,
 } from "../services/groupFinanceService";
 
 export const groupFinanceRouter = Router();
+groupFinanceRouter.get("/groups/:groupId/report", endpoint(async (req, res) => {
+  res.json({ success: true, data: await exportGroupReport(req.auth!, req.params.groupId, req.query) });
+}));
+
+groupFinanceRouter.get("/groups/:groupId/transfers", endpoint(async (req, res) => {
+  res.json({ success: true, data: await listGroupTransfers(req.auth!, req.params.groupId) });
+}));
+groupFinanceRouter.post("/fund-transfers/:intentId/submit", endpoint(async (req, res) => {
+  res.json({ success: true, data: await submitGroupTransfer(req.auth!, req.params.intentId, req.body) });
+}));
+groupFinanceRouter.post("/fund-transfers/:intentId/resolve", endpoint(async (req, res) => {
+  res.json({ success: true, data: await resolveGroupTransfer(req.auth!, req.params.intentId, req.body) });
+}));
 
 // =================================================================
 // 1. NHÓM & THÀNH VIÊN (GROUPS & MEMBERS)

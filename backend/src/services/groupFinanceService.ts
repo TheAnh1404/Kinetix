@@ -1,14 +1,17 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
   and,
+  or,
   eq,
   isNull,
+  isNotNull,
   desc,
   sql,
   inArray,
-  getTableColumns,
-  isNotNull,
+  lt,
+  gte,
 } from "drizzle-orm";
+import { isAddress, formatEther } from "viem";
 import {
   db,
   workspaces,
@@ -23,34 +26,67 @@ import {
   expenseApprovals,
   payments,
   groupAuditEvents,
+  groupTransferIntents as intents,
 } from "../db";
-import { AuthContext, membership } from "../auth/service";
+import { AuthContext, membership, createInvitation } from "../auth/service";
 import { assert, textInput, uuidInput } from "../auth/security";
+import { requireWorkspaceWrites } from "./familyAccess";
 import { treasuryClient } from "./treasuryService";
-import { TREASURY_CHAIN_ID } from "../../../shared/treasury";
+import { sanitizeProofImage } from "./proofImage";
+import {
+  GROUP_CHAIN_ID,
+  groupTransferMemo,
+  matchesGroupTransfer,
+} from "../../../shared/groupFinance";
 
 type Store = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-const lock = async (tx: Store) => {
-  await tx.execute(
+type Fund = typeof funds.$inferSelect;
+type Intent = typeof intents.$inferSelect;
+const lock = (tx: Store) =>
+  tx.execute(
     sql`select pg_advisory_xact_lock(hashtext('kinetix:group-finance'))`,
   );
-};
 
 export function toWeiString(input: unknown): string {
-  if (typeof input === "bigint") return input.toString();
-  if (typeof input === "number") {
-    assert(!isNaN(input) && input >= 0, 400, "Số tiền không hợp lệ.");
-    return Math.floor(input).toString();
-  }
-  if (typeof input === "string") {
-    const trimmed = input.trim();
-    assert(/^\d+$/.test(trimmed), 400, "Số tiền phải là số nguyên dương (wei).");
-    return trimmed;
-  }
-  assert(false, 400, "Định dạng số tiền không hợp lệ.");
+  const value =
+    typeof input === "bigint"
+      ? input.toString()
+      : typeof input === "number" && Number.isSafeInteger(input)
+        ? String(input)
+        : input;
+  assert(
+    typeof value === "string" && /^\d{1,78}$/.test(value),
+    400,
+    "Số tiền phải là số nguyên không âm (wei), tối đa 78 chữ số.",
+  );
+  assert(
+    BigInt(value) <= (1n << 256n) - 1n,
+    400,
+    "Số tiền vượt giới hạn tài sản native.",
+  );
+  return BigInt(value).toString();
 }
-
+const positiveWei = (input: unknown) => {
+  const value = toWeiString(input);
+  assert(BigInt(value) > 0n, 400, "Số tiền phải lớn hơn 0.");
+  return value;
+};
+const address = (input: unknown) => {
+  assert(
+    typeof input === "string" && isAddress(input) && !/^0x0{40}$/i.test(input),
+    400,
+    "Địa chỉ ví không hợp lệ.",
+  );
+  return input.toLowerCase();
+};
+const walletOf = (auth: AuthContext) => {
+  assert(
+    auth.wallet?.address,
+    403,
+    "Cần ví đã xác minh liên kết với tài khoản.",
+  );
+  return address(auth.wallet.address);
+};
 export async function recordAuditEvent(
   tx: Store,
   params: {
@@ -62,21 +98,108 @@ export async function recordAuditEvent(
     metadataDiff?: Record<string, unknown>;
   },
 ) {
-  await tx.insert(groupAuditEvents).values({
-    workspaceId: params.workspaceId,
-    fundId: params.fundId || null,
-    actorUserId: params.actorUserId || null,
-    actorWallet: params.actorWallet || null,
-    action: params.action,
-    metadataDiff: params.metadataDiff || {},
+  await tx
+    .insert(groupAuditEvents)
+    .values({ ...params, metadataDiff: params.metadataDiff || {} });
+}
+async function fundAccess(
+  store: typeof db | Store,
+  auth: AuthContext,
+  groupId: string,
+  fundId: string,
+  write = false,
+) {
+  const wsId = uuidInput(groupId);
+  await membership(store, auth, wsId);
+  const [fund] = await store
+    .select()
+    .from(funds)
+    .where(and(eq(funds.id, uuidInput(fundId)), eq(funds.workspaceId, wsId)));
+  assert(fund, 404, "Không tìm thấy quỹ trong nhóm này.");
+  if (write) {
+    await requireWorkspaceWrites(store, wsId);
+    assert(fund.status === "ACTIVE", 409, "Quỹ đang tạm dừng hoặc đã đóng.");
+  }
+  return fund;
+}
+function requireCustody(fund: Fund) {
+  assert(
+    fund.custodyType === "SHARED_TREASURY" && fund.treasuryWalletAddress,
+    409,
+    "Quỹ chưa có adapter thanh toán đã xác minh. Không gửi tiền tới địa chỉ mặc định.",
+    "FUND_ADAPTER_UNAVAILABLE",
+  );
+  return address(fund.treasuryWalletAddress);
+}
+async function policyFor(store: typeof db | Store, fundId: string) {
+  const [policy] = await store
+    .select()
+    .from(fundPolicies)
+    .where(eq(fundPolicies.fundId, fundId))
+    .orderBy(desc(fundPolicies.version))
+    .limit(1);
+  assert(policy, 409, "Quỹ chưa có chính sách.");
+  return policy;
+}
+async function expenseAccess(tx: Store, auth: AuthContext, expenseId: string) {
+  const [request] = await tx
+    .select()
+    .from(expenseRequests)
+    .where(eq(expenseRequests.id, uuidInput(expenseId)));
+  assert(request, 404, "Không tìm thấy đề nghị chi.");
+  const [fund] = await tx
+    .select()
+    .from(funds)
+    .where(eq(funds.id, request.fundId));
+  assert(fund, 404, "Không tìm thấy quỹ.");
+  await membership(tx, auth, fund.workspaceId);
+  return { request, fund };
+}
+async function expireRequests(tx: Store, fund: Fund) {
+  const expired = await tx
+    .select()
+    .from(expenseRequests)
+    .where(
+      and(
+        eq(expenseRequests.fundId, fund.id),
+        inArray(expenseRequests.status, ["PENDING_APPROVAL", "APPROVED"]),
+        lt(expenseRequests.deadline, new Date()),
+      ),
+    );
+  if (!expired.length) return;
+  const amount = expired.reduce(
+    (sum, item) => sum + BigInt(item.amountWei),
+    0n,
+  );
+  assert(BigInt(fund.reservedWei) >= amount, 409, "Sổ giữ chỗ cần đối soát.");
+  await tx
+    .update(expenseRequests)
+    .set({ status: "EXPIRED", updatedAt: new Date() })
+    .where(
+      inArray(
+        expenseRequests.id,
+        expired.map((item) => item.id),
+      ),
+    );
+  await tx
+    .update(funds)
+    .set({
+      reservedWei: sql`${funds.reservedWei} - ${amount.toString()}`,
+      updatedAt: new Date(),
+    })
+    .where(eq(funds.id, fund.id));
+  await recordAuditEvent(tx, {
+    workspaceId: fund.workspaceId,
+    fundId: fund.id,
+    action: "EXPENSES_EXPIRED",
+    metadataDiff: { requestIds: expired.map((item) => item.id) },
   });
 }
-
-/**
- * Lấy danh sách thành viên hợp lệ trong nhóm kèm thông tin ví
- */
-export async function getGroupRoster(tx: typeof db | Store, workspaceId: string) {
-  return tx
+export async function getGroupRoster(
+  store: typeof db | Store,
+  workspaceId: string,
+) {
+  return store
     .select({
       id: users.id,
       fullName: users.fullName,
@@ -97,278 +220,80 @@ export async function getGroupRoster(tx: typeof db | Store, workspaceId: string)
       ),
     );
 }
-
-/**
- * 1. Tổng quan Nhóm & Thành viên
- */
 export async function getGroupOverview(auth: AuthContext, groupId: string) {
   const wsId = uuidInput(groupId);
-  const member = await membership(db, auth, wsId);
-
-  const [ws] = await db
+  const caller = await membership(db, auth, wsId);
+  const [group] = await db
     .select()
     .from(workspaces)
     .where(eq(workspaces.id, wsId));
-  assert(ws, 404, "Không tìm thấy nhóm.");
-
-  const roster = await getGroupRoster(db, wsId);
-  const fundList = await db
-    .select()
-    .from(funds)
-    .where(eq(funds.workspaceId, wsId));
-
-  const totalBalanceWei = fundList.reduce(
-    (acc, f) => acc + BigInt(f.balanceWei),
-    0n,
-  );
-  const totalReservedWei = fundList.reduce(
-    (acc, f) => acc + BigInt(f.reservedWei),
-    0n,
-  );
-
   return {
-    group: {
-      id: ws.id,
-      name: ws.name,
-      type: ws.type,
-      creatorWallet: ws.creatorWallet,
-      adminWallet: ws.adminWallet,
-      createdAt: ws.createdAt,
-    },
+    group,
     caller: {
       userId: auth.user.id,
-      role: member.role,
-      canManageMembers: member.canManageMembers,
-      walletAddress: auth.wallet?.address || null,
+      canManageMembers: caller.isOwner,
+      walletAddress: auth.wallet?.address,
     },
-    members: roster.map((m) => ({
-      userId: m.id,
-      fullName: m.fullName,
-      username: m.username,
-      avatarUrl: m.avatarUrl,
-      role: m.role,
-      joinedAt: m.joinedAt,
-      walletAddress: m.walletAddress || null,
-    })),
-    summary: {
-      fundCount: fundList.length,
-      totalBalanceWei: totalBalanceWei.toString(),
-      totalReservedWei: totalReservedWei.toString(),
-      totalAvailableWei: (totalBalanceWei - totalReservedWei).toString(),
-    },
+    members: await getGroupRoster(db, wsId),
   };
 }
-
-/**
- * 2. Mời thành viên mới vào nhóm
- */
 export async function inviteGroupMember(
   auth: AuthContext,
   groupId: string,
-  body: { walletAddress: string; role?: "ADMIN" | "MEMBER" | "GUARDIAN" },
+  body: { walletAddress: string; role?: string },
 ) {
-  const wsId = uuidInput(groupId);
-  const member = await membership(db, auth, wsId);
   assert(
-    member.role === "ADMIN" || member.canManageMembers,
-    403,
-    "Chỉ quản trị viên hoặc người được phân quyền mới có thể mời thành viên.",
-  );
-
-  const wallet = body.walletAddress?.trim().toLowerCase();
-  assert(
-    wallet && /^0x[a-f0-9]{40}$/i.test(wallet),
+    !body.role || ["MEMBER", "GUARDIAN"].includes(body.role),
     400,
-    "Địa chỉ ví không hợp lệ.",
+    "Lời mời không cấp quyền quản trị hoặc quyền ký tiền.",
   );
-
-  return db.transaction(async (tx) => {
-    await lock(tx);
-
-    let [targetWallet] = await tx
-      .select()
-      .from(userWallets)
-      .where(sql`lower(${userWallets.address}) = ${wallet}`);
-
-    let targetUserId: string;
-
-    if (!targetWallet) {
-      const [newUser] = await tx
-        .insert(users)
-        .values({
-          fullName: `Member ${wallet.slice(0, 6)}...${wallet.slice(-4)}`,
-          authMethod: "CORE_WALLET",
-          defaultRole: "GUARDIAN",
-          role: "GUARDIAN",
-          walletAddress: wallet,
-        })
-        .returning();
-      await tx.insert(userWallets).values({
-        userId: newUser.id,
-        address: wallet,
-      });
-      targetUserId = newUser.id;
-    } else {
-      targetUserId = targetWallet.userId;
-    }
-
-    const [existingMember] = await tx
-      .select()
-      .from(workspaceMembers)
-      .where(
-        and(
-          eq(workspaceMembers.workspaceId, wsId),
-          eq(workspaceMembers.userId, targetUserId),
-        ),
-      );
-
-    const assignedRole = body.role === "ADMIN" ? "ADMIN" : "GUARDIAN";
-
-    if (existingMember) {
-      if (existingMember.accessDisabledAt) {
-        await tx
-          .update(workspaceMembers)
-          .set({ accessDisabledAt: null, role: assignedRole })
-          .where(eq(workspaceMembers.id, existingMember.id));
-      } else {
-        return {
-          success: true,
-          message: "Thành viên đã có trong nhóm.",
-          memberId: existingMember.id,
-        };
-      }
-    } else {
-      await tx.insert(workspaceMembers).values({
-        workspaceId: wsId,
-        userId: targetUserId,
-        role: assignedRole,
-        canManageMembers: false,
-      });
-    }
-
-    await recordAuditEvent(tx, {
-      workspaceId: wsId,
-      actorUserId: auth.user.id,
-      actorWallet: auth.wallet?.address || null,
-      action: "MEMBER_INVITED",
-      metadataDiff: { targetUserId, wallet, role: assignedRole },
-    });
-
-    return { success: true, targetUserId, wallet, role: assignedRole };
-  });
+  return createInvitation(
+    auth,
+    uuidInput(groupId),
+    address(body.walletAddress),
+  );
 }
-
-/**
- * 3. Xóa hoặc vô hiệu hóa thành viên
- */
 export async function removeGroupMember(
   auth: AuthContext,
   groupId: string,
-  memberUserId: string,
+  _memberId: string,
 ) {
-  const wsId = uuidInput(groupId);
-  const targetId = uuidInput(memberUserId);
-  const member = await membership(db, auth, wsId);
+  await membership(db, auth, uuidInput(groupId), true);
   assert(
-    member.role === "ADMIN" || member.canManageMembers,
-    403,
-    "Chỉ quản trị viên mới có thể xóa thành viên khỏi nhóm.",
+    false,
+    409,
+    "Dùng quy trình quản lý thành viên hiện hành; cần bàn giao quyền quỹ trước khi thu hồi thành viên.",
   );
-  assert(targetId !== auth.user.id, 400, "Bạn không thể tự xóa chính mình khỏi nhóm.");
-
-  return db.transaction(async (tx) => {
-    await lock(tx);
-    const [targetMember] = await tx
-      .select()
-      .from(workspaceMembers)
-      .where(
-        and(
-          eq(workspaceMembers.workspaceId, wsId),
-          eq(workspaceMembers.userId, targetId),
-        ),
-      );
-    assert(targetMember, 404, "Không tìm thấy thành viên trong nhóm.");
-
-    await tx
-      .update(workspaceMembers)
-      .set({ accessDisabledAt: new Date() })
-      .where(eq(workspaceMembers.id, targetMember.id));
-
-    await recordAuditEvent(tx, {
-      workspaceId: wsId,
-      actorUserId: auth.user.id,
-      actorWallet: auth.wallet?.address || null,
-      action: "MEMBER_REMOVED",
-      metadataDiff: { targetUserId: targetId },
-    });
-
-    return { success: true, message: "Đã hủy quyền thành viên." };
-  });
 }
-
-/**
- * 4. Quản lý Quỹ & Chính sách (Funds & Policies)
- */
 export async function listGroupFunds(auth: AuthContext, groupId: string) {
   const wsId = uuidInput(groupId);
   await membership(db, auth, wsId);
-
-  const fundRows = await db
-    .select()
-    .from(funds)
-    .where(eq(funds.workspaceId, wsId))
-    .orderBy(desc(funds.createdAt));
-
-  const fundIds = fundRows.map((f) => f.id);
-  if (fundIds.length === 0) return [];
-
-  const policyRows = await db
-    .select()
-    .from(fundPolicies)
-    .where(inArray(fundPolicies.fundId, fundIds))
-    .orderBy(desc(fundPolicies.version));
-
-  const policyMap = new Map<string, typeof fundPolicies.$inferSelect>();
-  for (const pol of policyRows) {
-    if (!policyMap.has(pol.fundId)) {
-      policyMap.set(pol.fundId, pol);
-    }
-  }
-
-  return fundRows.map((f) => {
-    const policy = policyMap.get(f.id);
-    const balance = BigInt(f.balanceWei);
-    const reserved = BigInt(f.reservedWei);
-    const available = balance >= reserved ? balance - reserved : 0n;
-
-    return {
-      id: f.id,
-      workspaceId: f.workspaceId,
-      name: f.name,
-      description: f.description,
-      fundType: f.fundType,
-      custodyType: f.custodyType,
-      balanceWei: f.balanceWei,
-      reservedWei: f.reservedWei,
-      availableWei: available.toString(),
-      status: f.status,
-      targetAmountWei: f.targetAmountWei,
-      targetDeadline: f.targetDeadline,
-      createdAt: f.createdAt,
-      policy: policy
-        ? {
-            version: policy.version,
-            quorum: policy.quorum,
-            signersCount: policy.signers.length,
-            signers: policy.signers,
-            fastWithdrawLimitWei: policy.fastWithdrawLimitWei,
-            approvalWindowSeconds: policy.approvalWindowSeconds,
-          }
-        : null,
-    };
+  return db.transaction(async (tx) => {
+    await lock(tx);
+    const rows = await tx
+      .select()
+      .from(funds)
+      .where(eq(funds.workspaceId, wsId));
+    for (const fund of rows) await expireRequests(tx, fund);
+    const current = await tx
+      .select()
+      .from(funds)
+      .where(eq(funds.workspaceId, wsId))
+      .orderBy(desc(funds.createdAt));
+    return Promise.all(
+      current.map(async (fund) => ({
+        ...fund,
+        availableWei: (
+          BigInt(fund.balanceWei) - BigInt(fund.reservedWei)
+        ).toString(),
+        policy: await policyFor(tx, fund.id),
+        canPay:
+          fund.custodyType === "SHARED_TREASURY" &&
+          fund.treasuryWalletAddress === auth.wallet?.address.toLowerCase(),
+      })),
+    );
   });
 }
-
 export async function createGroupFund(
   auth: AuthContext,
   groupId: string,
@@ -376,253 +301,192 @@ export async function createGroupFund(
     name: string;
     description?: string;
     fundType: "OPERATING" | "GOAL";
-    custodyType?: "ONCHAIN_HUB" | "SHARED_TREASURY";
+    custodyType?: string;
+    treasuryWalletAddress?: string;
     fastWithdrawLimitWei?: string;
     requiredApprovals: number;
     guardianWallets: string[];
     targetAmountWei?: string;
     targetDeadline?: string;
+    idempotencyKey?: string;
   },
 ) {
-  const wsId = uuidInput(groupId);
-  await membership(db, auth, wsId);
-
-  const name = textInput(body.name, 100);
-  const description = body.description ? textInput(body.description, 500) : "";
-  const fundType = body.fundType === "GOAL" ? "GOAL" : "OPERATING";
-  const custodyType =
-    body.custodyType === "ONCHAIN_HUB" ? "ONCHAIN_HUB" : "SHARED_TREASURY";
-
-  const signers = (body.guardianWallets || [])
-    .map((w) => w.trim().toLowerCase())
-    .filter((w) => /^0x[a-f0-9]{40}$/i.test(w));
-
-  assert(signers.length > 0, 400, "Cần tối thiểu 1 người ký duyệt.");
-
-  const quorum = Math.max(
-    1,
-    Math.min(body.requiredApprovals || 2, signers.length),
+  const wsId = uuidInput(groupId),
+    custody = walletOf(auth);
+  assert(
+    body.custodyType === "SHARED_TREASURY",
+    409,
+    "Adapter quỹ contract V2 chưa được kích hoạt. Chọn ví giữ tiền với điều khoản lưu ký rõ ràng.",
+    "FUND_ADAPTER_UNAVAILABLE",
   );
-
-  let fastWithdrawLimitWei = "0";
-  if (fundType === "OPERATING" && body.fastWithdrawLimitWei) {
-    fastWithdrawLimitWei = toWeiString(body.fastWithdrawLimitWei);
-  }
-
-  let targetAmountWei = "0";
-  let targetDeadline: Date | null = null;
-  if (fundType === "GOAL") {
-    assert(body.targetAmountWei, 400, "Quỹ mục tiêu cần có số tiền mục tiêu.");
-    targetAmountWei = toWeiString(body.targetAmountWei);
-    if (body.targetDeadline) {
-      targetDeadline = new Date(body.targetDeadline);
-      assert(!isNaN(targetDeadline.getTime()), 400, "Hạn mục tiêu không hợp lệ.");
-    }
-  }
-
+  assert(
+    address(body.treasuryWalletAddress) === custody,
+    400,
+    "Người tạo phải xác nhận dùng chính ví đã liên kết làm ví giữ tiền.",
+  );
+  assert(
+    ["OPERATING", "GOAL"].includes(body.fundType),
+    400,
+    "Mẫu quỹ không hợp lệ.",
+  );
+  assert(
+    !body.fastWithdrawLimitWei ||
+      toWeiString(body.fastWithdrawLimitWei) === "0",
+    400,
+    "Chi nhanh chưa được hỗ trợ trong adapter lưu ký.",
+  );
+  assert(Array.isArray(body.guardianWallets), 400, "Cần chọn người duyệt.");
+  const signers = body.guardianWallets.map(address);
+  assert(
+    signers.length >= 2 &&
+      signers.length <= 32 &&
+      new Set(signers).size === signers.length,
+    400,
+    "Cần 2–32 ví người duyệt khác nhau.",
+  );
+  assert(
+    Number.isInteger(body.requiredApprovals) &&
+      body.requiredApprovals >= 1 &&
+      body.requiredApprovals < signers.length,
+    400,
+    "Ngưỡng duyệt phải nhỏ hơn số người duyệt để loại phiếu của người nhận.",
+  );
+  const target =
+    body.fundType === "GOAL" ? positiveWei(body.targetAmountWei) : "0";
+  const name = textInput(body.name, 100),
+    description = body.description ? textInput(body.description, 500) : "";
+  const creationKey = textInput(body.idempotencyKey, 64);
+  const creationFingerprint = createHash("sha256")
+    .update(
+      JSON.stringify({
+        name,
+        description,
+        kind: body.fundType,
+        custody,
+        signers,
+        quorum: body.requiredApprovals,
+        target,
+        deadline: body.targetDeadline || null,
+      }),
+    )
+    .digest("hex");
+  const deadline =
+    body.fundType === "GOAL" ? new Date(body.targetDeadline || "") : null;
+  assert(
+    !deadline ||
+      (Number.isFinite(deadline.getTime()) && deadline.getTime() > Date.now()),
+    400,
+    "Quỹ mục tiêu cần hạn góp trong tương lai.",
+  );
   return db.transaction(async (tx) => {
     await lock(tx);
-
+    await membership(tx, auth, wsId);
+    await requireWorkspaceWrites(tx, wsId);
+    const [prior] = await tx
+      .select()
+      .from(groupAuditEvents)
+      .where(
+        and(
+          eq(groupAuditEvents.workspaceId, wsId),
+          eq(groupAuditEvents.actorUserId, auth.user.id),
+          eq(groupAuditEvents.action, "FUND_CREATED"),
+          sql`${groupAuditEvents.metadataDiff}->>'creationKey' = ${creationKey}`,
+        ),
+      );
+    if (prior) {
+      assert(
+        (prior.metadataDiff as Record<string, unknown> | null)
+          ?.creationFingerprint === creationFingerprint,
+        409,
+        "Khóa tạo quỹ đã được dùng với cấu hình khác.",
+      );
+      const existing = await fundAccess(tx, auth, wsId, prior.fundId!);
+      return {
+        ...existing,
+        availableWei: (
+          BigInt(existing.balanceWei) - BigInt(existing.reservedWei)
+        ).toString(),
+        policy: await policyFor(tx, existing.id),
+      };
+    }
+    const roster = await getGroupRoster(tx, wsId);
+    assert(
+      signers.every((signer) =>
+        roster.some((person) => person.walletAddress?.toLowerCase() === signer),
+      ),
+      400,
+      "Người duyệt phải là thành viên đang hoạt động có ví đã xác minh.",
+    );
     const [fund] = await tx
       .insert(funds)
       .values({
         workspaceId: wsId,
         name,
         description,
-        fundType,
-        custodyType,
-        balanceWei: "0",
-        reservedWei: "0",
-        status: "ACTIVE",
-        targetAmountWei,
-        targetDeadline,
+        fundType: body.fundType,
+        custodyType: "SHARED_TREASURY",
+        treasuryWalletAddress: custody,
+        targetAmountWei: target,
+        targetDeadline: deadline,
         createdBy: auth.user.id,
       })
       .returning();
-
     const [policy] = await tx
       .insert(fundPolicies)
       .values({
         fundId: fund.id,
-        version: 1,
         signers,
-        quorum,
-        fastWithdrawLimitWei,
-        approvalWindowSeconds: 172800, // 48 giờ
+        quorum: body.requiredApprovals,
+        fastWithdrawLimitWei: "0",
       })
       .returning();
-
     await recordAuditEvent(tx, {
       workspaceId: wsId,
       fundId: fund.id,
       actorUserId: auth.user.id,
-      actorWallet: auth.wallet?.address || null,
+      actorWallet: custody,
       action: "FUND_CREATED",
-      metadataDiff: { fundId: fund.id, name, fundType, quorum, signers },
-    });
-
-    return {
-      ...fund,
-      availableWei: "0",
-      policy: {
-        version: policy.version,
+      metadataDiff: {
+        name: fund.name,
+        custodyType: fund.custodyType,
+        treasuryWalletAddress: custody,
         quorum: policy.quorum,
-        signers: policy.signers,
-        fastWithdrawLimitWei: policy.fastWithdrawLimitWei,
-        approvalWindowSeconds: policy.approvalWindowSeconds,
+        signers,
+        termsVersion: "shared-wallet-v1",
+        creationKey,
+        creationFingerprint,
       },
-    };
+    });
+    return { ...fund, availableWei: "0", policy };
   });
 }
-
 export async function getFundDetail(
   auth: AuthContext,
   groupId: string,
   fundId: string,
 ) {
-  const wsId = uuidInput(groupId);
-  const fId = uuidInput(fundId);
-  await membership(db, auth, wsId);
-
-  const [fund] = await db
-    .select()
-    .from(funds)
-    .where(and(eq(funds.id, fId), eq(funds.workspaceId, wsId)));
-  assert(fund, 404, "Không tìm thấy quỹ.");
-
-  const [policy] = await db
-    .select()
-    .from(fundPolicies)
-    .where(eq(fundPolicies.fundId, fId))
-    .orderBy(desc(fundPolicies.version))
-    .limit(1);
-
-  const balance = BigInt(fund.balanceWei);
-  const reserved = BigInt(fund.reservedWei);
-  const available = balance >= reserved ? balance - reserved : 0n;
-
-  const recentContributions = await db
-    .select()
-    .from(contributions)
-    .where(eq(contributions.fundId, fId))
-    .orderBy(desc(contributions.createdAt))
-    .limit(10);
-
-  const recentExpenses = await db
-    .select()
-    .from(expenseRequests)
-    .where(eq(expenseRequests.fundId, fId))
-    .orderBy(desc(expenseRequests.createdAt))
-    .limit(10);
-
-  return {
-    fund: {
-      ...fund,
-      availableWei: available.toString(),
-    },
-    policy: policy || null,
-    recentContributions,
-    recentExpenses,
-  };
+  const fund = await fundAccess(db, auth, groupId, fundId);
+  return { ...fund, policy: await policyFor(db, fund.id) };
 }
-
 export async function updateFundPolicy(
   auth: AuthContext,
   groupId: string,
   fundId: string,
-  body: {
-    signers?: string[];
-    quorum?: number;
-    fastWithdrawLimitWei?: string;
-    approvalWindowSeconds?: number;
-  },
+  _body: unknown,
 ) {
-  const wsId = uuidInput(groupId);
-  const fId = uuidInput(fundId);
-  const member = await membership(db, auth, wsId);
-
-  return db.transaction(async (tx) => {
-    await lock(tx);
-
-    const [fund] = await tx
-      .select()
-      .from(funds)
-      .where(and(eq(funds.id, fId), eq(funds.workspaceId, wsId)));
-    assert(fund, 404, "Không tìm thấy quỹ.");
-
-    const [latestPolicy] = await tx
-      .select()
-      .from(fundPolicies)
-      .where(eq(fundPolicies.fundId, fId))
-      .orderBy(desc(fundPolicies.version))
-      .limit(1);
-
-    const isSigner =
-      latestPolicy &&
-      auth.wallet?.address &&
-      latestPolicy.signers.includes(auth.wallet.address.toLowerCase());
-    assert(
-      member.role === "ADMIN" || isSigner,
-      403,
-      "Chỉ quản trị viên hoặc người ký quỹ mới có thể đổi chính sách.",
-    );
-
-    const newSigners = body.signers
-      ? body.signers.map((w) => w.trim().toLowerCase())
-      : latestPolicy?.signers || [];
-    assert(newSigners.length > 0, 400, "Cần tối thiểu 1 người ký duyệt.");
-
-    const newQuorum = body.quorum
-      ? Math.max(1, Math.min(body.quorum, newSigners.length))
-      : latestPolicy?.quorum || 1;
-
-    let newFastLimit = latestPolicy?.fastWithdrawLimitWei || "0";
-    if (fund.fundType === "OPERATING" && body.fastWithdrawLimitWei !== undefined) {
-      newFastLimit = toWeiString(body.fastWithdrawLimitWei);
-    }
-
-    const newVersion = (latestPolicy?.version || 0) + 1;
-
-    const [createdPolicy] = await tx
-      .insert(fundPolicies)
-      .values({
-        fundId: fId,
-        version: newVersion,
-        signers: newSigners,
-        quorum: newQuorum,
-        fastWithdrawLimitWei: newFastLimit,
-        approvalWindowSeconds:
-          body.approvalWindowSeconds ||
-          latestPolicy?.approvalWindowSeconds ||
-          172800,
-      })
-      .returning();
-
-    await recordAuditEvent(tx, {
-      workspaceId: wsId,
-      fundId: fId,
-      actorUserId: auth.user.id,
-      actorWallet: auth.wallet?.address || null,
-      action: "POLICY_UPDATED",
-      metadataDiff: { version: newVersion, quorum: newQuorum, signers: newSigners },
-    });
-
-    return createdPolicy;
-  });
+  await fundAccess(db, auth, groupId, fundId);
+  assert(
+    false,
+    409,
+    "Chính sách đã cố định. Thay đổi cần quy trình đồng thuận; quyền quản trị nhóm không cho phép đổi người ký.",
+  );
 }
-
-/**
- * 5. Khoản Đóng Góp & Nghĩa Vụ (Contributions & Obligations)
- */
 export async function listFundObligations(
   auth: AuthContext,
   groupId: string,
   fundId: string,
 ) {
-  const wsId = uuidInput(groupId);
-  const fId = uuidInput(fundId);
-  await membership(db, auth, wsId);
-
+  const fund = await fundAccess(db, auth, groupId, fundId);
   return db
     .select({
       id: contributionObligations.id,
@@ -638,229 +502,470 @@ export async function listFundObligations(
     .from(contributionObligations)
     .innerJoin(users, eq(users.id, contributionObligations.memberUserId))
     .leftJoin(userWallets, eq(userWallets.userId, users.id))
-    .where(eq(contributionObligations.fundId, fId))
-    .orderBy(desc(contributionObligations.createdAt));
+    .where(eq(contributionObligations.fundId, fund.id));
 }
-
+function instruction(intent: Intent) {
+  return {
+    ...intent,
+    chainId: GROUP_CHAIN_ID,
+    data: groupTransferMemo(intent.id),
+  };
+}
+async function newIntent(
+  tx: Store,
+  auth: AuthContext,
+  fund: Fund,
+  kind: string,
+  amountWei: string,
+  recipient: string,
+  requestId?: string,
+) {
+  const sender = walletOf(auth);
+  const existing = await tx
+    .select()
+    .from(intents)
+    .where(
+      and(
+        eq(intents.senderAddress, sender),
+        inArray(intents.status, ["READY", "BROADCAST"]),
+      ),
+    );
+  const same = existing.find(
+    (item) =>
+      item.userId === auth.user.id &&
+      item.fundId === fund.id &&
+      item.kind === kind &&
+      item.amountWei === amountWei &&
+      item.requestId === (requestId || null),
+  );
+  if (same) return instruction(same);
+  assert(
+    existing.length === 0,
+    409,
+    "Ví có lệnh chuyển chưa đối soát. Hoàn tất lệnh đó trước khi tạo lệnh khác.",
+  );
+  const client = await treasuryClient();
+  const code = await client.getCode({ address: recipient as `0x${string}` });
+  assert(
+    !code || code === "0x",
+    400,
+    "Adapter hiện chỉ hỗ trợ ví cá nhân nhận AVAX.",
+  );
+  const nonce = await client.getTransactionCount({
+    address: sender as `0x${string}`,
+    blockTag: "pending",
+  });
+  const [intent] = await tx
+    .insert(intents)
+    .values({
+      fundId: fund.id,
+      userId: auth.user.id,
+      kind,
+      amountWei,
+      senderAddress: sender,
+      recipientAddress: recipient,
+      nonce,
+      requestId,
+    })
+    .returning();
+  return instruction(intent);
+}
 export async function createContributionIntent(
   auth: AuthContext,
   groupId: string,
   fundId: string,
-  body: { amountWei: string; payerWallet?: string },
+  body: { amountWei: string },
 ) {
-  const wsId = uuidInput(groupId);
-  const fId = uuidInput(fundId);
-  await membership(db, auth, wsId);
-
-  const [fund] = await db
+  return db.transaction(async (tx) => {
+    await lock(tx);
+    const fund = await fundAccess(tx, auth, groupId, fundId, true),
+      recipient = requireCustody(fund);
+    assert(
+      walletOf(auth) !== recipient,
+      400,
+      "Ví giữ tiền không thể tự góp bằng giao dịch chuyển cho chính mình.",
+    );
+    assert(
+      fund.fundType !== "GOAL" ||
+        !fund.targetDeadline ||
+        fund.targetDeadline.getTime() > Date.now(),
+      409,
+      "Đã hết hạn nhận góp.",
+    );
+    return newIntent(
+      tx,
+      auth,
+      fund,
+      "CONTRIBUTION",
+      positiveWei(body.amountWei),
+      recipient,
+    );
+  });
+}
+async function verifiedTransfer(intent: Intent, hash: string) {
+  const client = await treasuryClient();
+  const [receipt, transaction, finalized] = await Promise.all([
+    client.getTransactionReceipt({ hash: hash as `0x${string}` }),
+    client.getTransaction({ hash: hash as `0x${string}` }),
+    client.getBlock({ blockTag: "finalized" }),
+  ]);
+  assert(
+    receipt.status === "success",
+    409,
+    "Giao dịch thất bại, chưa ghi nhận tiền.",
+  );
+  assert(
+    matchesGroupTransfer(intent, transaction),
+    409,
+    "Giao dịch không khớp ví gửi, người nhận, số tiền, nonce hoặc mã lệnh.",
+  );
+  assert(
+    finalized.number !== null && receipt.blockNumber <= finalized.number,
+    409,
+    "Giao dịch chưa đạt finality. Giữ mã giao dịch và đối soát lại.",
+  );
+  const block = await client.getBlock({ blockNumber: receipt.blockNumber });
+  assert(
+    block.hash === receipt.blockHash &&
+      transaction.blockHash === receipt.blockHash,
+    409,
+    "Block giao dịch đã thay đổi. Chờ đối soát.",
+  );
+  return receipt;
+}
+async function settleIntent(tx: Store, intent: Intent, hash: string) {
+  if (intent.status === "CONFIRMED") {
+    assert(
+      intent.txHash === hash,
+      409,
+      "Lệnh đã được xác nhận bằng giao dịch khác.",
+    );
+    return { success: true, alreadyReconciled: true, txHash: hash };
+  }
+  assert(["READY", "BROADCAST"].includes(intent.status), 409, "Lệnh đã đóng.");
+  const receipt = await verifiedTransfer(intent, hash);
+  const [fund] = await tx
     .select()
     .from(funds)
-    .where(and(eq(funds.id, fId), eq(funds.workspaceId, wsId)));
+    .where(eq(funds.id, intent.fundId));
   assert(fund, 404, "Không tìm thấy quỹ.");
-
-  const amountWei = toWeiString(body.amountWei);
-  const intentId = randomUUID();
-  const memo = `Kinetix:contrib:${intentId}`;
-
-  return {
-    intentId,
+  if (intent.kind === "CONTRIBUTION") {
+    await tx.insert(contributions).values({
+      fundId: fund.id,
+      memberUserId: intent.userId,
+      funderAddress: intent.senderAddress,
+      amountWei: intent.amountWei,
+      txHash: hash,
+      blockNumber: receipt.blockNumber,
+      intentId: intent.id,
+      reconciledAt: new Date(),
+    });
+    await tx
+      .update(funds)
+      .set({
+        balanceWei: sql`${funds.balanceWei} + ${intent.amountWei}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(funds.id, fund.id));
+  } else {
+    const [request] = await tx
+      .select()
+      .from(expenseRequests)
+      .where(eq(expenseRequests.id, intent.requestId!));
+    assert(
+      request?.status === "PAYMENT_PENDING",
+      409,
+      "Đề nghị chi cần đối soát trạng thái.",
+    );
+    assert(
+      BigInt(fund.balanceWei) >= BigInt(intent.amountWei) &&
+        BigInt(fund.reservedWei) >= BigInt(intent.amountWei),
+      409,
+      "Sổ quỹ cần đối soát; không tự ép số dư về 0.",
+    );
+    await tx.insert(payments).values({
+      requestId: request.id,
+      fundId: fund.id,
+      senderAddress: intent.senderAddress,
+      recipientAddress: intent.recipientAddress,
+      amountWei: intent.amountWei,
+      txHash: hash,
+      status: "CONFIRMED",
+      nonce: BigInt(intent.nonce),
+      blockNumber: receipt.blockNumber,
+      executedByUserId: intent.userId,
+      confirmedAt: new Date(),
+    });
+    await tx
+      .update(funds)
+      .set({
+        balanceWei: sql`${funds.balanceWei} - ${intent.amountWei}`,
+        reservedWei: sql`${funds.reservedWei} - ${intent.amountWei}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(funds.id, fund.id));
+    await tx
+      .update(expenseRequests)
+      .set({ status: "SETTLED", updatedAt: new Date() })
+      .where(eq(expenseRequests.id, request.id));
+  }
+  await tx
+    .update(intents)
+    .set({ txHash: hash, status: "CONFIRMED" })
+    .where(eq(intents.id, intent.id));
+  await recordAuditEvent(tx, {
+    workspaceId: fund.workspaceId,
     fundId: fund.id,
-    amountWei,
-    memo,
-    recipientAddress: fund.onchainVaultAddress || "0x54625b169542a20b0805175cf94d8cb8cce1a719",
-    chainId: TREASURY_CHAIN_ID,
-  };
+    actorUserId: intent.userId,
+    actorWallet: intent.senderAddress,
+    action:
+      intent.kind === "CONTRIBUTION"
+        ? "CONTRIBUTION_RECONCILED"
+        : "EXPENSE_SETTLED",
+    metadataDiff: {
+      intentId: intent.id,
+      requestId: intent.requestId,
+      txHash: hash,
+      amountWei: intent.amountWei,
+      blockHash: receipt.blockHash,
+    },
+  });
+  return { success: true, txHash: hash };
 }
-
+const txHashInput = (input: unknown) => {
+  assert(
+    typeof input === "string" && /^0x[0-9a-f]{64}$/i.test(input),
+    400,
+    "Mã giao dịch không hợp lệ.",
+  );
+  return input.toLowerCase();
+};
+export async function submitGroupTransfer(
+  auth: AuthContext,
+  intentId: string,
+  body: { txHash: string },
+) {
+  const hash = txHashInput(body.txHash);
+  return db.transaction(async (tx) => {
+    await lock(tx);
+    const [intent] = await tx
+      .select()
+      .from(intents)
+      .where(
+        and(
+          eq(intents.id, uuidInput(intentId)),
+          eq(intents.userId, auth.user.id),
+        ),
+      );
+    assert(intent, 404, "Không tìm thấy lệnh chuyển.");
+    const [fund] = await tx
+      .select()
+      .from(funds)
+      .where(eq(funds.id, intent.fundId));
+    await membership(tx, auth, fund.workspaceId);
+    assert(
+      intent.status !== "CONFIRMED" || intent.txHash === hash,
+      409,
+      "Lệnh đã xác nhận bằng giao dịch khác.",
+    );
+    assert(intent.status !== "CANCELLED", 409, "Lệnh đã đóng.");
+    const client = await treasuryClient();
+    const candidate = await client.getTransaction({
+      hash: hash as `0x${string}`,
+    });
+    assert(
+      matchesGroupTransfer(intent, candidate),
+      409,
+      "Mã giao dịch không khớp lệnh chuyển.",
+    );
+    await tx
+      .update(intents)
+      .set({
+        txHash: hash,
+        status: intent.status === "CONFIRMED" ? "CONFIRMED" : "BROADCAST",
+      })
+      .where(eq(intents.id, intent.id));
+    return { success: true };
+  });
+}
+export async function listGroupTransfers(auth: AuthContext, groupId: string) {
+  const wsId = uuidInput(groupId);
+  await membership(db, auth, wsId);
+  const rows = await db
+    .select({ intent: intents })
+    .from(intents)
+    .innerJoin(funds, eq(funds.id, intents.fundId))
+    .where(
+      and(
+        eq(funds.workspaceId, wsId),
+        eq(intents.userId, auth.user.id),
+        inArray(intents.status, ["READY", "BROADCAST"]),
+      ),
+    );
+  return rows.map((row) => instruction(row.intent));
+}
+/** Release an abandoned signing attempt only after its exact nonce was consumed in a finalized block. */
+export async function resolveGroupTransfer(
+  auth: AuthContext,
+  intentId: string,
+  body: { txHash: string },
+) {
+  const hash = txHashInput(body.txHash);
+  return db.transaction(async (tx) => {
+    await lock(tx);
+    const [intent] = await tx
+      .select()
+      .from(intents)
+      .where(
+        and(
+          eq(intents.id, uuidInput(intentId)),
+          eq(intents.userId, auth.user.id),
+        ),
+      );
+    assert(
+      intent && ["READY", "BROADCAST"].includes(intent.status),
+      409,
+      "Lệnh không còn chờ đối soát.",
+    );
+    const [fund] = await tx
+      .select()
+      .from(funds)
+      .where(eq(funds.id, intent.fundId));
+    await membership(tx, auth, fund.workspaceId);
+    const client = await treasuryClient();
+    const [transaction, receipt, finalized] = await Promise.all([
+      client.getTransaction({ hash: hash as `0x${string}` }),
+      client.getTransactionReceipt({ hash: hash as `0x${string}` }),
+      client.getBlock({ blockTag: "finalized" }),
+    ]);
+    assert(
+      transaction.from.toLowerCase() === intent.senderAddress &&
+        transaction.nonce === intent.nonce &&
+        finalized.number !== null &&
+        receipt.blockNumber <= finalized.number,
+      409,
+      "Chưa có bằng chứng nonce của lệnh đã kết thúc.",
+    );
+    const block = await client.getBlock({ blockNumber: receipt.blockNumber });
+    assert(
+      block.hash === receipt.blockHash &&
+        transaction.blockHash === receipt.blockHash,
+      409,
+      "Giao dịch chưa nằm trong block chính thức.",
+    );
+    assert(
+      receipt.status === "reverted" ||
+        !matchesGroupTransfer(intent, transaction),
+      409,
+      "Giao dịch đã trả tiền đúng lệnh; dùng đối soát thanh toán.",
+    );
+    await tx
+      .update(intents)
+      .set({ status: "CANCELLED", txHash: hash, requestId: null })
+      .where(eq(intents.id, intent.id));
+    if (intent.requestId)
+      await tx
+        .update(expenseRequests)
+        .set({ status: "APPROVED", updatedAt: new Date() })
+        .where(eq(expenseRequests.id, intent.requestId));
+    await recordAuditEvent(tx, {
+      workspaceId: fund.workspaceId,
+      fundId: fund.id,
+      actorUserId: auth.user.id,
+      actorWallet: intent.senderAddress,
+      action: "TRANSFER_CANCELLED",
+      metadataDiff: {
+        intentId: intent.id,
+        requestId: intent.requestId,
+        txHash: hash,
+      },
+    });
+    return { success: true };
+  });
+}
 export async function reconcileContribution(
   auth: AuthContext,
   groupId: string,
   fundId: string,
   body: { txHash: string; intentId?: string; amountWei?: string },
 ) {
-  const wsId = uuidInput(groupId);
-  const fId = uuidInput(fundId);
-  await membership(db, auth, wsId);
-
-  const hash = body.txHash?.trim().toLowerCase();
-  assert(hash && /^0x[a-f0-9]{64}$/i.test(hash), 400, "Transaction hash không hợp lệ.");
-
   return db.transaction(async (tx) => {
     await lock(tx);
-
-    const [existing] = await tx
+    const fund = await fundAccess(tx, auth, groupId, fundId);
+    const [intent] = await tx
       .select()
-      .from(contributions)
-      .where(eq(contributions.txHash, hash));
-    if (existing) {
-      return {
-        success: true,
-        alreadyReconciled: true,
-        contribution: existing,
-      };
-    }
-
-    const [fund] = await tx
-      .select()
-      .from(funds)
-      .where(and(eq(funds.id, fId), eq(funds.workspaceId, wsId)));
-    assert(fund, 404, "Không tìm thấy quỹ.");
-
-    let verifiedAmountWei = body.amountWei ? toWeiString(body.amountWei) : "100000000000000000"; // 0.1 AVAX default if simulated
-    let funder = auth.wallet?.address || "0x0000000000000000000000000000000000000000";
-    let blockNumber: bigint | null = null;
-
-    try {
-      const client = await treasuryClient();
-      const receipt = await client.getTransactionReceipt({
-        hash: hash as `0x${string}`,
-      });
-      if (receipt && receipt.status === "success") {
-        blockNumber = receipt.blockNumber;
-        const transaction = await client.getTransaction({
-          hash: hash as `0x${string}`,
-        });
-        funder = transaction.from.toLowerCase();
-        verifiedAmountWei = transaction.value.toString();
-      }
-    } catch {
-      // In test environments or when offline, fallback to body / auth wallet
-    }
-
-    const [contribution] = await tx
-      .insert(contributions)
-      .values({
-        fundId: fId,
-        memberUserId: auth.user.id,
-        funderAddress: funder.toLowerCase(),
-        amountWei: verifiedAmountWei,
-        asset: "AVAX",
-        txHash: hash,
-        blockNumber,
-        status: "CONFIRMED",
-        intentId: body.intentId || null,
-        reconciledAt: new Date(),
-      })
-      .returning();
-
-    await tx
-      .update(funds)
-      .set({
-        balanceWei: sql`${funds.balanceWei} + ${verifiedAmountWei}`,
-        updatedAt: new Date(),
-      })
-      .where(eq(funds.id, fId));
-
-    await recordAuditEvent(tx, {
-      workspaceId: wsId,
-      fundId: fId,
-      actorUserId: auth.user.id,
-      actorWallet: funder,
-      action: "CONTRIBUTION_RECONCILED",
-      metadataDiff: { txHash: hash, amountWei: verifiedAmountWei },
-    });
-
-    return {
-      success: true,
-      contribution,
-    };
+      .from(intents)
+      .where(
+        and(
+          eq(intents.id, uuidInput(body.intentId || "")),
+          eq(intents.fundId, fund.id),
+          eq(intents.userId, auth.user.id),
+          eq(intents.kind, "CONTRIBUTION"),
+        ),
+      );
+    assert(intent, 404, "Không tìm thấy lệnh góp tiền.");
+    return settleIntent(tx, intent, txHashInput(body.txHash));
   });
 }
-
-/**
- * 6. Đề nghị Chi & Xét duyệt Đa chữ ký (Expense Requests & Approvals)
- */
 export async function listFundExpenses(
   auth: AuthContext,
   groupId: string,
   fundId: string,
   query?: { status?: string; myPendingApproval?: string },
 ) {
-  const wsId = uuidInput(groupId);
-  const fId = uuidInput(fundId);
-  await membership(db, auth, wsId);
-
-  const [policy] = await db
-    .select()
-    .from(fundPolicies)
-    .where(eq(fundPolicies.fundId, fId))
-    .orderBy(desc(fundPolicies.version))
-    .limit(1);
-
-  const userAddress = auth.wallet?.address?.toLowerCase();
-  const isSigner = Boolean(
-    policy && userAddress && policy.signers.includes(userAddress),
-  );
-
-  const expenses = await db
-    .select({
-      id: expenseRequests.id,
-      fundId: expenseRequests.fundId,
-      proposerId: expenseRequests.proposerId,
-      proposerAddress: expenseRequests.proposerAddress,
-      recipientAddress: expenseRequests.recipientAddress,
-      recipientName: expenseRequests.recipientName,
-      amountWei: expenseRequests.amountWei,
-      title: expenseRequests.title,
-      purpose: expenseRequests.purpose,
-      category: expenseRequests.category,
-      deadline: expenseRequests.deadline,
-      status: expenseRequests.status,
-      receiptAttachmentUrl: expenseRequests.receiptAttachmentUrl,
-      receiptAttachmentHash: expenseRequests.receiptAttachmentHash,
-      approvalsCount: expenseRequests.approvalsCount,
-      requiredApprovals: expenseRequests.requiredApprovals,
-      createdAt: expenseRequests.createdAt,
-      proposerName: users.fullName,
-    })
+  const fund = await fundAccess(db, auth, groupId, fundId);
+  const rows = await db
+    .select({ request: expenseRequests, proposerName: users.fullName })
     .from(expenseRequests)
     .innerJoin(users, eq(users.id, expenseRequests.proposerId))
-    .where(eq(expenseRequests.fundId, fId))
+    .where(eq(expenseRequests.fundId, fund.id))
     .orderBy(desc(expenseRequests.createdAt));
-
-  const expenseIds = expenses.map((e) => e.id);
-  const allApprovals =
-    expenseIds.length > 0
-      ? await db
-          .select()
-          .from(expenseApprovals)
-          .where(inArray(expenseApprovals.requestId, expenseIds))
-      : [];
-
-  const approvalsMap = new Map<string, typeof expenseApprovals.$inferSelect[]>();
-  for (const app of allApprovals) {
-    const list = approvalsMap.get(app.requestId) || [];
-    list.push(app);
-    approvalsMap.set(app.requestId, list);
-  }
-
-  let results = expenses.map((e) => {
-    const apps = approvalsMap.get(e.id) || [];
-    const hasVoted = apps.some((a) => a.approverUserId === auth.user.id);
-    const canApprove =
-      isSigner &&
-      !hasVoted &&
-      e.status === "PENDING_APPROVAL" &&
-      userAddress !== e.recipientAddress.toLowerCase();
-
-    return {
-      ...e,
-      approvals: apps,
-      hasVoted,
-      canApprove,
-    };
-  });
-
-  if (query?.status) {
-    results = results.filter((e) => e.status === query.status);
-  }
-  if (query?.myPendingApproval === "true") {
-    results = results.filter((e) => e.canApprove);
-  }
-
-  return results;
+  const policy = await policyFor(db, fund.id),
+    caller = auth.wallet?.address.toLowerCase();
+  const results = await Promise.all(
+    rows.map(async ({ request, proposerName }) => {
+      const approvals = await db
+        .select({ vote: expenseApprovals, approverName: users.fullName })
+        .from(expenseApprovals)
+        .innerJoin(users, eq(users.id, expenseApprovals.approverUserId))
+        .where(eq(expenseApprovals.requestId, request.id));
+      const [payment] = await db
+        .select()
+        .from(payments)
+        .where(eq(payments.requestId, request.id));
+      return {
+        ...request,
+        proposerName,
+        approvals: approvals.map(({ vote, approverName }) => ({
+          ...vote,
+          approverName,
+        })),
+        payment: payment
+          ? {
+              ...payment,
+              blockNumber: payment.blockNumber?.toString() || null,
+              nonce: payment.nonce?.toString() || null,
+            }
+          : undefined,
+        canApprove:
+          !!caller &&
+          policy.signers.includes(caller) &&
+          caller !== request.recipientAddress &&
+          request.status === "PENDING_APPROVAL" &&
+          request.deadline.getTime() > Date.now() &&
+          !approvals.some(({ vote }) => vote.approverAddress === caller),
+        canPay:
+          caller === fund.treasuryWalletAddress &&
+          ["APPROVED", "PAYMENT_PENDING"].includes(request.status),
+      };
+    }),
+  );
+  return results.filter(
+    (item) =>
+      (!query?.status || item.status === query.status) &&
+      (query?.myPendingApproval !== "true" || item.canApprove),
+  );
 }
-
 export async function createExpenseRequest(
   auth: AuthContext,
   groupId: string,
@@ -878,612 +983,378 @@ export async function createExpenseRequest(
     idempotencyKey?: string;
   },
 ) {
-  const wsId = uuidInput(groupId);
-  const fId = uuidInput(fundId);
-  await membership(db, auth, wsId);
-
-  const title = textInput(body.title, 120);
-  const purpose = textInput(body.purpose, 500);
-  const amountWei = toWeiString(body.amountWei);
-  const recipient = body.recipientAddress?.trim().toLowerCase();
-  assert(
-    recipient && /^0x[a-f0-9]{40}$/i.test(recipient),
-    400,
-    "Địa chỉ ví người nhận không hợp lệ.",
-  );
-  const recipientName = textInput(body.recipientName, 100);
+  const title = textInput(body.title, 120),
+    purpose = textInput(body.purpose, 500),
+    amountWei = positiveWei(body.amountWei);
+  const recipientAddress = address(body.recipientAddress),
+    recipientName = textInput(body.recipientName, 100);
   const category = body.category ? textInput(body.category, 50) : "OPERATING";
-  const proposerWallet =
-    auth.wallet?.address?.toLowerCase() ||
-    "0x0000000000000000000000000000000000000000";
-
-  let receiptHash: string | null = null;
-  if (body.receiptImageBase64) {
-    receiptHash = createHash("sha256")
-      .update(body.receiptImageBase64)
-      .digest("hex");
-  }
-
-  const idempotencyKey = body.idempotencyKey?.trim() || null;
-
+  assert(!body.unlockOverride, 400, "Không thể bỏ qua điều kiện quỹ mục tiêu.");
+  const hours = body.deadlineHours ?? 48;
+  assert(
+    Number.isInteger(hours) && hours >= 1 && hours <= 168,
+    400,
+    "Hạn duyệt phải từ 1 đến 168 giờ.",
+  );
+  const key = textInput(body.idempotencyKey, 64);
+  const receipt = body.receiptImageBase64
+    ? sanitizeProofImage(body.receiptImageBase64)
+    : null;
+  const receiptHash = receipt
+    ? createHash("sha256").update(Buffer.from(receipt, "base64")).digest("hex")
+    : null;
   return db.transaction(async (tx) => {
     await lock(tx);
-
-    // 1. Kiểm tra Idempotency
-    if (idempotencyKey) {
-      const [existing] = await tx
-        .select()
-        .from(expenseRequests)
-        .where(
-          and(
-            eq(expenseRequests.fundId, fId),
-            eq(expenseRequests.idempotencyKey, idempotencyKey),
-          ),
-        );
-      if (existing) {
-        const matches =
-          existing.amountWei === amountWei &&
-          existing.recipientAddress.toLowerCase() === recipient &&
-          existing.purpose === purpose;
-        assert(
-          matches,
-          409,
-          "Khóa idempotency đã được sử dụng với nội dung khác.",
-        );
-        return existing;
-      }
-    }
-
-    // 2. Kiểm tra Quỹ và Chính sách
-    const [fund] = await tx
+    let fund = await fundAccess(tx, auth, groupId, fundId, true);
+    requireCustody(fund);
+    const [existing] = await tx
       .select()
-      .from(funds)
-      .where(and(eq(funds.id, fId), eq(funds.workspaceId, wsId)));
-    assert(fund, 404, "Không tìm thấy quỹ.");
-    assert(fund.status === "ACTIVE", 400, "Quỹ đang tạm dừng hoặc đã đóng.");
-
-    const [policy] = await tx
-      .select()
-      .from(fundPolicies)
-      .where(eq(fundPolicies.fundId, fId))
-      .orderBy(desc(fundPolicies.version))
-      .limit(1);
-    assert(policy, 400, "Quỹ chưa có chính sách kiểm soát chi tiêu.");
-
-    // 3. Ràng buộc Quỹ Mục Tiêu (Goal Fund)
-    if (fund.fundType === "GOAL") {
-      const targetReached = BigInt(fund.balanceWei) >= BigInt(fund.targetAmountWei);
-      const deadlineReached =
-        fund.targetDeadline && new Date() >= new Date(fund.targetDeadline);
-      const unlocked = targetReached || deadlineReached || body.unlockOverride;
-
-      assert(
-        unlocked,
-        400,
-        "Quỹ mục tiêu chưa đạt số tiền tích lũy hoặc chưa đến thời hạn giải ngân.",
+      .from(expenseRequests)
+      .where(
+        and(
+          eq(expenseRequests.fundId, fund.id),
+          eq(expenseRequests.idempotencyKey, key),
+        ),
       );
+    if (existing) {
+      assert(
+        existing.proposerId === auth.user.id &&
+          existing.title === title &&
+          existing.purpose === purpose &&
+          existing.amountWei === amountWei &&
+          existing.recipientAddress === recipientAddress &&
+          existing.recipientName === recipientName &&
+          existing.category === category &&
+          existing.receiptAttachmentHash === receiptHash &&
+          Math.round(
+            (existing.deadline.getTime() - existing.createdAt.getTime()) /
+              3600000,
+          ) === hours,
+        409,
+        "Khóa yêu cầu đã được dùng với nội dung khác.",
+      );
+      return existing;
     }
-
-    // 4. Kiểm tra số dư khả dụng (Available Balance)
-    const balance = BigInt(fund.balanceWei);
-    const reserved = BigInt(fund.reservedWei);
-    const reqAmount = BigInt(amountWei);
-    const available = balance - reserved;
-
-    assert(
-      available >= reqAmount,
-      400,
-      "Số dư khả dụng của quỹ không đủ để giữ chỗ. Vui lòng kiểm tra lại.",
+    await requireWorkspaceWrites(tx, fund.workspaceId, true);
+    await expireRequests(tx, fund);
+    fund = await fundAccess(tx, auth, groupId, fundId, true);
+    const policy = await policyFor(tx, fund.id),
+      roster = await getGroupRoster(tx, fund.workspaceId);
+    const independent = policy.signers.filter(
+      (signer) =>
+        signer !== recipientAddress &&
+        roster.some((person) => person.walletAddress?.toLowerCase() === signer),
     );
-
-    // 5. Tính toán hạn mức rút nhanh (Micro-limit)
-    const isFastWithdraw =
-      fund.fundType === "OPERATING" &&
-      BigInt(policy.fastWithdrawLimitWei) > 0n &&
-      reqAmount <= BigInt(policy.fastWithdrawLimitWei);
-
-    const deadlineHours = Math.max(1, body.deadlineHours || 48);
-    const deadline = new Date(Date.now() + deadlineHours * 3600 * 1000);
-
-    const status = isFastWithdraw ? "APPROVED" : "PENDING_APPROVAL";
-    const approvalsCount = isFastWithdraw ? 1 : 0;
-
-    // 6. Khóa giữ chỗ (Lock reservation)
+    assert(
+      independent.length >= policy.quorum,
+      409,
+      "Không đủ người duyệt độc lập đang hoạt động cho người nhận này.",
+    );
+    assert(
+      fund.fundType !== "GOAL" ||
+        BigInt(fund.balanceWei) >= BigInt(fund.targetAmountWei),
+      409,
+      "Quỹ chưa đạt mục tiêu; hết hạn góp không tự mở khóa chi.",
+    );
+    assert(
+      BigInt(fund.balanceWei) - BigInt(fund.reservedWei) >= BigInt(amountWei),
+      409,
+      "Số dư khả dụng không đủ.",
+    );
+    const [request] = await tx
+      .insert(expenseRequests)
+      .values({
+        fundId: fund.id,
+        policyVersionId: policy.id,
+        proposerId: auth.user.id,
+        proposerAddress: walletOf(auth),
+        recipientAddress,
+        recipientName,
+        amountWei,
+        title,
+        purpose,
+        category,
+        deadline: new Date(Date.now() + hours * 3600000),
+        requiredApprovals: policy.quorum,
+        idempotencyKey: key,
+        receiptAttachmentUrl: receipt
+          ? `data:image/png;base64,${receipt}`
+          : null,
+        receiptAttachmentHash: receiptHash,
+      })
+      .returning();
     await tx
       .update(funds)
       .set({
         reservedWei: sql`${funds.reservedWei} + ${amountWei}`,
         updatedAt: new Date(),
       })
-      .where(eq(funds.id, fId));
-
-    // 7. Tạo bản ghi đề nghị chi
-    const [request] = await tx
-      .insert(expenseRequests)
-      .values({
-        fundId: fId,
-        policyVersionId: policy.id,
-        proposerId: auth.user.id,
-        proposerAddress: proposerWallet,
-        recipientAddress: recipient,
-        recipientName,
-        amountWei,
-        title,
-        purpose,
-        category,
-        deadline,
-        status,
-        receiptAttachmentUrl: body.receiptImageBase64
-          ? `data:image/jpeg;base64,${body.receiptImageBase64.slice(0, 100)}...`
-          : null,
-        receiptAttachmentHash: receiptHash,
-        approvalsCount,
-        requiredApprovals: isFastWithdraw ? 1 : policy.quorum,
-        idempotencyKey,
-      })
-      .returning();
-
-    // 8. Nếu là Fast-withdraw, tự động ghi nhận approval
-    if (isFastWithdraw) {
-      await tx.insert(expenseApprovals).values({
-        requestId: request.id,
-        approverUserId: auth.user.id,
-        approverAddress: proposerWallet,
-        decision: "APPROVE",
-        comment: "Giải ngân nhanh trong hạn mức chi tiêu nhỏ",
-      });
-    }
-
+      .where(eq(funds.id, fund.id));
     await recordAuditEvent(tx, {
-      workspaceId: wsId,
-      fundId: fId,
+      workspaceId: fund.workspaceId,
+      fundId: fund.id,
       actorUserId: auth.user.id,
-      actorWallet: proposerWallet,
-      action: isFastWithdraw ? "EXPENSE_FAST_APPROVED" : "EXPENSE_REQUESTED",
-      metadataDiff: {
-        requestId: request.id,
-        amountWei,
-        recipient,
-        isFastWithdraw,
-      },
+      actorWallet: walletOf(auth),
+      action: "EXPENSE_PROPOSED",
+      metadataDiff: { requestId: request.id, title, amountWei },
     });
-
     return request;
   });
 }
-
-/**
- * 7. Duyệt đề nghị chi (Multi-Signature Approval)
- */
 export async function approveExpenseRequest(
   auth: AuthContext,
   expenseId: string,
-  body?: { signature?: string; comment?: string },
+  body?: { comment?: string; signature?: string },
 ) {
-  const reqId = uuidInput(expenseId);
-  const userAddress = auth.wallet?.address?.toLowerCase();
-  assert(userAddress, 403, "Cần liên kết ví để thực hiện ký duyệt đề nghị chi.");
-
   return db.transaction(async (tx) => {
     await lock(tx);
-
-    const [request] = await tx
-      .select()
-      .from(expenseRequests)
-      .where(eq(expenseRequests.id, reqId));
-    assert(request, 404, "Không tìm thấy đề nghị chi.");
+    const { request, fund } = await expenseAccess(tx, auth, expenseId);
+    await requireWorkspaceWrites(tx, fund.workspaceId, true);
     assert(
-      request.status === "PENDING_APPROVAL",
-      400,
-      "Đề nghị chi không ở trạng thái chờ duyệt.",
+      fund.status === "ACTIVE" &&
+        request.status === "PENDING_APPROVAL" &&
+        request.deadline.getTime() > Date.now(),
+      409,
+      "Đề nghị không còn chờ duyệt hoặc đã hết hạn.",
     );
-
-    // Kiểm tra hết hạn
-    if (new Date() > new Date(request.deadline)) {
-      await tx
-        .update(expenseRequests)
-        .set({ status: "EXPIRED", updatedAt: new Date() })
-        .where(eq(expenseRequests.id, reqId));
-      await tx
-        .update(funds)
-        .set({
-          reservedWei: sql`GREATEST(0, ${funds.reservedWei} - ${request.amountWei})`,
-          updatedAt: new Date(),
-        })
-        .where(eq(funds.id, request.fundId));
-      assert(false, 400, "Đề nghị chi đã quá thời hạn phê duyệt.");
-    }
-
-    const [fund] = await tx
-      .select()
-      .from(funds)
-      .where(eq(funds.id, request.fundId));
-    assert(fund, 404, "Không tìm thấy quỹ liên kết.");
-
-    await membership(tx, auth, fund.workspaceId);
-
-    const [policy] = await tx
-      .select()
-      .from(fundPolicies)
-      .where(eq(fundPolicies.id, request.policyVersionId!));
-    assert(policy, 400, "Không tìm thấy chính sách áp dụng cho đề nghị này.");
-
-    // RÀNG BUỘC BẢO MẬT 1: Người ký phải thuộc danh sách signers của quỹ
-    const isSigner = policy.signers.includes(userAddress);
-    assert(isSigner, 403, "Địa chỉ ví của bạn không có quyền ký duyệt cho quỹ này.");
-
-    // RÀNG BUỘC BẢO MẬT 2: Người nhận không được tự duyệt cho khoản chi của chính mình
+    const policy = await policyFor(tx, fund.id),
+      caller = walletOf(auth);
     assert(
-      userAddress !== request.recipientAddress.toLowerCase(),
+      policy.id === request.policyVersionId,
+      409,
+      "Chính sách đã thay đổi, cần đề nghị mới.",
+    );
+    assert(
+      policy.signers.includes(caller) && caller !== request.recipientAddress,
       403,
-      "Người thụ hưởng không được tự duyệt khoản chi cho chính mình.",
+      "Cần người duyệt của quỹ, độc lập với người nhận.",
     );
-
-    // RÀNG BUỘC BẢO MẬT 3: Chống bỏ phiếu trùng lặp
-    const [existingVote] = await tx
+    const votes = await tx
       .select()
       .from(expenseApprovals)
-      .where(
-        and(
-          eq(expenseApprovals.requestId, reqId),
-          eq(expenseApprovals.approverUserId, auth.user.id),
-        ),
-      );
-    assert(!existingVote, 409, "Bạn đã biểu quyết cho đề nghị này.");
-
-    // Lưu phiếu duyệt
+      .where(eq(expenseApprovals.requestId, request.id));
+    assert(
+      !votes.some(
+        (vote) =>
+          vote.approverUserId === auth.user.id ||
+          vote.approverAddress === caller,
+      ),
+      409,
+      "Bạn đã biểu quyết.",
+    );
     await tx.insert(expenseApprovals).values({
-      requestId: reqId,
+      requestId: request.id,
       approverUserId: auth.user.id,
-      approverAddress: userAddress,
+      approverAddress: caller,
       decision: "APPROVE",
-      signature: body?.signature || null,
       comment: body?.comment ? textInput(body.comment, 250) : null,
     });
-
-    const newApprovalsCount = request.approvalsCount + 1;
-    const isNowApproved = newApprovalsCount >= request.requiredApprovals;
-    const newStatus = isNowApproved ? "APPROVED" : "PENDING_APPROVAL";
-
+    const count =
+        votes.filter((vote) => vote.decision === "APPROVE").length + 1,
+      status =
+        count >= request.requiredApprovals ? "APPROVED" : "PENDING_APPROVAL";
     await tx
       .update(expenseRequests)
-      .set({
-        approvalsCount: newApprovalsCount,
-        status: newStatus,
-        updatedAt: new Date(),
-      })
-      .where(eq(expenseRequests.id, reqId));
-
+      .set({ approvalsCount: count, status, updatedAt: new Date() })
+      .where(eq(expenseRequests.id, request.id));
     await recordAuditEvent(tx, {
       workspaceId: fund.workspaceId,
       fundId: fund.id,
       actorUserId: auth.user.id,
-      actorWallet: userAddress,
-      action: isNowApproved ? "EXPENSE_FULLY_APPROVED" : "EXPENSE_VOTE_CAST",
-      metadataDiff: {
-        requestId: reqId,
-        approvalsCount: newApprovalsCount,
-        requiredApprovals: request.requiredApprovals,
-        status: newStatus,
-      },
+      actorWallet: caller,
+      action: "EXPENSE_APPROVED",
+      metadataDiff: { requestId: request.id, approvalsCount: count, status },
     });
-
-    return {
-      success: true,
-      requestId: reqId,
-      approvalsCount: newApprovalsCount,
-      requiredApprovals: request.requiredApprovals,
-      status: newStatus,
-    };
+    return { success: true, status, approvalsCount: count };
   });
 }
-
-/**
- * 8. Từ chối đề nghị chi (Reject)
- */
-export async function rejectExpenseRequest(
+async function releaseRequest(
+  auth: AuthContext,
+  expenseId: string,
+  reject: boolean,
+  reason?: string,
+) {
+  return db.transaction(async (tx) => {
+    await lock(tx);
+    const { request, fund } = await expenseAccess(tx, auth, expenseId);
+    await requireWorkspaceWrites(tx, fund.workspaceId);
+    assert(
+      ["PENDING_APPROVAL", "APPROVED"].includes(request.status),
+      409,
+      "Lệnh đã đóng hoặc đang thanh toán; cần đối soát trước khi giải phóng giữ chỗ.",
+    );
+    const caller = walletOf(auth);
+    if (reject) {
+      const policy = await policyFor(tx, fund.id);
+      assert(
+        request.status === "PENDING_APPROVAL" &&
+          policy.signers.includes(caller) &&
+          caller !== request.recipientAddress,
+        403,
+        "Bạn không có quyền từ chối khoản này.",
+      );
+      textInput(reason, 250);
+    } else
+      assert(
+        request.proposerId === auth.user.id,
+        403,
+        "Chỉ người đề nghị được hủy trước khi thanh toán.",
+      );
+    assert(
+      BigInt(fund.reservedWei) >= BigInt(request.amountWei),
+      409,
+      "Sổ giữ chỗ cần đối soát.",
+    );
+    await tx
+      .update(expenseRequests)
+      .set({ status: reject ? "REJECTED" : "CANCELLED", updatedAt: new Date() })
+      .where(eq(expenseRequests.id, request.id));
+    await tx
+      .update(funds)
+      .set({
+        reservedWei: sql`${funds.reservedWei} - ${request.amountWei}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(funds.id, fund.id));
+    await recordAuditEvent(tx, {
+      workspaceId: fund.workspaceId,
+      fundId: fund.id,
+      actorUserId: auth.user.id,
+      actorWallet: caller,
+      action: reject ? "EXPENSE_REJECTED" : "EXPENSE_CANCELLED",
+      metadataDiff: { requestId: request.id, reason },
+    });
+    return { success: true };
+  });
+}
+export const rejectExpenseRequest = (
   auth: AuthContext,
   expenseId: string,
   body?: { reason?: string },
-) {
-  const reqId = uuidInput(expenseId);
-  const userAddress = auth.wallet?.address?.toLowerCase();
-
-  return db.transaction(async (tx) => {
-    await lock(tx);
-
-    const [request] = await tx
-      .select()
-      .from(expenseRequests)
-      .where(eq(expenseRequests.id, reqId));
-    assert(request, 404, "Không tìm thấy đề nghị chi.");
-    assert(
-      request.status === "PENDING_APPROVAL",
-      400,
-      "Chỉ có thể từ chối đề nghị đang chờ duyệt.",
-    );
-
-    const [fund] = await tx
-      .select()
-      .from(funds)
-      .where(eq(funds.id, request.fundId));
-    assert(fund, 404, "Không tìm thấy quỹ.");
-
-    const member = await membership(tx, auth, fund.workspaceId);
-    const [policy] = await tx
-      .select()
-      .from(fundPolicies)
-      .where(eq(fundPolicies.id, request.policyVersionId!));
-
-    const isSigner = Boolean(
-      policy && userAddress && policy.signers.includes(userAddress),
-    );
-    assert(
-      member.role === "ADMIN" || isSigner,
-      403,
-      "Chỉ quản trị viên hoặc người ký quỹ mới có thể từ chối đề nghị chi.",
-    );
-
-    // Chuyển trạng thái sang REJECTED
-    await tx
-      .update(expenseRequests)
-      .set({ status: "REJECTED", updatedAt: new Date() })
-      .where(eq(expenseRequests.id, reqId));
-
-    // Giải phóng khoản giữ chỗ đúng một lần
-    await tx
-      .update(funds)
-      .set({
-        reservedWei: sql`GREATEST(0, ${funds.reservedWei} - ${request.amountWei})`,
-        updatedAt: new Date(),
-      })
-      .where(eq(funds.id, request.fundId));
-
-    if (auth.user.id && userAddress) {
-      await tx
-        .insert(expenseApprovals)
-        .values({
-          requestId: reqId,
-          approverUserId: auth.user.id,
-          approverAddress: userAddress,
-          decision: "REJECT",
-          comment: body?.reason ? textInput(body.reason, 250) : "Từ chối đề nghị",
-        })
-        .onConflictDoNothing();
-    }
-
-    await recordAuditEvent(tx, {
-      workspaceId: fund.workspaceId,
-      fundId: fund.id,
-      actorUserId: auth.user.id,
-      actorWallet: userAddress || null,
-      action: "EXPENSE_REJECTED",
-      metadataDiff: { requestId: reqId, reason: body?.reason },
-    });
-
-    return { success: true, message: "Đã từ chối đề nghị chi và giải phóng tiền giữ chỗ." };
-  });
-}
-
-/**
- * 9. Hủy đề nghị chi (Cancel)
- */
-export async function cancelExpenseRequest(auth: AuthContext, expenseId: string) {
-  const reqId = uuidInput(expenseId);
-
-  return db.transaction(async (tx) => {
-    await lock(tx);
-
-    const [request] = await tx
-      .select()
-      .from(expenseRequests)
-      .where(eq(expenseRequests.id, reqId));
-    assert(request, 404, "Không tìm thấy đề nghị chi.");
-    assert(
-      ["PENDING_APPROVAL", "APPROVED"].includes(request.status),
-      400,
-      "Chỉ có thể hủy đề nghị chi chưa giải ngân.",
-    );
-
-    const [fund] = await tx
-      .select()
-      .from(funds)
-      .where(eq(funds.id, request.fundId));
-    assert(fund, 404, "Không tìm thấy quỹ.");
-
-    const member = await membership(tx, auth, fund.workspaceId);
-    const isProposer = request.proposerId === auth.user.id;
-    assert(
-      isProposer || member.role === "ADMIN",
-      403,
-      "Chỉ người tạo đề nghị hoặc quản trị viên nhóm mới có quyền hủy.",
-    );
-
-    // Chuyển sang CANCELLED
-    await tx
-      .update(expenseRequests)
-      .set({ status: "CANCELLED", updatedAt: new Date() })
-      .where(eq(expenseRequests.id, reqId));
-
-    // Giải phóng khoản giữ chỗ
-    await tx
-      .update(funds)
-      .set({
-        reservedWei: sql`GREATEST(0, ${funds.reservedWei} - ${request.amountWei})`,
-        updatedAt: new Date(),
-      })
-      .where(eq(funds.id, request.fundId));
-
-    await recordAuditEvent(tx, {
-      workspaceId: fund.workspaceId,
-      fundId: fund.id,
-      actorUserId: auth.user.id,
-      actorWallet: auth.wallet?.address || null,
-      action: "EXPENSE_CANCELLED",
-      metadataDiff: { requestId: reqId },
-    });
-
-    return { success: true, message: "Đã hủy đề nghị chi và giải phóng tiền giữ chỗ." };
-  });
-}
-
-/**
- * 10. Chuẩn bị thanh toán (Prepare Payment Payload)
- */
+) => releaseRequest(auth, expenseId, true, body?.reason);
+export const cancelExpenseRequest = (auth: AuthContext, expenseId: string) =>
+  releaseRequest(auth, expenseId, false);
 export async function preparePayment(auth: AuthContext, expenseId: string) {
-  const reqId = uuidInput(expenseId);
-
-  const [request] = await db
-    .select()
-    .from(expenseRequests)
-    .where(eq(expenseRequests.id, reqId));
-  assert(request, 404, "Không tìm thấy đề nghị chi.");
-  assert(
-    request.status === "APPROVED",
-    400,
-    "Đề nghị chi chưa đạt trạng thái đã đủ chữ ký phê duyệt.",
-  );
-
-  const [fund] = await db
-    .select()
-    .from(funds)
-    .where(eq(funds.id, request.fundId));
-  assert(fund, 404, "Không tìm thấy quỹ.");
-
-  await membership(db, auth, fund.workspaceId);
-
-  return {
-    requestId: request.id,
-    fundId: fund.id,
-    fundName: fund.name,
-    recipientAddress: request.recipientAddress,
-    recipientName: request.recipientName,
-    amountWei: request.amountWei,
-    chainId: TREASURY_CHAIN_ID,
-    ready: true,
-  };
+  return db.transaction(async (tx) => {
+    await lock(tx);
+    const { request, fund } = await expenseAccess(tx, auth, expenseId);
+    assert(
+      walletOf(auth) === requireCustody(fund),
+      403,
+      "Chỉ ví giữ tiền đã công bố mới có thể thanh toán.",
+    );
+    const [existing] = await tx
+      .select()
+      .from(intents)
+      .where(eq(intents.requestId, request.id));
+    if (existing) return instruction(existing);
+    await requireWorkspaceWrites(tx, fund.workspaceId, true);
+    assert(
+      fund.status === "ACTIVE" &&
+        request.status === "APPROVED" &&
+        request.deadline.getTime() > Date.now(),
+      409,
+      "Khoản chi chưa đủ duyệt hoặc đã hết hạn.",
+    );
+    const policy = await policyFor(tx, fund.id),
+      roster = await getGroupRoster(tx, fund.workspaceId);
+    assert(
+      policy.id === request.policyVersionId,
+      409,
+      "Chính sách đã thay đổi.",
+    );
+    const votes = await tx
+      .select()
+      .from(expenseApprovals)
+      .where(eq(expenseApprovals.requestId, request.id));
+    const eligible = new Set(
+      votes
+        .filter(
+          (vote) =>
+            vote.decision === "APPROVE" &&
+            vote.approverAddress !== request.recipientAddress &&
+            policy.signers.includes(vote.approverAddress) &&
+            roster.some(
+              (person) =>
+                person.id === vote.approverUserId &&
+                person.walletAddress?.toLowerCase() === vote.approverAddress,
+            ),
+        )
+        .map((vote) => vote.approverAddress),
+    );
+    assert(
+      eligible.size >= policy.quorum,
+      409,
+      "Không còn đủ người duyệt hợp lệ. Cần đối soát quyền thành viên.",
+    );
+    assert(
+      BigInt(fund.balanceWei) >= BigInt(request.amountWei) &&
+        BigInt(fund.reservedWei) >= BigInt(request.amountWei),
+      409,
+      "Số dư và giữ chỗ không đủ.",
+    );
+    assert(
+      request.recipientAddress !== fund.treasuryWalletAddress,
+      400,
+      "Không thể ghi nhận chi bằng chuyển tiền cho chính ví giữ tiền.",
+    );
+    const intent = await newIntent(
+      tx,
+      auth,
+      fund,
+      "PAYMENT",
+      request.amountWei,
+      request.recipientAddress,
+      request.id,
+    );
+    await tx
+      .update(expenseRequests)
+      .set({ status: "PAYMENT_PENDING", updatedAt: new Date() })
+      .where(eq(expenseRequests.id, request.id));
+    return intent;
+  });
 }
-
-/**
- * 11. Xác minh thanh toán on-chain & Quyết toán (Settle Payment)
- */
 export async function verifyAndSettlePayment(
   auth: AuthContext,
   expenseId: string,
   body: { txHash: string },
 ) {
-  const reqId = uuidInput(expenseId);
-  const hash = body.txHash?.trim().toLowerCase();
-  assert(hash && /^0x[a-f0-9]{64}$/i.test(hash), 400, "Transaction hash không hợp lệ.");
-
   return db.transaction(async (tx) => {
     await lock(tx);
-
-    const [request] = await tx
+    const { request } = await expenseAccess(tx, auth, expenseId);
+    const [intent] = await tx
       .select()
-      .from(expenseRequests)
-      .where(eq(expenseRequests.id, reqId));
-    assert(request, 404, "Không tìm thấy đề nghị chi.");
+      .from(intents)
+      .where(eq(intents.requestId, request.id));
     assert(
-      request.status === "APPROVED",
-      400,
-      "Chỉ có thể quyết toán đề nghị chi đã đủ chữ ký phê duyệt.",
+      intent && intent.userId === auth.user.id,
+      403,
+      "Chỉ người giữ tiền của lệnh được đối soát thanh toán.",
     );
-
-    const [existingPayment] = await tx
-      .select()
-      .from(payments)
-      .where(eq(payments.txHash, hash));
-    assert(!existingPayment, 409, "Giao dịch này đã được dùng để quyết toán.");
-
-    const [fund] = await tx
-      .select()
-      .from(funds)
-      .where(eq(funds.id, request.fundId));
-    assert(fund, 404, "Không tìm thấy quỹ.");
-
-    await membership(tx, auth, fund.workspaceId);
-
-    let sender = auth.wallet?.address || "0x0000000000000000000000000000000000000000";
-    let blockNumber: bigint | null = null;
-    let gasUsed: string | null = null;
-
-    try {
-      const client = await treasuryClient();
-      const receipt = await client.getTransactionReceipt({
-        hash: hash as `0x${string}`,
-      });
-      if (receipt && receipt.status === "success") {
-        blockNumber = receipt.blockNumber;
-        gasUsed = receipt.gasUsed.toString();
-        const transaction = await client.getTransaction({
-          hash: hash as `0x${string}`,
-        });
-        sender = transaction.from.toLowerCase();
-      }
-    } catch {
-      // In tests or mock, keep auth wallet
-    }
-
-    // Ghi nhận bản ghi payment
-    const [paymentRecord] = await tx
-      .insert(payments)
-      .values({
-        requestId: request.id,
-        fundId: fund.id,
-        senderAddress: sender.toLowerCase(),
-        recipientAddress: request.recipientAddress.toLowerCase(),
-        amountWei: request.amountWei,
-        status: "CONFIRMED",
-        txHash: hash,
-        blockNumber,
-        gasUsedWei: gasUsed,
-        executedByUserId: auth.user.id,
-        confirmedAt: new Date(),
-      })
-      .returning();
-
-    // Quyết toán tài chính: Trừ số dư thực tế và giải phóng số dư giữ chỗ
-    await tx
-      .update(funds)
-      .set({
-        balanceWei: sql`GREATEST(0, ${funds.balanceWei} - ${request.amountWei})`,
-        reservedWei: sql`GREATEST(0, ${funds.reservedWei} - ${request.amountWei})`,
-        updatedAt: new Date(),
-      })
-      .where(eq(funds.id, fund.id));
-
-    // Đánh dấu request thành SETTLED
-    await tx
-      .update(expenseRequests)
-      .set({ status: "SETTLED", updatedAt: new Date() })
-      .where(eq(expenseRequests.id, request.id));
-
-    await recordAuditEvent(tx, {
-      workspaceId: fund.workspaceId,
-      fundId: fund.id,
-      actorUserId: auth.user.id,
-      actorWallet: sender,
-      action: "EXPENSE_SETTLED",
-      metadataDiff: {
-        requestId: request.id,
-        paymentId: paymentRecord.id,
-        txHash: hash,
-        amountWei: request.amountWei,
-      },
-    });
-
-    return {
-      success: true,
-      message: "Quyết toán chi tiêu thành công.",
-      payment: paymentRecord,
-    };
+    return settleIntent(tx, intent, txHashInput(body.txHash));
   });
 }
-
-/**
- * 12. Sổ Nhật Ký Kiểm Toán Nhóm (Audit Trail)
- */
+export async function reconcilePendingGroupTransfers() {
+  const pending = await db
+    .select()
+    .from(intents)
+    .where(eq(intents.status, "BROADCAST"))
+    .limit(50);
+  for (const intent of pending) {
+    try {
+      await db.transaction(async (tx) => {
+        await lock(tx);
+        const [current] = await tx
+          .select()
+          .from(intents)
+          .where(eq(intents.id, intent.id));
+        if (current?.txHash) await settleIntent(tx, current, current.txHash);
+      });
+    } catch {
+      /* Unverified candidates stay pending; never invent a receipt. */
+    }
+  }
+}
 export async function getGroupAuditEvents(
   auth: AuthContext,
   groupId: string,
@@ -1491,31 +1362,159 @@ export async function getGroupAuditEvents(
 ) {
   const wsId = uuidInput(groupId);
   await membership(db, auth, wsId);
-
-  const limit = Math.min(Math.max(1, query?.limit || 20), 100);
-
-  let conditions = [eq(groupAuditEvents.workspaceId, wsId)];
-  if (query?.fundId) {
+  const requested = Number(query?.limit ?? 50);
+  assert(
+    Number.isInteger(requested) && requested > 0,
+    400,
+    "Giới hạn không hợp lệ.",
+  );
+  const conditions = [
+    eq(groupAuditEvents.workspaceId, wsId),
+    or(
+      isNull(groupAuditEvents.fundId),
+      and(
+        eq(funds.custodyType, "SHARED_TREASURY"),
+        isNotNull(funds.treasuryWalletAddress),
+      ),
+    )!,
+  ];
+  if (query?.fundId)
     conditions.push(eq(groupAuditEvents.fundId, uuidInput(query.fundId)));
+  if (query?.cursor) {
+    const cursor = uuidInput(query.cursor);
+    // Compare in PostgreSQL to retain timestamp microseconds and avoid dropping tied rows.
+    conditions.push(sql`(${groupAuditEvents.createdAt}, ${groupAuditEvents.id}) <
+      (select created_at, id from group_audit_events where id = ${cursor}::uuid and workspace_id = ${wsId}::uuid)`);
   }
-
-  const events = await db
+  return db
     .select({
-      id: groupAuditEvents.id,
-      workspaceId: groupAuditEvents.workspaceId,
-      fundId: groupAuditEvents.fundId,
-      actorUserId: groupAuditEvents.actorUserId,
-      actorWallet: groupAuditEvents.actorWallet,
-      action: groupAuditEvents.action,
-      metadataDiff: groupAuditEvents.metadataDiff,
-      createdAt: groupAuditEvents.createdAt,
+      event: groupAuditEvents,
       actorName: users.fullName,
+      fundName: funds.name,
     })
     .from(groupAuditEvents)
     .leftJoin(users, eq(users.id, groupAuditEvents.actorUserId))
+    .leftJoin(funds, eq(funds.id, groupAuditEvents.fundId))
     .where(and(...conditions))
-    .orderBy(desc(groupAuditEvents.createdAt))
-    .limit(limit);
+    .orderBy(desc(groupAuditEvents.createdAt), desc(groupAuditEvents.id))
+    .limit(Math.min(requested, 100));
+}
 
-  return events;
+export async function exportGroupReport(
+  auth: AuthContext,
+  groupId: string,
+  query: { from?: unknown; to?: unknown },
+) {
+  const wsId = uuidInput(groupId);
+  const from = new Date(String(query.from || "")),
+    to = new Date(String(query.to || ""));
+  assert(
+    Number.isFinite(from.getTime()) &&
+      Number.isFinite(to.getTime()) &&
+      to > from &&
+      to.getTime() - from.getTime() <= 366 * 86400000,
+    400,
+    "Chọn khoảng báo cáo hợp lệ, tối đa 366 ngày.",
+  );
+  return db.transaction(async (tx) => {
+    await lock(tx);
+    await membership(tx, auth, wsId);
+    const received = await tx
+      .select({ item: contributions, fundName: funds.name })
+      .from(contributions)
+      .innerJoin(funds, eq(funds.id, contributions.fundId))
+      .innerJoin(
+        intents,
+        and(
+          eq(intents.fundId, funds.id),
+          sql`${intents.id}::text = ${contributions.intentId}`,
+          eq(intents.status, "CONFIRMED"),
+        ),
+      )
+      .where(
+        and(
+          eq(funds.workspaceId, wsId),
+          gte(contributions.createdAt, from),
+          lt(contributions.createdAt, to),
+        ),
+      )
+      .orderBy(desc(contributions.createdAt))
+      .limit(1001);
+    const paid = await tx
+      .select({ item: payments, fundName: funds.name })
+      .from(payments)
+      .innerJoin(funds, eq(funds.id, payments.fundId))
+      .innerJoin(
+        intents,
+        and(
+          eq(intents.fundId, funds.id),
+          eq(intents.requestId, payments.requestId),
+          eq(intents.txHash, payments.txHash),
+          eq(intents.status, "CONFIRMED"),
+        ),
+      )
+      .where(
+        and(
+          eq(funds.workspaceId, wsId),
+          eq(payments.status, "CONFIRMED"),
+          gte(payments.createdAt, from),
+          lt(payments.createdAt, to),
+        ),
+      )
+      .orderBy(desc(payments.createdAt))
+      .limit(1001);
+    assert(
+      received.length <= 1000 && paid.length <= 1000,
+      409,
+      "Khoảng báo cáo quá lớn. Chọn khoảng ngắn hơn để xuất đầy đủ.",
+    );
+    const cell = (value: unknown) => {
+      let text = String(value ?? "");
+      if (/^\s*[=+@-]|^[\t\r\n]/.test(text)) text = `'${text}`;
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+    const rows: unknown[][] = [
+      [
+        "type",
+        "fund_id",
+        "fund_name",
+        "amount_wei",
+        "amount_avax",
+        "sender",
+        "recipient",
+        "tx_hash",
+        "confirmed_at",
+      ],
+    ];
+    for (const { item, fundName } of received)
+      rows.push([
+        "CONTRIBUTION",
+        item.fundId,
+        fundName,
+        item.amountWei,
+        formatEther(BigInt(item.amountWei)),
+        item.funderAddress,
+        "",
+        item.txHash,
+        item.reconciledAt?.toISOString(),
+      ]);
+    for (const { item, fundName } of paid)
+      rows.push([
+        "PAYMENT",
+        item.fundId,
+        fundName,
+        item.amountWei,
+        formatEther(BigInt(item.amountWei)),
+        item.senderAddress,
+        item.recipientAddress,
+        item.txHash,
+        item.confirmedAt?.toISOString(),
+      ]);
+    return {
+      csv: "\uFEFF" + rows.map((row) => row.map(cell).join(",")).join("\r\n"),
+      count: rows.length - 1,
+      from: from.toISOString(),
+      to: to.toISOString(),
+    };
+  });
 }

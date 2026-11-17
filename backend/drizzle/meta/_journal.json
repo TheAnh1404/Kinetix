@@ -141,6 +141,13 @@
       "when": 1793901400000,
       "tag": "0018_group_finance",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1793901500000,
+      "tag": "0019_group_finance_transfers",
+      "breakpoints": true
     }
   ]
 }

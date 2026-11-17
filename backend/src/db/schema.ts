@@ -1137,6 +1137,7 @@ export const groupFunds = pgTable(
       .notNull(), // 'ONCHAIN_HUB' | 'SHARED_TREASURY'
     onchainVaultId: integer("onchain_vault_id"),
     onchainVaultAddress: varchar("onchain_vault_address", { length: 42 }),
+    treasuryWalletAddress: varchar("treasury_wallet_address", { length: 42 }),
     balanceWei: decimal("balance_wei", { precision: 78, scale: 0 })
       .default("0")
       .notNull(),
@@ -1167,6 +1168,25 @@ export const groupFunds = pgTable(
 );
 
 export const funds = groupFunds;
+
+/** Durable, immutable native-transfer instructions. A hash alone never settles money. */
+export const groupTransferIntents = pgTable("group_transfer_intents", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  fundId: uuid("fund_id").references(() => groupFunds.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  requestId: uuid("request_id").references(() => expenseRequests.id),
+  kind: varchar("kind", { length: 20 }).notNull(),
+  senderAddress: varchar("sender_address", { length: 42 }).notNull(),
+  recipientAddress: varchar("recipient_address", { length: 42 }).notNull(),
+  amountWei: decimal("amount_wei", { precision: 78, scale: 0 }).notNull(),
+  nonce: integer("nonce").notNull(),
+  txHash: varchar("tx_hash", { length: 66 }),
+  status: varchar("status", { length: 20 }).default("READY").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  requestUnique: uniqueIndex("group_transfer_request_unique").on(table.requestId),
+  hashUnique: uniqueIndex("group_transfer_hash_unique").on(table.txHash),
+}));
 
 /**
  * @notice Bảng Chính sách Quỹ (Fund Policy Versions)

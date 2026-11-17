@@ -42,6 +42,8 @@ npm --prefix frontend run build
 
 For authentication/database integration tests, configure `TEST_DATABASE_URL` for a disposable database distinct from `DATABASE_URL`, and explicitly set `AUTH_TEST_ALLOW_RESET=true`. These tests modify and delete records. Run `npm run test:auth:integration` for a compatible hosted PostgreSQL transport, or `npm run test:auth:local` for a loopback PostgreSQL instance through the test-only WebSocket adapter. The CI workflow provisions its own disposable database.
 
+Run `npm run test:group-finance:local` with the same isolation and reset opt-in to verify native-transfer instructions, actual local-EVM receipts, quorum, reservations, recovery and reports. This runner truncates the specified disposable test database before creating fixtures. It does not test Fuji deployment or real mobile wallets. See the [demo-to-live implementation boundary](docs/DEMO_TO_LIVE_2026-11-16.md).
+
 Contract tests use native AVAX amounts represented in wei. Hardhat helpers such as `parseEther` and `changeEtherBalance` operate on the local EVM's native currency; they do not imply USDC support.
 
 After changing contract ABIs, run `npm run export:abis` following compilation and commit both application ABI files. Deployments must be verified again against the new bytecode; do not activate old evidence for changed sources.

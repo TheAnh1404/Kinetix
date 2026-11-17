@@ -114,6 +114,13 @@ jobs:
           npm --prefix frontend ci
       - name: Compile contracts
         run: npm run compile
+      - name: Verify group-finance receipts against disposable PostgreSQL and local EVM
+        run: npm run test:group-finance:local
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ""
+          TEST_DATABASE_URL: postgres://kinetix_ci:disposable_ci_only@127.0.0.1:5432/kinetix_ci_tests
+          AUTH_TEST_ALLOW_RESET: "true"
       - name: Run suite against disposable PostgreSQL
         run: npm test
         env:
