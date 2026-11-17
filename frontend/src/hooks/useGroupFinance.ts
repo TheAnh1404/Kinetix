@@ -11,6 +11,9 @@ import {
   GroupAuditEvent,
   CreateFundParams,
   ProposeExpenseParams,
+  FundV2Policy,
+  FundV2Member,
+  RefundEligibility,
 } from "@/types/groupFinance";
 import { groupAmount } from "../../../shared/groupFinance";
 import {
@@ -18,6 +21,7 @@ import {
   sendGroupTransfer,
   savedGroupHash,
 } from "@/lib/web3/groupTransfers";
+import { useFundV2 } from "./useFundV2";
 
 const avax = (wei: string) => Number(formatEther(BigInt(wei || "0")));
 const date = (value: string | null) =>
@@ -59,6 +63,7 @@ function mapAudit({ event: e, actorName, fundName }: any): GroupAuditEvent {
 }
 export function useGroupFinance() {
   const auth = useAuth();
+  const fundV2 = useFundV2();
   const { currentWorkspace } = useFamily();
   const workspaceId = currentWorkspace?.id;
   const userId = auth.user?.id;
@@ -122,6 +127,7 @@ export function useGroupFinance() {
     const request = ++sequence.current;
     refreshing.current = { scope, request };
     if (loadedScope.current !== scope) setIsLoading(true);
+    fundV2?.clearError?.();
     try {
       const [fundResponse, auditResponse, transferResponse] = await Promise.all(
         [
@@ -135,8 +141,10 @@ export function useGroupFinance() {
         ],
       );
       const supportsAdapter = (fund: any) =>
-        fund.custodyType === "SHARED_TREASURY" &&
-        /^0x[\da-f]{40}$/i.test(fund.treasuryWalletAddress || "");
+        (fund.custodyType === "SHARED_TREASURY" &&
+          /^0x[\da-f]{40}$/i.test(fund.treasuryWalletAddress || "")) ||
+        (fund.custodyType === "ONCHAIN_V2" &&
+          /^0x[\da-f]{40}$/i.test(fund.contractAddress || fund.onchainVaultAddress || ""));
       const unsupportedFunds = fundResponse.data
         .filter((fund: any) => !supportsAdapter(fund))
         .map((fund: any) => ({ id: fund.id, name: fund.name }));
@@ -144,17 +152,23 @@ export function useGroupFinance() {
         .filter(supportsAdapter)
         .map((f: any) => ({
           ...f,
+          custodyType: f.custodyType,
+          contractAddress: f.contractAddress || f.onchainVaultAddress,
+          factoryAddress: f.factoryAddress,
+          policyEpoch: f.policyEpoch || 1,
+          isPaused: f.isPaused || f.status === "PAUSED",
           balanceAvax: avax(f.balanceWei),
           reservedAvax: avax(f.reservedWei),
           availableAvax: avax(f.availableWei),
-          fastWithdrawLimitWei: f.policy?.fastWithdrawLimitWei || "0",
-          fastWithdrawLimitAvax: avax(f.policy?.fastWithdrawLimitWei),
-          requiredApprovals: f.policy?.quorum || 0,
-          totalSigners: f.policy?.signers.length || 0,
-          signers: f.policy?.signers || [],
+          fastWithdrawLimitWei: f.policy?.fastWithdrawLimitWei || f.fastWithdrawLimitWei || "0",
+          fastWithdrawLimitAvax: avax(f.policy?.fastWithdrawLimitWei || f.fastWithdrawLimitWei),
+          requiredApprovals: f.policy?.quorum || f.requiredApprovals || 0,
+          totalSigners: f.policy?.signers?.length || f.signers?.length || 0,
+          signers: f.policy?.signers || f.signers || [],
           targetAmountAvax: avax(f.targetAmountWei),
-          goalReached: BigInt(f.balanceWei) >= BigInt(f.targetAmountWei),
-          targetDeadline: date(f.targetDeadline),
+          goalReached: f.goalReached ?? (BigInt(f.balanceWei || "0") >= BigInt(f.targetAmountWei || "1")),
+          targetDeadline: f.targetDeadline || null,
+          targetDeadlineFormatted: date(f.targetDeadline),
           createdAt: date(f.createdAt),
         }));
       const details = await Promise.all(
@@ -179,7 +193,8 @@ export function useGroupFinance() {
               status: e.status === "SETTLED" ? "EXECUTED" : e.status,
               amountAvax: avax(e.amountWei),
               approvedCount: e.approvalsCount,
-              deadline: date(e.deadline),
+              deadline: e.deadline,
+              deadlineFormatted: date(e.deadline),
               createdAt: date(e.createdAt),
               approvals: e.approvals.map((a: any) => ({
                 ...a,
@@ -201,7 +216,8 @@ export function useGroupFinance() {
                 memberName: o.memberFullName,
                 memberAddress: o.memberWallet || "",
                 amountAvax: avax(o.amountWei),
-                dueDate: date(o.dueDate),
+                dueDate: o.dueDate,
+                dueDateFormatted: date(o.dueDate),
               })),
           };
         }),
@@ -341,6 +357,9 @@ export function useGroupFinance() {
   }
   const createFund = (params: CreateFundParams) =>
     mutate(async () => {
+      if (params.custodyType === "ONCHAIN_V2") {
+        return fundV2.createFundOnchain(workspaceId!, params);
+      }
       const response = await authRequest(`/api/groups/${workspaceId}/funds`, {
         ...params,
         fastWithdrawLimitWei: "0",
@@ -357,6 +376,10 @@ export function useGroupFinance() {
     txHash?: string;
   }) =>
     mutate(async () => {
+      const targetFund = funds.find((f) => f.id === params.fundId);
+      if (targetFund?.custodyType === "ONCHAIN_V2") {
+        return fundV2.contributeOnchain(targetFund, params.amount);
+      }
       const response = await authRequest(
         `/api/groups/${workspaceId}/funds/${params.fundId}/contributions/intent`,
         { amountWei: groupAmount(params.amount).toString() },
@@ -365,6 +388,10 @@ export function useGroupFinance() {
     });
   const proposeExpense = (params: ProposeExpenseParams) =>
     mutate(async () => {
+      const targetFund = funds.find((f) => f.id === params.fundId);
+      if (targetFund?.custodyType === "ONCHAIN_V2") {
+        return fundV2.proposeExpenseOnchain(targetFund, params);
+      }
       const receipt = params.receiptAttachmentUrl;
       if (receipt && !receipt.startsWith("data:image/png;base64,"))
         throw new Error("Chứng từ cần được chuyển thành PNG trước khi gửi.");
@@ -380,6 +407,11 @@ export function useGroupFinance() {
     });
   const approveExpense = (id: string, comment?: string) =>
     mutate(async () => {
+      const expense = expenses.find((e) => e.id === id);
+      const targetFund = funds.find((f) => f.id === expense?.fundId);
+      if (targetFund?.custodyType === "ONCHAIN_V2" && expense) {
+        return fundV2.approveExpenseOnchain(targetFund, expense, comment);
+      }
       await authRequest(`/api/expenses/${id}/approve`, { comment });
       return {};
     });
@@ -395,9 +427,63 @@ export function useGroupFinance() {
     });
   const executePayment = (id: string) =>
     mutate(async () => {
+      const expense = expenses.find((e) => e.id === id);
+      const targetFund = funds.find((f) => f.id === expense?.fundId);
+      if (targetFund?.custodyType === "ONCHAIN_V2" && expense) {
+        return fundV2.executeExpenseOnchain(targetFund, expense);
+      }
       const response = await authRequest(`/api/expenses/${id}/pay`, {});
       return finishTransfer(response.data);
     });
+  const refundFailedGoal = (fundId: string) =>
+    mutate(async () => {
+      const targetFund = funds.find((f) => f.id === fundId);
+      if (!targetFund) throw new Error("Không tìm thấy thông tin quỹ.");
+      return fundV2.refundFailedGoal(targetFund);
+    });
+  const proposePolicy = (
+    fundId: string,
+    policy: FundV2Policy,
+    members: FundV2Member[],
+    terms?: string
+  ) =>
+    mutate(async () => {
+      const targetFund = funds.find((f) => f.id === fundId);
+      if (!targetFund) throw new Error("Không tìm thấy thông tin quỹ.");
+      return fundV2.proposePolicy(targetFund, policy, members, terms);
+    });
+  const executeGovernance = (fundId: string, proposalId: number) =>
+    mutate(async () => {
+      const targetFund = funds.find((f) => f.id === fundId);
+      if (!targetFund) throw new Error("Không tìm thấy thông tin quỹ.");
+      return fundV2.executeGovernance(targetFund, proposalId);
+    });
+  const proposePause = (fundId: string, reason?: string) =>
+    mutate(async () => {
+      const targetFund = funds.find((f) => f.id === fundId);
+      if (!targetFund) throw new Error("Không tìm thấy thông tin quỹ.");
+      return fundV2.proposePause(targetFund, reason);
+    });
+  const proposeResume = (fundId: string, reason?: string) =>
+    mutate(async () => {
+      const targetFund = funds.find((f) => f.id === fundId);
+      if (!targetFund) throw new Error("Không tìm thấy thông tin quỹ.");
+      return fundV2.proposeResume(targetFund, reason);
+    });
+  const approveGovernance = (fundId: string, proposalId: number) =>
+    mutate(async () => {
+      const targetFund = funds.find((f) => f.id === fundId);
+      if (!targetFund) throw new Error("Không tìm thấy thông tin quỹ.");
+      return fundV2.approveGovernance(targetFund, proposalId);
+    });
+  const checkRefundEligibility = useCallback(
+    async (fundId: string): Promise<RefundEligibility> => {
+      const targetFund = funds.find((f) => f.id === fundId);
+      if (!targetFund) throw new Error("Không tìm thấy thông tin quỹ.");
+      return fundV2.checkRefundEligibility(targetFund);
+    },
+    [funds, fundV2]
+  );
   const resumeTransfer = (intent: GroupTransfer, hash?: string) =>
     mutate(() => finishTransfer(intent, hash));
   const resolveTransfer = (intent: GroupTransfer, hash: string) =>
@@ -426,6 +512,11 @@ export function useGroupFinance() {
       awaitingPaymentCount: awaitingPaymentExpenses.length,
     };
   }, [funds, pendingUserApprovals.length, awaitingPaymentExpenses.length]);
+  const clearError = useCallback(() => {
+    setError(null);
+    fundV2?.clearError?.();
+  }, [fundV2]);
+
   return {
     funds,
     expenses,
@@ -439,8 +530,9 @@ export function useGroupFinance() {
     awaitingPaymentExpenses,
     summary,
     isLoading,
-    isMutating,
-    error,
+    isMutating: isMutating || fundV2.isTransacting,
+    error: error || fundV2.error,
+    clearError,
     refresh,
     createFund,
     contribute,
@@ -449,6 +541,14 @@ export function useGroupFinance() {
     rejectExpense,
     cancelExpense,
     executePayment,
+    refundFailedGoal,
+    proposePolicy,
+    executeGovernance,
+    proposePause,
+    proposeResume,
+    approveGovernance,
+    checkRefundEligibility,
+    fundV2,
     resumeTransfer,
     resolveTransfer,
     hasMoreActivity,
