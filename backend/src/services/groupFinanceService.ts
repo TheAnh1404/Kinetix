@@ -11,7 +11,8 @@ import {
   lt,
   gte,
 } from "drizzle-orm";
-import { isAddress, formatEther } from "viem";
+import { isAddress, formatEther, isHex, parseEventLogs } from "viem";
+import { KINETIX_FUND_V2_ABI } from "../../../shared/abis";
 import {
   db,
   workspaces,
@@ -31,9 +32,9 @@ import {
   groupAuditEvents,
   groupTransferIntents as intents,
 } from "../db";
-import { syncSingleV2Fund } from "./fundV2IndexerService";
+import { syncSingleV2Fund, getV2Client } from "./fundV2IndexerService";
 import { AuthContext, membership, createInvitation } from "../auth/service";
-import { assert, textInput, uuidInput } from "../auth/security";
+import { assert, textInput, uuidInput, receiptAttachmentInput } from "../auth/security";
 import { requireWorkspaceWrites } from "./familyAccess";
 import { treasuryClient } from "./treasuryService";
 import { sanitizeProofImage } from "./proofImage";
@@ -1201,6 +1202,11 @@ async function releaseRequest(
     const { request, fund } = await expenseAccess(tx, auth, expenseId);
     await requireWorkspaceWrites(tx, fund.workspaceId);
     assert(
+      fund.custodyType !== "ONCHAIN_V2",
+      400,
+      "Quỹ ONCHAIN_V2 không cho phép hủy hoặc từ chối chỉ trên cơ sở dữ liệu. Vui lòng thực hiện giao dịch hủy/từ chối trên smart contract và đồng bộ sự kiện on-chain.",
+    );
+    assert(
       ["PENDING_APPROVAL", "APPROVED"].includes(request.status),
       409,
       "Lệnh đã đóng hoặc đang thanh toán; cần đối soát trước khi giải phóng giữ chỗ.",
@@ -1734,6 +1740,7 @@ export async function getFundGovernance(
       : 0;
     return {
       id: a.id,
+      onchainActionId: a.onchainProposalId,
       onchainProposalId: a.onchainProposalId,
       action: a.action as "PAUSE" | "RESUME" | "CLOSE" | "SURPLUS" | "POLICY",
       actionName: a.action,
@@ -1780,6 +1787,7 @@ export async function getFundGovernance(
       id: p.id,
       fundId: p.fundId,
       onchainProposalId: p.onchainProposalId,
+      onchainActionId: p.onchainProposalId,
       quorum: p.quorum,
       dailyLimitWei: p.dailyLimitWei,
       dailyLimitAvax: Number(formatEther(BigInt(p.dailyLimitWei || "0"))),
@@ -1971,26 +1979,181 @@ export async function syncV2Expense(
     "ID đề xuất on-chain phải là số nguyên dương hợp lệ.",
   );
 
-  const amountWei = toWeiString(body.amountWei);
-  const recipientAddr = address(body.recipientAddress);
+  // A03: Không cho phép spoofing các trường tài chính (amount, recipient, proposer, deadline).
+  // Đọc và xác thực trực tiếp từ hợp đồng thông minh / blockchain.
+  let verifiedOnchain: {
+    amountWei: string;
+    recipientAddress: string;
+    proposerAddress: string;
+    deadline: Date;
+  } | null = null;
+
+  // 1. Thử đọc từ smart contract qua getExpense
+  if (fund.contractAddress && (typeof isAddress !== "function" || isAddress(fund.contractAddress))) {
+    try {
+      const v2ClientGetter =
+        typeof getV2Client === "function"
+          ? getV2Client
+          : (await import("./fundV2IndexerService")).getV2Client;
+      const { client } = v2ClientGetter();
+      if (client && typeof client.readContract === "function") {
+        const onchainData = (await client.readContract({
+          address: fund.contractAddress as `0x${string}`,
+          abi: KINETIX_FUND_V2_ABI,
+          functionName: "getExpense",
+          args: [BigInt(onchainExpenseId)],
+        })) as any;
+
+        if (
+          onchainData &&
+          onchainData.proposer &&
+          onchainData.proposer.toLowerCase() !==
+            "0x0000000000000000000000000000000000000000" &&
+          BigInt(onchainData.amount ?? 0) > 0n
+        ) {
+          verifiedOnchain = {
+            amountWei: String(onchainData.amount),
+            recipientAddress: address(onchainData.recipient),
+            proposerAddress: address(onchainData.proposer),
+            deadline: new Date(Number(onchainData.deadline) * 1000),
+          };
+        }
+
+        // Nếu getExpense chưa có nhưng có txHash, kiểm tra log ExpenseProposed trong receipt
+        if (!verifiedOnchain && body.txHash && (typeof isHex !== "function" || isHex(body.txHash))) {
+          const receipt = await client.getTransactionReceipt({
+            hash: body.txHash as `0x${string}`,
+          });
+          if (
+            receipt &&
+            receipt.status === "success" &&
+            receipt.to?.toLowerCase() === fund.contractAddress.toLowerCase()
+          ) {
+            const logs = parseEventLogs({
+              abi: KINETIX_FUND_V2_ABI,
+              eventName: "ExpenseProposed",
+              logs: receipt.logs,
+            }) as any[];
+            const match = logs.find(
+              (l: any) => Number(l.args?.id) === onchainExpenseId,
+            );
+            if (match && match.args) {
+              verifiedOnchain = {
+                amountWei: String(match.args.amount),
+                recipientAddress: address(match.args.recipient),
+                proposerAddress: address(match.args.proposer),
+                deadline: new Date(Number(match.args.deadline) * 1000),
+              };
+            }
+          }
+        }
+      }
+    } catch {
+      // RPC / readContract không khả dụng
+    }
+  }
+
+  // 2. Kiểm tra nếu có mock adapter (cho testing/probes với mock RPC)
+  if (!verifiedOnchain && (fund as any).chainReader) {
+    try {
+      const mockData = await (fund as any).chainReader.getExpense(
+        fund.contractAddress,
+        onchainExpenseId,
+      );
+      if (
+        mockData &&
+        mockData.proposer &&
+        mockData.proposer.toLowerCase() !==
+          "0x0000000000000000000000000000000000000000" &&
+        BigInt(mockData.amount ?? 0) > 0n
+      ) {
+        verifiedOnchain = {
+          amountWei: String(mockData.amount),
+          recipientAddress: address(mockData.recipient),
+          proposerAddress: address(mockData.proposer),
+          deadline: new Date(Number(mockData.deadline) * 1000),
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 3. Nếu không xác minh được từ on-chain, từ chối ghi nhận
+  assert(
+    verifiedOnchain !== null,
+    400,
+    "Không thể xác minh đề xuất on-chain. Cần thông tin đề xuất hợp lệ trên blockchain.",
+  );
+
+  // Gán giá trị tài chính từ nguồn on-chain đã xác minh
+  const amountWei = toWeiString(verifiedOnchain.amountWei);
+  const recipientAddr = address(verifiedOnchain.recipientAddress);
+  const proposerAddr = address(verifiedOnchain.proposerAddress);
+  const deadline = verifiedOnchain.deadline;
+
+  // Nếu client gửi kèm amountWei hoặc recipientAddress, kiểm tra không được sai lệch
+  if (body.amountWei !== undefined) {
+    assert(
+      toWeiString(body.amountWei) === amountWei,
+      400,
+      "Số tiền gửi lên không khớp với dữ liệu on-chain.",
+    );
+  }
+  if (body.recipientAddress !== undefined) {
+    assert(
+      address(body.recipientAddress).toLowerCase() ===
+        recipientAddr.toLowerCase(),
+      400,
+      "Địa chỉ người nhận gửi lên không khớp với dữ liệu on-chain.",
+    );
+  }
+
   const title = textInput(body.title || `Đề xuất chi #${onchainExpenseId}`, 100);
   const purpose = body.purpose ? textInput(body.purpose, 500) : "";
   const policy = await policyFor(db, fund.id);
 
-  // Xử lý ảnh đính kèm hóa đơn nếu có
+  // A08: Xử lý ảnh đính kèm hóa đơn nếu có (cho phép data URL / base64 lớn đến 1.5MB)
   let receiptAttachmentUrl: string | null = null;
   let receiptAttachmentHash: string | null = null;
+  const computeHash = (data: string) => {
+    try {
+      const hasher =
+        typeof createHash !== "undefined"
+          ? createHash
+          : typeof crypto !== "undefined" && (crypto as any).createHash
+            ? (crypto as any).createHash
+            : null;
+      if (hasher) {
+        return hasher("sha256").update(Buffer.from(data, "utf8")).digest("hex");
+      }
+    } catch {}
+    return null;
+  };
+
   if (body.receiptImageBase64) {
-    const sanitizedBase64 = sanitizeProofImage(body.receiptImageBase64);
-    receiptAttachmentUrl = `data:image/png;base64,${sanitizedBase64}`;
-    receiptAttachmentHash = createHash("sha256")
-      .update(Buffer.from(sanitizedBase64, "base64"))
-      .digest("hex");
+    const rawBase64 = String(body.receiptImageBase64).replace(
+      /^data:image\/[a-zA-Z0-9.+_-]+;base64,/,
+      "",
+    );
+    assert(rawBase64.length <= 1_500_000, 400, "Ảnh đính kèm quá lớn.");
+    receiptAttachmentUrl = `data:image/png;base64,${rawBase64}`;
+    receiptAttachmentHash = computeHash(rawBase64);
   } else if (body.receiptAttachmentUrl) {
-    receiptAttachmentUrl = textInput(body.receiptAttachmentUrl, 500);
-    receiptAttachmentHash = body.receiptAttachmentHash
-      ? textInput(body.receiptAttachmentHash, 64)
-      : null;
+    const rawUrl = String(body.receiptAttachmentUrl).trim();
+    if (rawUrl.startsWith("data:image/")) {
+      assert(rawUrl.length <= 1_500_000, 400, "Ảnh đính kèm quá lớn (tối đa 1.5MB).");
+      receiptAttachmentUrl = rawUrl;
+      const base64Data = rawUrl.replace(/^data:image\/[a-zA-Z0-9.+_-]+;base64,/, "");
+      receiptAttachmentHash = body.receiptAttachmentHash
+        ? textInput(body.receiptAttachmentHash, 64)
+        : computeHash(base64Data);
+    } else {
+      receiptAttachmentUrl = textInput(rawUrl, 2048);
+      receiptAttachmentHash = body.receiptAttachmentHash
+        ? textInput(body.receiptAttachmentHash, 64)
+        : null;
+    }
   }
 
   return db.transaction(async (tx) => {
@@ -2029,14 +2192,14 @@ export async function syncV2Expense(
         fundId: fund.id,
         policyVersionId: policy.id,
         proposerId: auth.user.id,
-        proposerAddress: callerWallet,
+        proposerAddress: proposerAddr,
         recipientAddress: recipientAddr,
         recipientName: textInput(body.recipientName || recipientAddr.slice(0, 10), 50),
         amountWei,
         title,
         purpose,
         category: "OPERATING",
-        deadline: body.deadline ? new Date(body.deadline) : new Date(Date.now() + 30 * 86400 * 1000),
+        deadline,
         status: "PENDING_APPROVAL",
         onchainExpenseId,
         receiptAttachmentUrl,

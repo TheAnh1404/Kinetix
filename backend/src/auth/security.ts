@@ -174,6 +174,16 @@ export function textInput(value: unknown, max = 100): string {
   );
   return value.trim();
 }
+export function receiptAttachmentInput(value: unknown, max = 1_500_000): string {
+  assert(
+    typeof value === "string" &&
+      value.trim().length > 0 &&
+      value.trim().length <= max,
+    400,
+    "Thông tin chứng từ không hợp lệ hoặc quá lớn.",
+  );
+  return value.trim();
+}
 export function uuidInput(value: string): string {
   assert(
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(

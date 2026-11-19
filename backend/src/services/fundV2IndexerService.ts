@@ -18,6 +18,7 @@ import {
   groupAuditEvents,
   activityCursors,
   users,
+  workspaceMembers,
 } from "../db/schema";
 import { KINETIX_FUND_V2_ABI } from "../../../shared/abis";
 import { readFileSync, existsSync } from "node:fs";
@@ -119,6 +120,8 @@ export async function syncV2FundInternal(
   // Chia nhỏ theo lô (batch) tối đa 2000 blocks để tránh lỗi RPC filter limit
   const maxBatch = 2000n;
   const toBlock = fromBlock + maxBatch < currentBlock ? fromBlock + maxBatch : currentBlock;
+
+  let logBatchSuccess = false;
 
   if (toBlock >= fromBlock) {
     try {
@@ -417,15 +420,131 @@ export async function syncV2FundInternal(
             });
 
             if (actionName === "POLICY") {
-              await db.insert(fundPolicyProposals).values({
-                fundId: fund.id,
-                onchainProposalId: govIdNum,
-                proposerAddress: proposerAddr,
-                quorum: 2,
-                dailyLimitWei: "0",
-                termsHash: commitment || "0x",
-                status: "PENDING",
-              });
+              let proposedQuorum: number | null = null;
+              let proposedDailyLimitWei: string | null = null;
+              let proposedTermsHash = commitment || "0x";
+
+              // 1. Thử đọc đề xuất chính sách thực tế từ contract on-chain
+              try {
+                const [propPolicy, _propMembers, propTerms] =
+                  (await client.readContract({
+                    address: fundAddress,
+                    abi: KINETIX_FUND_V2_ABI,
+                    functionName: "getProposedPolicy",
+                    args: [onchainId],
+                  })) as [
+                    { quorum: bigint; transactionLimit: bigint; dailyLimit: bigint },
+                    Array<any>,
+                    string,
+                  ];
+
+                if (propPolicy && propPolicy.quorum > 0n) {
+                  proposedQuorum = Number(propPolicy.quorum);
+                  proposedDailyLimitWei = propPolicy.dailyLimit.toString();
+                }
+                if (
+                  propTerms &&
+                  propTerms !==
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"
+                ) {
+                  proposedTermsHash = propTerms;
+                }
+              } catch {
+                // RPC mock hoặc hợp đồng không hỗ trợ getProposedPolicy
+              }
+
+              // 2. Nếu RPC không trả về, kiểm tra bản ghi đã tạo trước đó trong DB
+              if (proposedQuorum === null) {
+                const [existingProp] = await db
+                  .select()
+                  .from(fundPolicyProposals)
+                  .where(
+                    and(
+                      eq(fundPolicyProposals.fundId, fund.id),
+                      eq(fundPolicyProposals.onchainProposalId, govIdNum),
+                    ),
+                  )
+                  .limit(1);
+
+                if (existingProp) {
+                  proposedQuorum = existingProp.quorum;
+                  proposedDailyLimitWei = existingProp.dailyLimitWei;
+                  if (existingProp.termsHash && existingProp.termsHash !== "0x") {
+                    proposedTermsHash = existingProp.termsHash;
+                  }
+                }
+              }
+
+              // 3. Fallback: lấy từ chính sách hiện hành của quỹ
+              if (proposedQuorum === null) {
+                const [activePolicy] = await db
+                  .select({
+                    quorum: fundPolicies.quorum,
+                    fastWithdrawLimitWei: fundPolicies.fastWithdrawLimitWei,
+                  })
+                  .from(fundPolicies)
+                  .where(eq(fundPolicies.fundId, fund.id))
+                  .orderBy(desc(fundPolicies.version))
+                  .limit(1);
+
+                if (activePolicy) {
+                  proposedQuorum = activePolicy.quorum;
+                  proposedDailyLimitWei = activePolicy.fastWithdrawLimitWei || "0";
+                }
+              }
+
+              // 4. Fallback: đọc từ cấu hình contract getConfiguration
+              if (proposedQuorum === null) {
+                try {
+                  const config = (await client.readContract({
+                    address: fundAddress,
+                    abi: KINETIX_FUND_V2_ABI,
+                    functionName: "getConfiguration",
+                  })) as [
+                    { quorum: bigint; transactionLimit: bigint; dailyLimit: bigint },
+                    Array<any>,
+                  ];
+                  if (config && config[0] && config[0].quorum > 0n) {
+                    proposedQuorum = Number(config[0].quorum);
+                    proposedDailyLimitWei = config[0].dailyLimit.toString();
+                  }
+                } catch {}
+              }
+
+              const finalQuorum = proposedQuorum ?? 2;
+              const finalDailyLimit = proposedDailyLimitWei ?? "0";
+
+              const [existingProposal] = await db
+                .select()
+                .from(fundPolicyProposals)
+                .where(
+                  and(
+                    eq(fundPolicyProposals.fundId, fund.id),
+                    eq(fundPolicyProposals.onchainProposalId, govIdNum),
+                  ),
+                )
+                .limit(1);
+
+              if (!existingProposal) {
+                await db.insert(fundPolicyProposals).values({
+                  fundId: fund.id,
+                  onchainProposalId: govIdNum,
+                  proposerAddress: proposerAddr,
+                  quorum: finalQuorum,
+                  dailyLimitWei: finalDailyLimit,
+                  termsHash: proposedTermsHash,
+                  status: "PENDING",
+                });
+              } else {
+                await db
+                  .update(fundPolicyProposals)
+                  .set({
+                    quorum: finalQuorum,
+                    dailyLimitWei: finalDailyLimit,
+                    termsHash: proposedTermsHash,
+                  })
+                  .where(eq(fundPolicyProposals.id, existingProposal.id));
+              }
             }
           }
 
@@ -566,14 +685,139 @@ export async function syncV2FundInternal(
             })
             .where(eq(funds.id, fund.id));
 
-          await db.insert(fundPolicies).values({
-            fundId: fund.id,
-            version: newEpoch,
-            quorum: quorumNum,
-            signers: [],
-            fastWithdrawLimitWei: "0",
-            effectiveFrom: new Date(),
-          });
+          // A05: Tuyệt đối không lưu signers: []. Phục hồi signers từ contract hoặc policy trước đó.
+          let resolvedSigners: string[] = [];
+          let fastWithdrawLimitWei = "0";
+
+          // 1. Thử lấy danh sách thành viên duyệt hiện hành từ contract on-chain
+          try {
+            const config = (await client.readContract({
+              address: fundAddress,
+              abi: KINETIX_FUND_V2_ABI,
+              functionName: "getConfiguration",
+            })) as [
+              { quorum: bigint; transactionLimit: bigint; dailyLimit: bigint; approvalWindow: bigint },
+              Array<{ account: string; permissions: number; dailyAllowance: bigint }>,
+            ];
+
+            if (config && Array.isArray(config[1]) && config[1].length > 0) {
+              const approvers = config[1]
+                .filter((m) => (Number(m.permissions) & 2) !== 0) // APPROVE = 2
+                .map((m) => m.account.toLowerCase());
+              if (approvers.length > 0) {
+                resolvedSigners = Array.from(new Set(approvers));
+              } else {
+                resolvedSigners = Array.from(new Set(config[1].map((m) => m.account.toLowerCase())));
+              }
+            }
+            if (config && config[0] && config[0].transactionLimit !== undefined) {
+              fastWithdrawLimitWei = config[0].transactionLimit.toString();
+            }
+          } catch {
+            // Contract getConfiguration không khả dụng hoặc lỗi RPC
+          }
+
+          // 2. Nếu contract chưa trả về signers, kế thừa từ phiên bản policy trước đó trong DB
+          if (resolvedSigners.length === 0) {
+            const [prevPolicy] = await db
+              .select({
+                signers: fundPolicies.signers,
+                fastWithdrawLimitWei: fundPolicies.fastWithdrawLimitWei,
+              })
+              .from(fundPolicies)
+              .where(eq(fundPolicies.fundId, fund.id))
+              .orderBy(desc(fundPolicies.version))
+              .limit(1);
+
+            if (
+              prevPolicy &&
+              Array.isArray(prevPolicy.signers) &&
+              prevPolicy.signers.length > 0
+            ) {
+              resolvedSigners = prevPolicy.signers.map((s) => s.toLowerCase());
+              if (fastWithdrawLimitWei === "0" && prevPolicy.fastWithdrawLimitWei) {
+                fastWithdrawLimitWei = prevPolicy.fastWithdrawLimitWei;
+              }
+            }
+          }
+
+          // 3. Fallback: Lấy danh sách thành viên nhóm từ workspace_members & users
+          if (resolvedSigners.length === 0) {
+            try {
+              const members = await db
+                .select({ walletAddress: users.walletAddress })
+                .from(workspaceMembers)
+                .innerJoin(users, eq(workspaceMembers.userId, users.id))
+                .where(
+                  and(
+                    eq(workspaceMembers.workspaceId, fund.workspaceId),
+                    sql`${workspaceMembers.accessDisabledAt} IS NULL`,
+                    sql`${users.walletAddress} IS NOT NULL`,
+                    sql`${users.walletAddress} != ''`,
+                  ),
+                );
+              const memberWallets = members
+                .map((m) => m.walletAddress?.toLowerCase())
+                .filter((a): a is string => Boolean(a && isAddress(a)));
+              if (memberWallets.length > 0) {
+                resolvedSigners = Array.from(new Set(memberWallets));
+              }
+            } catch {}
+          }
+
+          // 4. Fallback: Lấy ví treasury hoặc creator của quỹ nếu có
+          if (resolvedSigners.length === 0) {
+            if (fund.treasuryWalletAddress && isAddress(fund.treasuryWalletAddress)) {
+              resolvedSigners = [fund.treasuryWalletAddress.toLowerCase()];
+            } else if (fund.createdBy) {
+              try {
+                const [creator] = await db
+                  .select({ walletAddress: users.walletAddress })
+                  .from(users)
+                  .where(eq(users.id, fund.createdBy))
+                  .limit(1);
+                if (creator?.walletAddress && isAddress(creator.walletAddress)) {
+                  resolvedSigners = [creator.walletAddress.toLowerCase()];
+                }
+              } catch {}
+            }
+          }
+
+          // 5. Fallback: Lấy bất kỳ policy nào của fund trong DB
+          if (resolvedSigners.length === 0) {
+            try {
+              const allPolicies = await db
+                .select({ signers: fundPolicies.signers })
+                .from(fundPolicies)
+                .where(eq(fundPolicies.fundId, fund.id));
+              for (const p of allPolicies) {
+                if (Array.isArray(p.signers) && p.signers.length > 0) {
+                  resolvedSigners = p.signers.map((s) => s.toLowerCase());
+                  break;
+                }
+              }
+            } catch {}
+          }
+
+          await db
+            .insert(fundPolicies)
+            .values({
+              fundId: fund.id,
+              version: newEpoch,
+              quorum: quorumNum,
+              signers: resolvedSigners,
+              fastWithdrawLimitWei,
+              effectiveFrom: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: [fundPolicies.fundId, fundPolicies.version],
+              set: {
+                quorum: quorumNum,
+                signers: resolvedSigners,
+                fastWithdrawLimitWei,
+                effectiveFrom: new Date(),
+              },
+            });
 
           await db.insert(groupAuditEvents).values({
             workspaceId: fund.workspaceId,
@@ -608,6 +852,7 @@ export async function syncV2FundInternal(
           });
         }
       }
+      logBatchSuccess = true;
     } catch (logErr) {
       console.error(`V2 Indexer: Error querying logs for fund ${fund.id} (${fundAddress})`, logErr);
     }
@@ -661,8 +906,8 @@ export async function syncV2FundInternal(
       .where(eq(funds.id, fund.id));
   } catch {}
 
-  // Lưu lại cursor sau khi hoàn tất batch
-  if (toBlock >= fromBlock) {
+  // Lưu lại cursor CHỈ KHI hoàn tất batch và log batch processing hoàn toàn thành công (Fix A04)
+  if (toBlock >= fromBlock && logBatchSuccess) {
     await db
       .insert(activityCursors)
       .values({ id: cursorId, nextBlock: toBlock + 1n })
