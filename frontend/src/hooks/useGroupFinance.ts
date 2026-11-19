@@ -417,11 +417,23 @@ export function useGroupFinance() {
     });
   const rejectExpense = (id: string, reason: string) =>
     mutate(async () => {
+      const expense = expenses.find((e) => e.id === id);
+      const targetFund = funds.find((f) => f.id === expense?.fundId);
+      if (targetFund?.custodyType === "ONCHAIN_V2") {
+        if (!expense) throw new Error("Không tìm thấy thông tin đề xuất chi.");
+        return fundV2.rejectExpenseOnchain(targetFund, expense, reason);
+      }
       await authRequest(`/api/expenses/${id}/reject`, { reason });
       return {};
     });
   const cancelExpense = (id: string) =>
     mutate(async () => {
+      const expense = expenses.find((e) => e.id === id);
+      const targetFund = funds.find((f) => f.id === expense?.fundId);
+      if (targetFund?.custodyType === "ONCHAIN_V2") {
+        if (!expense) throw new Error("Không tìm thấy thông tin đề xuất chi.");
+        return fundV2.cancelExpenseOnchain(targetFund, expense);
+      }
       await authRequest(`/api/expenses/${id}/cancel`, {});
       return {};
     });

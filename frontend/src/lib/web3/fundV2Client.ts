@@ -60,25 +60,71 @@ export const PENDING_V2_TX_KEY = "kinetix_v2_pending_transactions";
 export interface PendingV2Tx {
   hash: `0x${string}`;
   action: string;
+  operationKey?: string;
   fundAddress?: string;
   workspaceId?: string;
+  userAddress?: string;
   submittedAt: string;
   status: "BROADCAST" | "CONFIRMED" | "REVERTED";
   error?: string;
+  resultData?: {
+    fundAddress?: `0x${string}`;
+    fundId?: string;
+    expenseId?: string;
+    amountRefunded?: string;
+    proposalId?: string;
+  };
+}
+
+function getStorageItem(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    if (typeof localStorage !== "undefined" && localStorage.getItem) {
+      const val = localStorage.getItem(key);
+      if (val) return val;
+    }
+  } catch {}
+  try {
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem) {
+      return sessionStorage.getItem(key);
+    }
+  } catch {}
+  return null;
+}
+
+function setStorageItem(key: string, value: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (typeof localStorage !== "undefined" && localStorage.setItem) {
+      localStorage.setItem(key, value);
+    }
+  } catch {}
+  try {
+    if (typeof sessionStorage !== "undefined" && sessionStorage.setItem) {
+      sessionStorage.setItem(key, value);
+    }
+  } catch {}
 }
 
 /**
- * Lưu vết giao dịch V2 vào sessionStorage ngay sau khi broadcast thành công từ ví.
+ * Lưu vết giao dịch V2 vào storage ngay sau khi broadcast thành công từ ví.
  */
 export function recordPendingV2Tx(tx: PendingV2Tx) {
   if (typeof window === "undefined") return;
   try {
-    const stored = sessionStorage.getItem(PENDING_V2_TX_KEY);
+    const stored = getStorageItem(PENDING_V2_TX_KEY);
     const list: PendingV2Tx[] = stored ? JSON.parse(stored) : [];
-    list.unshift(tx);
-    sessionStorage.setItem(PENDING_V2_TX_KEY, JSON.stringify(list.slice(0, 50)));
+    const idx = list.findIndex(
+      (item) => item.hash.toLowerCase() === tx.hash.toLowerCase()
+    );
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...tx };
+    } else {
+      list.unshift(tx);
+    }
+    setStorageItem(PENDING_V2_TX_KEY, JSON.stringify(list.slice(0, 50)));
   } catch {
-    // Không chặn luồng nếu sessionStorage bị hạn chế
+    // Không chặn luồng nếu storage bị hạn chế
   }
 }
 
@@ -88,35 +134,161 @@ export function recordPendingV2Tx(tx: PendingV2Tx) {
 export function updatePendingV2TxStatus(
   hash: string,
   status: "CONFIRMED" | "REVERTED",
-  error?: string
+  error?: string,
+  resultData?: PendingV2Tx["resultData"]
 ) {
   if (typeof window === "undefined") return;
   try {
-    const stored = sessionStorage.getItem(PENDING_V2_TX_KEY);
+    const stored = getStorageItem(PENDING_V2_TX_KEY);
     if (!stored) return;
     const list: PendingV2Tx[] = JSON.parse(stored);
     const updated = list.map((item) =>
       item.hash.toLowerCase() === hash.toLowerCase()
-        ? { ...item, status, error }
+        ? {
+            ...item,
+            status,
+            error: error ?? item.error,
+            resultData: resultData ?? item.resultData,
+          }
         : item
     );
-    sessionStorage.setItem(PENDING_V2_TX_KEY, JSON.stringify(updated));
+    setStorageItem(PENDING_V2_TX_KEY, JSON.stringify(updated));
   } catch {
     // Bỏ qua lỗi storage
   }
 }
 
 /**
- * Lấy danh sách giao dịch V2 đang chờ đối soát từ sessionStorage.
+ * Lấy danh sách giao dịch V2 đang chờ đối soát từ storage.
  */
 export function getPendingV2Transactions(): PendingV2Tx[] {
   if (typeof window === "undefined") return [];
   try {
-    const stored = sessionStorage.getItem(PENDING_V2_TX_KEY);
+    const stored = getStorageItem(PENDING_V2_TX_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch {
     return [];
   }
+}
+
+/**
+ * Tìm giao dịch V2 đang pending broadcast để phục hồi sau timeout thay vì broadcast lần 2 (Fix A01).
+ */
+export function findPendingV2Tx(criteria: {
+  operationKey?: string;
+  action?: string;
+  fundAddress?: string;
+  workspaceId?: string;
+  userAddress?: string;
+}): PendingV2Tx | undefined {
+  const list = getPendingV2Transactions();
+  return list.find((item) => {
+    if (item.status !== "BROADCAST") return false;
+    if (criteria.operationKey && item.operationKey) {
+      return item.operationKey === criteria.operationKey;
+    }
+    if (criteria.action && item.action !== criteria.action) return false;
+    if (
+      criteria.workspaceId &&
+      item.workspaceId &&
+      item.workspaceId.toLowerCase() !== criteria.workspaceId.toLowerCase()
+    )
+      return false;
+    if (
+      criteria.fundAddress &&
+      item.fundAddress &&
+      item.fundAddress.toLowerCase() !== criteria.fundAddress.toLowerCase()
+    )
+      return false;
+    if (
+      criteria.userAddress &&
+      item.userAddress &&
+      item.userAddress.toLowerCase() !== criteria.userAddress.toLowerCase()
+    )
+      return false;
+    return Boolean(criteria.action && criteria.fundAddress);
+  });
+}
+
+export function buildDepositOpKey(
+  workspaceId?: string,
+  fundAddress?: string,
+  userAddress?: string,
+  amountWei?: string
+) {
+  return `deposit:${(workspaceId || "").toLowerCase()}:${(fundAddress || "").toLowerCase()}:${(userAddress || "").toLowerCase()}:${amountWei || ""}`;
+}
+
+export function buildCreateFundOpKey(
+  workspaceId?: string,
+  userAddress?: string,
+  kind?: string | number,
+  terms?: string
+) {
+  return `create_fund:${(workspaceId || "").toLowerCase()}:${(userAddress || "").toLowerCase()}:${kind || ""}:${terms || ""}`;
+}
+
+export function buildProposeExpenseOpKey(
+  workspaceId?: string,
+  fundAddress?: string,
+  recipient?: string,
+  amountWei?: string,
+  memo?: string
+) {
+  return `propose_expense:${(workspaceId || "").toLowerCase()}:${(fundAddress || "").toLowerCase()}:${(recipient || "").toLowerCase()}:${amountWei || ""}:${memo || ""}`;
+}
+
+export function buildApproveExpenseOpKey(
+  workspaceId?: string,
+  fundAddress?: string,
+  userAddress?: string,
+  expenseId?: string | number | bigint
+) {
+  return `approve_expense:${(workspaceId || "").toLowerCase()}:${(fundAddress || "").toLowerCase()}:${(userAddress || "").toLowerCase()}:${String(expenseId)}`;
+}
+
+export function buildExecuteExpenseOpKey(
+  workspaceId?: string,
+  fundAddress?: string,
+  expenseId?: string | number | bigint
+) {
+  return `execute_expense:${(workspaceId || "").toLowerCase()}:${(fundAddress || "").toLowerCase()}:${String(expenseId)}`;
+}
+
+export function buildCancelExpenseOpKey(
+  workspaceId?: string,
+  fundAddress?: string,
+  userAddress?: string,
+  expenseId?: string | number | bigint
+) {
+  return `cancel_expense:${(workspaceId || "").toLowerCase()}:${(fundAddress || "").toLowerCase()}:${(userAddress || "").toLowerCase()}:${String(expenseId)}`;
+}
+
+export function buildRejectExpenseOpKey(
+  workspaceId?: string,
+  fundAddress?: string,
+  userAddress?: string,
+  expenseId?: string | number | bigint
+) {
+  return `reject_expense:${(workspaceId || "").toLowerCase()}:${(fundAddress || "").toLowerCase()}:${(userAddress || "").toLowerCase()}:${String(expenseId)}`;
+}
+
+export function buildRefundGoalOpKey(
+  workspaceId?: string,
+  fundAddress?: string,
+  userAddress?: string
+) {
+  return `refund_goal:${(workspaceId || "").toLowerCase()}:${(fundAddress || "").toLowerCase()}:${(userAddress || "").toLowerCase()}`;
+}
+
+export function buildGovernanceOpKey(
+  action: string,
+  workspaceId?: string,
+  fundAddress?: string,
+  userAddress?: string,
+  proposalId?: string | number | bigint
+) {
+  return `gov_${action}:${(workspaceId || "").toLowerCase()}:${(fundAddress || "").toLowerCase()}:${(userAddress || "").toLowerCase()}:${String(proposalId || "")}`;
 }
 
 /**
@@ -159,22 +331,35 @@ export function formatBytes32Hash(input?: string): `0x${string}` {
 export interface FundV2PreflightOptions {
   expectedWalletAddress?: string;
   expectedWorkspaceId?: string;
+  operationId?: string;
   onBroadcast?: (txHash: `0x${string}`) => void;
 }
 
 /**
  * Kiểm tra preflight nghiêm ngặt: Core Wallet, Chain ID 43113 (Fuji), khớp ví liên kết & workspace scope.
+ * Ném lỗi fail-closed nếu scope là null/undefined hoặc không khớp expectedWorkspaceId (Fix A02).
  */
-export async function getFundV2Wallet(options?: FundV2PreflightOptions) {
-  const provider = getCoreProvider();
+export async function assertFundV2Preflight(
+  provider: any,
+  options?: FundV2PreflightOptions
+): Promise<`0x${string}`> {
   if (!provider) {
     throw new Error(
       "Vui lòng mở ứng dụng trong Avalanche Core Wallet hoặc trình duyệt Web3 để thực hiện giao dịch."
     );
   }
 
-  // 1. Chuyển sang Avalanche Fuji Chain ID 43113
-  const switched = await switchNetwork(avalancheFuji.id);
+  // 1. Đối chiếu workspace scope (Fail closed on null or mismatch - Fix A02)
+  if (options?.expectedWorkspaceId) {
+    const currentScope = walletWriteScope();
+    if (!currentScope || currentScope !== options.expectedWorkspaceId) {
+      throw new Error(
+        "Không gian làm việc không hợp lệ hoặc đã thay đổi. Vui lòng làm mới trang từ nhóm hiện tại."
+      );
+    }
+  }
+
+  // 2. Chuyển/kiểm tra Avalanche Fuji Chain ID 43113
   const chainIdHex = await provider.request({ method: "eth_chainId" });
   const currentChainId = Number.parseInt(chainIdHex, 16);
   if (currentChainId !== avalancheFuji.id) {
@@ -183,7 +368,7 @@ export async function getFundV2Wallet(options?: FundV2PreflightOptions) {
     );
   }
 
-  // 2. Lấy danh sách tài khoản
+  // 3. Lấy danh sách tài khoản
   let accounts: string[] = await provider.request({ method: "eth_accounts" });
   if (!accounts || accounts.length === 0) {
     accounts = await provider.request({ method: "eth_requestAccounts" });
@@ -194,7 +379,7 @@ export async function getFundV2Wallet(options?: FundV2PreflightOptions) {
 
   const connectedAccount = accounts[0] as `0x${string}`;
 
-  // 3. Đối chiếu ví phiên đăng nhập (Fail-closed on account mismatch - Fix R03)
+  // 4. Đối chiếu ví phiên đăng nhập
   if (options?.expectedWalletAddress) {
     if (
       connectedAccount.toLowerCase() !==
@@ -206,15 +391,25 @@ export async function getFundV2Wallet(options?: FundV2PreflightOptions) {
     }
   }
 
-  // 4. Đối chiếu workspace scope (Fix R03)
-  if (options?.expectedWorkspaceId) {
-    const currentScope = walletWriteScope();
-    if (currentScope && currentScope !== options.expectedWorkspaceId) {
-      throw new Error(
-        "Không gian làm việc đã thay đổi. Vui lòng làm mới trang từ nhóm hiện tại."
-      );
-    }
+  return connectedAccount;
+}
+
+/**
+ * Khởi tạo client ví V2 sau khi đã xác minh preflight toàn diện.
+ */
+export async function getFundV2Wallet(options?: FundV2PreflightOptions) {
+  const provider = getCoreProvider();
+  if (!provider) {
+    throw new Error(
+      "Vui lòng mở ứng dụng trong Avalanche Core Wallet hoặc trình duyệt Web3 để thực hiện giao dịch."
+    );
   }
+
+  // Chuyển sang Avalanche Fuji Chain ID 43113
+  await switchNetwork(avalancheFuji.id);
+
+  // Xác thực preflight tài khoản, chuỗi và workspace (Fail closed nếu scope null/undefined - Fix A02)
+  const connectedAccount = await assertFundV2Preflight(provider, options);
 
   const walletClient = createWalletClient({
     chain: avalancheFuji,
@@ -223,6 +418,7 @@ export async function getFundV2Wallet(options?: FundV2PreflightOptions) {
 
   return {
     account: connectedAccount,
+    provider,
     walletClient,
     publicClient: publicClientFuji,
   };
@@ -282,7 +478,7 @@ export async function createOnchainFund(
   receipt: any;
 }> {
   try {
-    const { account, walletClient, publicClient } = await getFundV2Wallet(options);
+    const { account, provider, walletClient, publicClient } = await getFundV2Wallet(options);
     const factory = params.factoryAddress || DEFAULT_FACTORY_V2_ADDRESS;
 
     const kindNum =
@@ -291,6 +487,47 @@ export async function createOnchainFund(
         : params.kind === "GOAL"
         ? 1
         : 0;
+
+    const opKey =
+      options?.operationId ||
+      buildCreateFundOpKey(
+        options?.expectedWorkspaceId,
+        account,
+        kindNum,
+        params.terms
+      );
+
+    // Kiểm tra và phục hồi giao dịch pending (Fix A01)
+    const pending = findPendingV2Tx({ operationKey: opKey });
+    if (pending && pending.status === "BROADCAST") {
+      options?.onBroadcast?.(pending.hash);
+      const receipt = await waitForSuccessfulReceipt(publicClient, pending.hash, "Tạo quỹ");
+      const logs = parseEventLogs({
+        abi: KINETIX_FUND_FACTORY_V2_ABI,
+        logs: receipt.logs,
+        eventName: "FundCreated",
+      });
+      if (logs.length && logs[0].args) {
+        const createdEvent = logs[0].args as {
+          fundId: bigint;
+          fund: `0x${string}`;
+          creator: `0x${string}`;
+          kind: number;
+          version: bigint;
+          configurationHash: `0x${string}`;
+        };
+        updatePendingV2TxStatus(pending.hash, "CONFIRMED", undefined, {
+          fundAddress: createdEvent.fund,
+          fundId: createdEvent.fundId.toString(),
+        });
+        return {
+          txHash: pending.hash,
+          fundAddress: createdEvent.fund,
+          fundId: createdEvent.fundId,
+          receipt,
+        };
+      }
+    }
 
     const initParams = {
       kind: kindNum,
@@ -317,13 +554,18 @@ export async function createOnchainFund(
       args: [initParams],
     });
 
+    // Re-check wallet address, chainId, và workspace scope ngay trước khi broadcast (Fix A02)
+    await assertFundV2Preflight(provider, options);
+
     const txHash = await walletClient.writeContract(request);
 
-    // Ghi nhận ngay sau khi broadcast (Fix R08)
+    // Ghi nhận ngay sau khi broadcast (Fix R08, A01)
     recordPendingV2Tx({
       hash: txHash,
       action: "CREATE_FUND",
+      operationKey: opKey,
       workspaceId: options?.expectedWorkspaceId,
+      userAddress: account,
       submittedAt: new Date().toISOString(),
       status: "BROADCAST",
     });
@@ -350,6 +592,11 @@ export async function createOnchainFund(
       version: bigint;
       configurationHash: `0x${string}`;
     };
+
+    updatePendingV2TxStatus(txHash, "CONFIRMED", undefined, {
+      fundAddress: createdEvent.fund,
+      fundId: createdEvent.fundId.toString(),
+    });
 
     return {
       txHash,
@@ -380,7 +627,24 @@ export async function depositOnchainFund(
   receipt: any;
 }> {
   try {
-    const { account, walletClient, publicClient } = await getFundV2Wallet(options);
+    const { account, provider, walletClient, publicClient } = await getFundV2Wallet(options);
+    const opKey =
+      options?.operationId ||
+      buildDepositOpKey(
+        options?.expectedWorkspaceId,
+        params.fundAddress,
+        account,
+        params.amountWei.toString()
+      );
+
+    // Kiểm tra và phục hồi giao dịch pending (Fix A01)
+    const pending = findPendingV2Tx({ operationKey: opKey });
+    if (pending && pending.status === "BROADCAST") {
+      options?.onBroadcast?.(pending.hash);
+      const receipt = await waitForSuccessfulReceipt(publicClient, pending.hash, "Góp tiền");
+      return { txHash: pending.hash, receipt };
+    }
+
     const memoHash = formatBytes32Hash(params.referenceMemo);
     const value = BigInt(params.amountWei);
 
@@ -393,14 +657,19 @@ export async function depositOnchainFund(
       value,
     });
 
+    // Re-check wallet address, chainId, và workspace scope ngay trước khi broadcast (Fix A02)
+    await assertFundV2Preflight(provider, options);
+
     const txHash = await walletClient.writeContract(request);
 
-    // Ghi nhận ngay sau broadcast (Fix R08)
+    // Ghi nhận ngay sau broadcast (Fix R08, A01)
     recordPendingV2Tx({
       hash: txHash,
       action: "DEPOSIT",
+      operationKey: opKey,
       fundAddress: params.fundAddress,
       workspaceId: options?.expectedWorkspaceId,
+      userAddress: account,
       submittedAt: new Date().toISOString(),
       status: "BROADCAST",
     });
@@ -436,7 +705,36 @@ export async function proposeExpenseOnchain(
   receipt: any;
 }> {
   try {
-    const { account, walletClient, publicClient } = await getFundV2Wallet(options);
+    const { account, provider, walletClient, publicClient } = await getFundV2Wallet(options);
+    const opKey =
+      options?.operationId ||
+      buildProposeExpenseOpKey(
+        options?.expectedWorkspaceId,
+        params.fundAddress,
+        params.recipient,
+        params.amountWei.toString(),
+        params.memo
+      );
+
+    // Kiểm tra và phục hồi giao dịch pending (Fix A01)
+    const pending = findPendingV2Tx({ operationKey: opKey });
+    if (pending && pending.status === "BROADCAST") {
+      options?.onBroadcast?.(pending.hash);
+      const receipt = await waitForSuccessfulReceipt(publicClient, pending.hash, "Đề xuất chi tiêu");
+      const logs = parseEventLogs({
+        abi: KINETIX_FUND_V2_ABI,
+        logs: receipt.logs,
+        eventName: "ExpenseProposed",
+      });
+      if (logs.length && logs[0].args && (logs[0].args as any).id !== undefined) {
+        const expenseId = (logs[0].args as any).id as bigint;
+        updatePendingV2TxStatus(pending.hash, "CONFIRMED", undefined, {
+          expenseId: expenseId.toString(),
+        });
+        return { txHash: pending.hash, expenseId, receipt };
+      }
+    }
+
     const memoHash = formatBytes32Hash(params.memo);
 
     const { request } = await publicClient.simulateContract({
@@ -452,13 +750,18 @@ export async function proposeExpenseOnchain(
       ],
     });
 
+    // Re-check wallet address, chainId, và workspace scope ngay trước khi broadcast (Fix A02)
+    await assertFundV2Preflight(provider, options);
+
     const txHash = await walletClient.writeContract(request);
 
     recordPendingV2Tx({
       hash: txHash,
       action: "PROPOSE_EXPENSE",
+      operationKey: opKey,
       fundAddress: params.fundAddress,
       workspaceId: options?.expectedWorkspaceId,
+      userAddress: account,
       submittedAt: new Date().toISOString(),
       status: "BROADCAST",
     });
@@ -477,6 +780,9 @@ export async function proposeExpenseOnchain(
     }
 
     const expenseId = (logs[0].args as any).id as bigint;
+    updatePendingV2TxStatus(txHash, "CONFIRMED", undefined, {
+      expenseId: expenseId.toString(),
+    });
 
     return { txHash, expenseId, receipt };
   } catch (error) {
@@ -506,7 +812,22 @@ export async function approveExpenseOnchain(
       throw new Error("Mã đề xuất chi tiêu không hợp lệ (phải > 0).");
     }
 
-    const { account, walletClient, publicClient } = await getFundV2Wallet(options);
+    const { account, provider, walletClient, publicClient } = await getFundV2Wallet(options);
+    const opKey =
+      options?.operationId ||
+      buildApproveExpenseOpKey(
+        options?.expectedWorkspaceId,
+        params.fundAddress,
+        account,
+        expenseIdNum
+      );
+
+    const pending = findPendingV2Tx({ operationKey: opKey });
+    if (pending && pending.status === "BROADCAST") {
+      options?.onBroadcast?.(pending.hash);
+      const receipt = await waitForSuccessfulReceipt(publicClient, pending.hash, "Duyệt chi tiêu");
+      return { txHash: pending.hash, receipt };
+    }
 
     const { request } = await publicClient.simulateContract({
       account,
@@ -516,13 +837,18 @@ export async function approveExpenseOnchain(
       args: [expenseIdNum],
     });
 
+    // Re-check wallet address, chainId, và workspace scope ngay trước khi broadcast (Fix A02)
+    await assertFundV2Preflight(provider, options);
+
     const txHash = await walletClient.writeContract(request);
 
     recordPendingV2Tx({
       hash: txHash,
       action: "APPROVE_EXPENSE",
+      operationKey: opKey,
       fundAddress: params.fundAddress,
       workspaceId: options?.expectedWorkspaceId,
+      userAddress: account,
       submittedAt: new Date().toISOString(),
       status: "BROADCAST",
     });
@@ -558,7 +884,21 @@ export async function executeExpenseOnchain(
       throw new Error("Mã đề xuất chi tiêu không hợp lệ (phải > 0).");
     }
 
-    const { account, walletClient, publicClient } = await getFundV2Wallet(options);
+    const { account, provider, walletClient, publicClient } = await getFundV2Wallet(options);
+    const opKey =
+      options?.operationId ||
+      buildExecuteExpenseOpKey(
+        options?.expectedWorkspaceId,
+        params.fundAddress,
+        expenseIdNum
+      );
+
+    const pending = findPendingV2Tx({ operationKey: opKey });
+    if (pending && pending.status === "BROADCAST") {
+      options?.onBroadcast?.(pending.hash);
+      const receipt = await waitForSuccessfulReceipt(publicClient, pending.hash, "Giải ngân chi tiêu");
+      return { txHash: pending.hash, receipt };
+    }
 
     const { request } = await publicClient.simulateContract({
       account,
@@ -568,19 +908,168 @@ export async function executeExpenseOnchain(
       args: [expenseIdNum],
     });
 
+    // Re-check wallet address, chainId, và workspace scope ngay trước khi broadcast (Fix A02)
+    await assertFundV2Preflight(provider, options);
+
     const txHash = await walletClient.writeContract(request);
 
     recordPendingV2Tx({
       hash: txHash,
       action: "EXECUTE_EXPENSE",
+      operationKey: opKey,
       fundAddress: params.fundAddress,
       workspaceId: options?.expectedWorkspaceId,
+      userAddress: account,
       submittedAt: new Date().toISOString(),
       status: "BROADCAST",
     });
     options?.onBroadcast?.(txHash);
 
     const receipt = await waitForSuccessfulReceipt(publicClient, txHash, "Giải ngân chi tiêu");
+
+    return { txHash, receipt };
+  } catch (error) {
+    throw new Error(humanizeV2Error(error));
+  }
+}
+
+// =================================================================
+// 5B. HỦY ĐỀ NGHỊ CHI TIỀU ON-CHAIN (CANCEL EXPENSE - Fix A07)
+// =================================================================
+
+export interface CancelExpenseOnchainParams {
+  fundAddress: `0x${string}`;
+  expenseId: number | bigint;
+}
+
+export async function cancelExpenseOnchain(
+  params: CancelExpenseOnchainParams,
+  options?: FundV2PreflightOptions
+): Promise<{
+  txHash: `0x${string}`;
+  receipt: any;
+}> {
+  try {
+    const expenseIdNum = BigInt(params.expenseId);
+    if (expenseIdNum <= 0n) {
+      throw new Error("Mã đề xuất chi tiêu không hợp lệ (phải > 0).");
+    }
+
+    const { account, provider, walletClient, publicClient } = await getFundV2Wallet(options);
+    const opKey =
+      options?.operationId ||
+      buildCancelExpenseOpKey(
+        options?.expectedWorkspaceId,
+        params.fundAddress,
+        account,
+        expenseIdNum
+      );
+
+    const pending = findPendingV2Tx({ operationKey: opKey });
+    if (pending && pending.status === "BROADCAST") {
+      options?.onBroadcast?.(pending.hash);
+      const receipt = await waitForSuccessfulReceipt(publicClient, pending.hash, "Hủy đề xuất chi tiêu");
+      return { txHash: pending.hash, receipt };
+    }
+
+    const { request } = await publicClient.simulateContract({
+      account,
+      address: params.fundAddress,
+      abi: KINETIX_FUND_V2_ABI,
+      functionName: "cancelExpense",
+      args: [expenseIdNum],
+    });
+
+    // Re-check wallet address, chainId, và workspace scope ngay trước khi broadcast (Fix A02)
+    await assertFundV2Preflight(provider, options);
+
+    const txHash = await walletClient.writeContract(request);
+
+    recordPendingV2Tx({
+      hash: txHash,
+      action: "CANCEL_EXPENSE",
+      operationKey: opKey,
+      fundAddress: params.fundAddress,
+      workspaceId: options?.expectedWorkspaceId,
+      userAddress: account,
+      submittedAt: new Date().toISOString(),
+      status: "BROADCAST",
+    });
+    options?.onBroadcast?.(txHash);
+
+    const receipt = await waitForSuccessfulReceipt(publicClient, txHash, "Hủy đề xuất chi tiêu");
+
+    return { txHash, receipt };
+  } catch (error) {
+    throw new Error(humanizeV2Error(error));
+  }
+}
+
+// =================================================================
+// 5C. TỪ CHỐI ĐỀ NGHỊ CHI TIỀU ON-CHAIN (REJECT EXPENSE - Fix A07)
+// =================================================================
+
+export interface RejectExpenseOnchainParams {
+  fundAddress: `0x${string}`;
+  expenseId: number | bigint;
+}
+
+export async function rejectExpenseOnchain(
+  params: RejectExpenseOnchainParams,
+  options?: FundV2PreflightOptions
+): Promise<{
+  txHash: `0x${string}`;
+  receipt: any;
+}> {
+  try {
+    const expenseIdNum = BigInt(params.expenseId);
+    if (expenseIdNum <= 0n) {
+      throw new Error("Mã đề xuất chi tiêu không hợp lệ (phải > 0).");
+    }
+
+    const { account, provider, walletClient, publicClient } = await getFundV2Wallet(options);
+    const opKey =
+      options?.operationId ||
+      buildRejectExpenseOpKey(
+        options?.expectedWorkspaceId,
+        params.fundAddress,
+        account,
+        expenseIdNum
+      );
+
+    const pending = findPendingV2Tx({ operationKey: opKey });
+    if (pending && pending.status === "BROADCAST") {
+      options?.onBroadcast?.(pending.hash);
+      const receipt = await waitForSuccessfulReceipt(publicClient, pending.hash, "Từ chối chi tiêu");
+      return { txHash: pending.hash, receipt };
+    }
+
+    const { request } = await publicClient.simulateContract({
+      account,
+      address: params.fundAddress,
+      abi: KINETIX_FUND_V2_ABI,
+      functionName: "rejectExpense",
+      args: [expenseIdNum],
+    });
+
+    // Re-check wallet address, chainId, và workspace scope ngay trước khi broadcast (Fix A02)
+    await assertFundV2Preflight(provider, options);
+
+    const txHash = await walletClient.writeContract(request);
+
+    recordPendingV2Tx({
+      hash: txHash,
+      action: "REJECT_EXPENSE",
+      operationKey: opKey,
+      fundAddress: params.fundAddress,
+      workspaceId: options?.expectedWorkspaceId,
+      userAddress: account,
+      submittedAt: new Date().toISOString(),
+      status: "BROADCAST",
+    });
+    options?.onBroadcast?.(txHash);
+
+    const receipt = await waitForSuccessfulReceipt(publicClient, txHash, "Từ chối chi tiêu");
 
     return { txHash, receipt };
   } catch (error) {
@@ -605,7 +1094,27 @@ export async function refundFailedGoalOnchain(
   receipt: any;
 }> {
   try {
-    const { account, walletClient, publicClient } = await getFundV2Wallet(options);
+    const { account, provider, walletClient, publicClient } = await getFundV2Wallet(options);
+    const opKey =
+      options?.operationId ||
+      buildRefundGoalOpKey(
+        options?.expectedWorkspaceId,
+        params.fundAddress,
+        account
+      );
+
+    const pending = findPendingV2Tx({ operationKey: opKey });
+    if (pending && pending.status === "BROADCAST") {
+      options?.onBroadcast?.(pending.hash);
+      const receipt = await waitForSuccessfulReceipt(publicClient, pending.hash, "Hoàn tiền mục tiêu");
+      const logs = parseEventLogs({
+        abi: KINETIX_FUND_V2_ABI,
+        logs: receipt.logs,
+        eventName: "GoalRefunded",
+      });
+      const amountRefunded = logs.length > 0 ? (logs[0].args as any).amount : undefined;
+      return { txHash: pending.hash, amountRefunded, receipt };
+    }
 
     const { request } = await publicClient.simulateContract({
       account,
@@ -614,13 +1123,18 @@ export async function refundFailedGoalOnchain(
       functionName: "refundFailedGoal",
     });
 
+    // Re-check wallet address, chainId, và workspace scope ngay trước khi broadcast (Fix A02)
+    await assertFundV2Preflight(provider, options);
+
     const txHash = await walletClient.writeContract(request);
 
     recordPendingV2Tx({
       hash: txHash,
       action: "REFUND_GOAL",
+      operationKey: opKey,
       fundAddress: params.fundAddress,
       workspaceId: options?.expectedWorkspaceId,
+      userAddress: account,
       submittedAt: new Date().toISOString(),
       status: "BROADCAST",
     });
@@ -670,7 +1184,7 @@ export async function proposePolicyOnchain(
   receipt: any;
 }> {
   try {
-    const { account, walletClient, publicClient } = await getFundV2Wallet(options);
+    const { account, provider, walletClient, publicClient } = await getFundV2Wallet(options);
     const termsHash = formatBytes32Hash(params.terms);
 
     const formattedPolicy = {
@@ -685,6 +1199,31 @@ export async function proposePolicyOnchain(
       dailyAllowance: BigInt(m.dailyAllowanceWei || "0"),
     }));
 
+    const opKey =
+      options?.operationId ||
+      buildGovernanceOpKey(
+        "POLICY",
+        options?.expectedWorkspaceId,
+        params.fundAddress,
+        account,
+        termsHash
+      );
+
+    const pending = findPendingV2Tx({ operationKey: opKey });
+    if (pending && pending.status === "BROADCAST") {
+      options?.onBroadcast?.(pending.hash);
+      const receipt = await waitForSuccessfulReceipt(publicClient, pending.hash, "Đề xuất chính sách");
+      const logs = parseEventLogs({
+        abi: KINETIX_FUND_V2_ABI,
+        logs: receipt.logs,
+        eventName: "GovernanceProposed",
+      });
+      if (logs.length && logs[0].args && (logs[0].args as any).id !== undefined) {
+        const proposalId = (logs[0].args as any).id as bigint;
+        return { txHash: pending.hash, proposalId, receipt };
+      }
+    }
+
     const { request } = await publicClient.simulateContract({
       account,
       address: params.fundAddress,
@@ -693,13 +1232,18 @@ export async function proposePolicyOnchain(
       args: [formattedPolicy, formattedMembers, termsHash],
     });
 
+    // Re-check wallet address, chainId, và workspace scope ngay trước khi broadcast (Fix A02)
+    await assertFundV2Preflight(provider, options);
+
     const txHash = await walletClient.writeContract(request);
 
     recordPendingV2Tx({
       hash: txHash,
       action: "PROPOSE_POLICY",
+      operationKey: opKey,
       fundAddress: params.fundAddress,
       workspaceId: options?.expectedWorkspaceId,
+      userAddress: account,
       submittedAt: new Date().toISOString(),
       status: "BROADCAST",
     });
@@ -746,7 +1290,7 @@ export async function proposeActionOnchain(
   receipt: any;
 }> {
   try {
-    const { account, walletClient, publicClient } = await getFundV2Wallet(options);
+    const { account, provider, walletClient, publicClient } = await getFundV2Wallet(options);
     const memoHash = formatBytes32Hash(params.memo);
 
     const actionNum =
@@ -765,6 +1309,31 @@ export async function proposeActionOnchain(
     const recipient = params.recipient || zeroAddress;
     const amount = BigInt(params.amountWei || "0");
 
+    const opKey =
+      options?.operationId ||
+      buildGovernanceOpKey(
+        String(actionNum),
+        options?.expectedWorkspaceId,
+        params.fundAddress,
+        account,
+        memoHash
+      );
+
+    const pending = findPendingV2Tx({ operationKey: opKey });
+    if (pending && pending.status === "BROADCAST") {
+      options?.onBroadcast?.(pending.hash);
+      const receipt = await waitForSuccessfulReceipt(publicClient, pending.hash, "Đề xuất biểu quyết");
+      const logs = parseEventLogs({
+        abi: KINETIX_FUND_V2_ABI,
+        logs: receipt.logs,
+        eventName: "GovernanceProposed",
+      });
+      if (logs.length && logs[0].args && (logs[0].args as any).id !== undefined) {
+        const proposalId = (logs[0].args as any).id as bigint;
+        return { txHash: pending.hash, proposalId, receipt };
+      }
+    }
+
     const { request } = await publicClient.simulateContract({
       account,
       address: params.fundAddress,
@@ -773,13 +1342,18 @@ export async function proposeActionOnchain(
       args: [actionNum, recipient, amount, memoHash],
     });
 
+    // Re-check wallet address, chainId, và workspace scope ngay trước khi broadcast (Fix A02)
+    await assertFundV2Preflight(provider, options);
+
     const txHash = await walletClient.writeContract(request);
 
     recordPendingV2Tx({
       hash: txHash,
       action: `PROPOSE_ACTION_${actionNum}`,
+      operationKey: opKey,
       fundAddress: params.fundAddress,
       workspaceId: options?.expectedWorkspaceId,
+      userAddress: account,
       submittedAt: new Date().toISOString(),
       status: "BROADCAST",
     });
@@ -827,7 +1401,23 @@ export async function approveGovernanceOnchain(
       throw new Error("Mã đề xuất biểu quyết không hợp lệ (phải > 0).");
     }
 
-    const { account, walletClient, publicClient } = await getFundV2Wallet(options);
+    const { account, provider, walletClient, publicClient } = await getFundV2Wallet(options);
+    const opKey =
+      options?.operationId ||
+      buildGovernanceOpKey(
+        "APPROVE",
+        options?.expectedWorkspaceId,
+        params.fundAddress,
+        account,
+        proposalIdNum
+      );
+
+    const pending = findPendingV2Tx({ operationKey: opKey });
+    if (pending && pending.status === "BROADCAST") {
+      options?.onBroadcast?.(pending.hash);
+      const receipt = await waitForSuccessfulReceipt(publicClient, pending.hash, "Duyệt đề xuất");
+      return { txHash: pending.hash, receipt };
+    }
 
     const { request } = await publicClient.simulateContract({
       account,
@@ -837,13 +1427,18 @@ export async function approveGovernanceOnchain(
       args: [proposalIdNum],
     });
 
+    // Re-check wallet address, chainId, và workspace scope ngay trước khi broadcast (Fix A02)
+    await assertFundV2Preflight(provider, options);
+
     const txHash = await walletClient.writeContract(request);
 
     recordPendingV2Tx({
       hash: txHash,
       action: "APPROVE_GOVERNANCE",
+      operationKey: opKey,
       fundAddress: params.fundAddress,
       workspaceId: options?.expectedWorkspaceId,
+      userAddress: account,
       submittedAt: new Date().toISOString(),
       status: "BROADCAST",
     });
@@ -879,7 +1474,23 @@ export async function executeGovernanceOnchain(
       throw new Error("Mã đề xuất biểu quyết không hợp lệ (phải > 0).");
     }
 
-    const { account, walletClient, publicClient } = await getFundV2Wallet(options);
+    const { account, provider, walletClient, publicClient } = await getFundV2Wallet(options);
+    const opKey =
+      options?.operationId ||
+      buildGovernanceOpKey(
+        "EXECUTE",
+        options?.expectedWorkspaceId,
+        params.fundAddress,
+        account,
+        proposalIdNum
+      );
+
+    const pending = findPendingV2Tx({ operationKey: opKey });
+    if (pending && pending.status === "BROADCAST") {
+      options?.onBroadcast?.(pending.hash);
+      const receipt = await waitForSuccessfulReceipt(publicClient, pending.hash, "Thực thi đề xuất");
+      return { txHash: pending.hash, receipt };
+    }
 
     const { request } = await publicClient.simulateContract({
       account,
@@ -889,13 +1500,18 @@ export async function executeGovernanceOnchain(
       args: [proposalIdNum],
     });
 
+    // Re-check wallet address, chainId, và workspace scope ngay trước khi broadcast (Fix A02)
+    await assertFundV2Preflight(provider, options);
+
     const txHash = await walletClient.writeContract(request);
 
     recordPendingV2Tx({
       hash: txHash,
       action: "EXECUTE_GOVERNANCE",
+      operationKey: opKey,
       fundAddress: params.fundAddress,
       workspaceId: options?.expectedWorkspaceId,
+      userAddress: account,
       submittedAt: new Date().toISOString(),
       status: "BROADCAST",
     });

@@ -9,6 +9,8 @@ import {
   proposeExpenseOnchain,
   approveExpenseOnchain,
   executeExpenseOnchain,
+  cancelExpenseOnchain,
+  rejectExpenseOnchain,
   refundFailedGoalOnchain,
   proposePolicyOnchain,
   proposeActionOnchain,
@@ -53,9 +55,10 @@ export function useFundV2() {
    * Tạo options preflight chuẩn hóa khớp phiên người dùng và workspace
    */
   const makePreflight = useCallback(
-    (workspaceId?: string): FundV2PreflightOptions => ({
+    (workspaceId?: string, operationId?: string): FundV2PreflightOptions => ({
       expectedWalletAddress: auth.user?.walletAddress,
       expectedWorkspaceId: workspaceId,
+      operationId,
       onBroadcast: (hash: `0x${string}`) => {
         setLastTxHash(hash);
         setSyncStatus("MINING");
@@ -279,16 +282,9 @@ export function useFundV2() {
             category: params.category,
             receiptAttachmentUrl: params.receiptAttachmentUrl,
           });
-        } catch {
-          await authRequest(
-            `/api/groups/${fund.workspaceId}/funds/${fund.id}/expenses`,
-            {
-              ...params,
-              amountWei,
-              onchainExpenseId: Number(result.expenseId),
-              txHash: result.txHash,
-            }
-          );
+        } catch (syncErr) {
+          // Ghi nhận cảnh báo; không fallback sang endpoint SHARED_TREASURY vì sẽ gây xung đột custody (Fix A08)
+          console.warn("Lưu DB off-chain thất bại nhưng giao dịch đề xuất chi on-chain đã thành công:", syncErr);
         }
 
         setSyncStatus("CONFIRMED");
@@ -406,6 +402,117 @@ export function useFundV2() {
           });
         } catch {
           // Indexer sẽ chốt trạng thái
+        }
+
+        setSyncStatus("CONFIRMED");
+        return { txHash: result.txHash };
+      } catch (err) {
+        setSyncStatus("FAILED");
+        const msg = humanizeV2Error(err);
+        setError(msg);
+        throw new Error(msg);
+      } finally {
+        setIsTransacting(false);
+      }
+    },
+    [makePreflight]
+  );
+
+  /**
+   * Hủy đề xuất chi tiêu on-chain (Fix A07)
+   */
+  const cancelExpenseOnchainAction = useCallback(
+    async (fund: GroupFundItem, expense: GroupExpenseRequest) => {
+      const fundAddress = (fund.contractAddress || fund.onchainVaultAddress) as `0x${string}`;
+      if (!fundAddress || !/^0x[\da-f]{40}$/i.test(fundAddress)) {
+        throw new Error("Quỹ chưa có địa chỉ hợp đồng on-chain hợp lệ.");
+      }
+
+      const expenseId = expense.onchainExpenseId;
+      if (expenseId === undefined || expenseId === null || expenseId <= 0) {
+        throw new Error(
+          `Đề xuất chi #${expense.id} chưa có mã on-chain hợp lệ (onchainExpenseId). Không thể hủy trên hợp đồng.`
+        );
+      }
+
+      setIsTransacting(true);
+      setSyncStatus("SIGNING");
+      setError(null);
+      try {
+        const preflight = makePreflight(fund.workspaceId);
+        const result = await cancelExpenseOnchain(
+          {
+            fundAddress,
+            expenseId,
+          },
+          preflight
+        );
+
+        setLastTxHash(result.txHash);
+        setSyncStatus("SYNCING");
+
+        try {
+          await authRequest(`/api/expenses/${expense.id}/cancel`, {
+            txHash: result.txHash,
+          });
+        } catch {
+          // Indexer sẽ đồng bộ sự kiện ExpenseFinalized (CANCELLED)
+        }
+
+        setSyncStatus("CONFIRMED");
+        return { txHash: result.txHash };
+      } catch (err) {
+        setSyncStatus("FAILED");
+        const msg = humanizeV2Error(err);
+        setError(msg);
+        throw new Error(msg);
+      } finally {
+        setIsTransacting(false);
+      }
+    },
+    [makePreflight]
+  );
+
+  /**
+   * Từ chối đề xuất chi tiêu on-chain (Fix A07)
+   */
+  const rejectExpenseOnchainAction = useCallback(
+    async (fund: GroupFundItem, expense: GroupExpenseRequest, reason?: string) => {
+      const fundAddress = (fund.contractAddress || fund.onchainVaultAddress) as `0x${string}`;
+      if (!fundAddress || !/^0x[\da-f]{40}$/i.test(fundAddress)) {
+        throw new Error("Quỹ chưa có địa chỉ hợp đồng on-chain hợp lệ.");
+      }
+
+      const expenseId = expense.onchainExpenseId;
+      if (expenseId === undefined || expenseId === null || expenseId <= 0) {
+        throw new Error(
+          `Đề xuất chi #${expense.id} chưa có mã on-chain hợp lệ (onchainExpenseId). Không thể từ chối trên hợp đồng.`
+        );
+      }
+
+      setIsTransacting(true);
+      setSyncStatus("SIGNING");
+      setError(null);
+      try {
+        const preflight = makePreflight(fund.workspaceId);
+        const result = await rejectExpenseOnchain(
+          {
+            fundAddress,
+            expenseId,
+          },
+          preflight
+        );
+
+        setLastTxHash(result.txHash);
+        setSyncStatus("SYNCING");
+
+        try {
+          await authRequest(`/api/expenses/${expense.id}/reject`, {
+            reason: reason || "Từ chối đề xuất chi trên hợp đồng V2",
+            txHash: result.txHash,
+          });
+        } catch {
+          // Indexer sẽ đồng bộ sự kiện ExpenseFinalized (REJECTED)
         }
 
         setSyncStatus("CONFIRMED");
@@ -776,6 +883,8 @@ export function useFundV2() {
     proposeExpenseOnchain: proposeExpenseOnchainAction,
     approveExpenseOnchain: approveExpenseOnchainAction,
     executeExpenseOnchain: executeExpenseOnchainAction,
+    cancelExpenseOnchain: cancelExpenseOnchainAction,
+    rejectExpenseOnchain: rejectExpenseOnchainAction,
     refundFailedGoal,
     proposePolicy,
     proposePause,

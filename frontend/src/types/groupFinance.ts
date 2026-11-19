@@ -1,4 +1,5 @@
 export type GroupFundKind = "OPERATING" | "GOAL";
+export type GroupCustodyType = "ONCHAIN_HUB" | "SHARED_TREASURY" | "ONCHAIN_V2";
 export type GroupFundStatus = "ACTIVE" | "PAUSED" | "CLOSED";
 export type GroupExpenseStatus =
   | "PENDING_APPROVAL"
@@ -144,6 +145,7 @@ export interface GroupExpenseRequest {
   fundId: string;
   fundName: string;
   fundType: GroupFundKind;
+  custodyType?: GroupCustodyType;
   proposerId: string;
   proposerName: string;
   proposerAddress: string;
@@ -230,6 +232,7 @@ export interface ProposeExpenseParams {
   recipientAddress: string;
   recipientName: string;
   receiptAttachmentUrl?: string;
+  receiptImageBase64?: string;
   deadlineHours?: number;
   idempotencyKey: string;
 }
