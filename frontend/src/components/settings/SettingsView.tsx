@@ -766,7 +766,7 @@ function SettingsAccount({ initialTab, onTabChange }: Props) {
                     className="account-button"
                     href={access.isOwner ? "/dashboard/admin" : "/dashboard"}
                   >
-                    {access.isOwner ? "Mở quản trị" : "Về gia đình"}
+                    {access.isOwner ? "Mở quản trị" : "Về quỹ nhóm"}
                     <ArrowUpRight size={16} />
                   </Link>
                 </div>

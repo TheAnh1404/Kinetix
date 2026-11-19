@@ -65,7 +65,7 @@ function SettingsContent() {
         <Link
           href="/dashboard"
           className="flex items-center gap-3 transition-transform hover:scale-[1.02]"
-          aria-label="Kinetix, về gia đình"
+          aria-label="Kinetix, về quỹ nhóm"
         >
           <KinetixLogo size="md" subtitle="Cài Đặt Hệ Thống" />
         </Link>
@@ -73,7 +73,7 @@ function SettingsContent() {
           <WorkspaceSwitcher />
           <Link href="/dashboard" className="account-text-link">
             <ArrowLeft size={17} />
-            <span>Về gia đình</span>
+            <span>Về quỹ nhóm</span>
           </Link>
         </div>
       </header>
@@ -91,6 +91,7 @@ function SettingsContent() {
 
       {/* Thanh điều hướng đáy di động (Mobile Floating Glass Dock) trên điện thoại */}
       <MobileNavBar
+        variant="finance"
         activeTab="settings"
         onOpenDeposit={() => setIsDepositOpen(true)}
       />

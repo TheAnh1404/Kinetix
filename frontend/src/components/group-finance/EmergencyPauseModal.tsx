@@ -17,12 +17,14 @@ import { authRequest } from "@/hooks/useAuth";
 
 interface PauseProposal {
   id: string;
+  onchainProposalId?: number;
   action: "PAUSE" | "RESUME";
   approvals: number;
   quorum: number;
   hasVoted?: boolean;
   proposerAddress: string;
   createdAt?: string | number;
+  status?: string;
 }
 
 interface EmergencyPauseModalProps {
@@ -100,20 +102,28 @@ function EmergencyPauseContent({
         const normalized: PauseProposal[] = raw
           .filter(
             (p: any) =>
-              p.action === "PAUSE" ||
-              p.action === "RESUME" ||
-              p.type === "PAUSE" ||
-              p.type === "RESUME"
+              (p.action === "PAUSE" ||
+                p.action === "RESUME" ||
+                p.type === "PAUSE" ||
+                p.type === "RESUME") &&
+              String(p.status || "").toUpperCase() !== "EXECUTED" &&
+              String(p.status || "").toUpperCase() !== "REJECTED" &&
+              String(p.status || "").toUpperCase() !== "CANCELLED"
           )
-          .map((p: any) => ({
-            id: String(p.onchainActionId || p.localId || p.id),
-            action: (p.action || p.type) as "PAUSE" | "RESUME",
-            approvals: Number(p.approvalsCount ?? p.approvals ?? 0),
-            quorum: Number(p.quorum || fund.requiredApprovals || 2),
-            hasVoted: Boolean(p.hasVoted),
-            proposerAddress: p.proposerAddress || p.proposer || "",
-            createdAt: p.createdAt,
-          }));
+          .map((p: any) => {
+            const onchainId = p.onchainProposalId ?? p.onchainActionId;
+            return {
+              id: onchainId !== undefined && onchainId !== null ? String(onchainId) : String(p.localId || p.id),
+              onchainProposalId: onchainId !== undefined && onchainId !== null ? Number(onchainId) : undefined,
+              action: (p.action || p.type) as "PAUSE" | "RESUME",
+              approvals: Number(p.approvalsCount ?? p.approvals ?? 0),
+              quorum: Number(p.quorum || fund.requiredApprovals || 2),
+              hasVoted: Boolean(p.hasVoted),
+              proposerAddress: p.proposerAddress || p.proposer || "",
+              createdAt: p.createdAt,
+              status: p.status,
+            };
+          });
         setProposals(normalized);
       }
     } catch {
@@ -155,12 +165,14 @@ function EmergencyPauseContent({
     setError("");
     setBusy(true);
     try {
+      const numericId = Number(proposalId);
+      const idToPass = Number.isFinite(numericId) && numericId > 0 ? String(numericId) : proposalId;
       if (onApproveAction) {
-        const res = await onApproveAction(proposalId);
+        const res = await onApproveAction(idToPass);
         if (!res.success) throw new Error(res.error || "Ký duyệt thất bại.");
       } else {
         await authRequest(
-          `/api/groups/${workspaceId || fund.workspaceId}/funds/${fund.id}/governance/${proposalId}/approve`,
+          `/api/groups/${workspaceId || fund.workspaceId}/funds/${fund.id}/governance/${idToPass}/approve`,
           {},
           "POST"
         );
@@ -178,12 +190,14 @@ function EmergencyPauseContent({
     setError("");
     setBusy(true);
     try {
+      const numericId = Number(proposalId);
+      const idToPass = Number.isFinite(numericId) && numericId > 0 ? String(numericId) : proposalId;
       if (onExecuteAction) {
-        const res = await onExecuteAction(proposalId);
+        const res = await onExecuteAction(idToPass);
         if (!res.success) throw new Error(res.error || "Thực thi thất bại.");
       } else {
         await authRequest(
-          `/api/groups/${workspaceId || fund.workspaceId}/funds/${fund.id}/governance/${proposalId}/execute`,
+          `/api/groups/${workspaceId || fund.workspaceId}/funds/${fund.id}/governance/${idToPass}/execute`,
           {},
           "POST"
         );
@@ -197,7 +211,14 @@ function EmergencyPauseContent({
     }
   };
 
-  const activeProposal = proposals.length > 0 ? proposals[0] : null;
+  const activeProposal =
+    proposals.find(
+      (p) =>
+        !p.status ||
+        (String(p.status).toUpperCase() !== "EXECUTED" &&
+          String(p.status).toUpperCase() !== "REJECTED" &&
+          String(p.status).toUpperCase() !== "CANCELLED")
+    ) || null;
   const quorum = fund.requiredApprovals || 2;
 
   return (
@@ -270,7 +291,7 @@ function EmergencyPauseContent({
             <div className="flex justify-between items-start gap-2">
               <div>
                 <span className="font-semibold text-slate-100 text-xs block">
-                  Đề xuất: {activeProposal.action === "PAUSE" ? "Tạm dừng khẩn cấp" : "Mở lại hoạt động"}
+                  Đề xuất #{activeProposal.onchainProposalId || activeProposal.id}: {activeProposal.action === "PAUSE" ? "Tạm dừng khẩn cấp" : "Mở lại hoạt động"}
                 </span>
                 <span className="text-[11px] text-slate-400 font-mono truncate block mt-0.5">
                   Người đề xuất: {activeProposal.proposerAddress}
@@ -308,7 +329,7 @@ function EmergencyPauseContent({
               {activeProposal.approvals < (activeProposal.quorum || quorum) ? (
                 <button
                   type="button"
-                  onClick={() => handleApprove(activeProposal.id)}
+                  onClick={() => handleApprove(String(activeProposal.onchainProposalId ?? activeProposal.id))}
                   disabled={busy || activeProposal.hasVoted}
                   className="finance-primary"
                 >
@@ -321,7 +342,7 @@ function EmergencyPauseContent({
               ) : (
                 <button
                   type="button"
-                  onClick={() => handleExecute(activeProposal.id)}
+                  onClick={() => handleExecute(String(activeProposal.onchainProposalId ?? activeProposal.id))}
                   disabled={busy}
                   className="finance-primary bg-emerald-600 hover:bg-emerald-500"
                 >

@@ -123,6 +123,16 @@ function ExpenseForm({
               fingerprint: content,
             });
             setBusy(true);
+            const isDataUrl = Boolean(receipt && receipt.startsWith("data:image/"));
+            const rawBase64 = isDataUrl
+              ? receipt.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "")
+              : undefined;
+            const isHttpUrl = Boolean(
+              receipt &&
+              (receipt.startsWith("http://") || receipt.startsWith("https://")) &&
+              receipt.length <= 500
+            );
+
             const result = await onProposeExpense({
               fundId,
               title,
@@ -131,7 +141,9 @@ function ExpenseForm({
               amountAvax: amount,
               recipientAddress: recipient,
               recipientName,
-              receiptAttachmentUrl: receipt || undefined,
+              receiptAttachmentUrl: isHttpUrl ? receipt : (receipt || undefined),
+              receiptImageBase64: rawBase64,
+              deadlineHours: 168,
               idempotencyKey: requestKey.current,
             });
             if (result.success) {
@@ -171,12 +183,13 @@ function ExpenseForm({
               <dd>Avalanche Fuji</dd>
               <dt>Xét duyệt</dt>
               <dd>
-                {fund?.requiredApprovals}/{fund?.totalSigners} người · 48 giờ
+                {fund?.requiredApprovals}/{fund?.totalSigners} người · 168 giờ (7 ngày)
               </dd>
             </dl>
             <p className="finance-notice">
-              Gửi đề nghị sẽ giữ chỗ số tiền này. Đủ duyệt chưa phải đã trả.
-              Người giữ tiền phải ký giao dịch và chờ đối soát.
+              {fund?.custodyType === "ONCHAIN_V2"
+                ? "Gửi đề nghị sẽ tạo proposal trên smart contract V2. Sau khi đủ số chữ ký quy định, lệnh chi có thể thực thi trực tiếp trên chuỗi."
+                : "Gửi đề nghị sẽ giữ chỗ số tiền này. Đủ duyệt chưa phải đã trả. Người giữ tiền phải ký giao dịch và chờ đối soát."}
             </p>
             {receipt && <img src={receipt} alt="Chứng từ đã chọn" />}
           </>

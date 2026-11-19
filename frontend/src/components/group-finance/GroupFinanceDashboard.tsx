@@ -354,6 +354,7 @@ export const GroupFinanceDashboard: React.FC = () => {
         {!isLoading && activeTab === "inbox" && (
           <PendingApprovalsInbox
             expenses={expenses}
+            funds={funds}
             onApprove={approveExpense}
             onReject={rejectExpense}
             onCancel={cancelExpense}
@@ -418,6 +419,7 @@ export const GroupFinanceDashboard: React.FC = () => {
         isOpen={Boolean(paymentModalRequest)}
         onClose={() => setPaymentModalRequest(null)}
         request={paymentModalRequest}
+        fund={funds.find((f) => f.id === paymentModalRequest?.fundId)}
         onExecutePayment={executePayment}
       />
 
@@ -460,11 +462,19 @@ export const GroupFinanceDashboard: React.FC = () => {
         }}
         onApproveProposal={async (proposalId) => {
           if (!governanceTargetFundId) throw new Error("Chưa chọn quỹ.");
-          return approveGovernance(governanceTargetFundId, Number(proposalId));
+          const numericId = Number(proposalId);
+          if (!Number.isFinite(numericId) || numericId <= 0) {
+            throw new Error(`Mã đề xuất on-chain không hợp lệ: ${proposalId}`);
+          }
+          return approveGovernance(governanceTargetFundId, numericId);
         }}
         onExecuteProposal={async (proposalId) => {
           if (!governanceTargetFundId) throw new Error("Chưa chọn quỹ.");
-          return executeGovernance(governanceTargetFundId, Number(proposalId));
+          const numericId = Number(proposalId);
+          if (!Number.isFinite(numericId) || numericId <= 0) {
+            throw new Error(`Mã đề xuất on-chain không hợp lệ: ${proposalId}`);
+          }
+          return executeGovernance(governanceTargetFundId, numericId);
         }}
       />
 
@@ -485,11 +495,19 @@ export const GroupFinanceDashboard: React.FC = () => {
         }}
         onApproveAction={async (proposalId) => {
           if (!pauseTargetFundId) throw new Error("Chưa chọn quỹ.");
-          return approveGovernance(pauseTargetFundId, Number(proposalId));
+          const numericId = Number(proposalId);
+          if (!Number.isFinite(numericId) || numericId <= 0) {
+            throw new Error(`Mã đề xuất on-chain không hợp lệ: ${proposalId}`);
+          }
+          return approveGovernance(pauseTargetFundId, numericId);
         }}
         onExecuteAction={async (proposalId) => {
           if (!pauseTargetFundId) throw new Error("Chưa chọn quỹ.");
-          return executeGovernance(pauseTargetFundId, Number(proposalId));
+          const numericId = Number(proposalId);
+          if (!Number.isFinite(numericId) || numericId <= 0) {
+            throw new Error(`Mã đề xuất on-chain không hợp lệ: ${proposalId}`);
+          }
+          return executeGovernance(pauseTargetFundId, numericId);
         }}
       />
     </div>

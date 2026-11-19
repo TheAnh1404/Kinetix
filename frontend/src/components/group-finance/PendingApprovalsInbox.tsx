@@ -1,11 +1,12 @@
 "use client";
 import React, { useState } from "react";
 import { formatEther } from "viem";
-import { GroupExpenseRequest } from "@/types/groupFinance";
+import { GroupExpenseRequest, GroupFundItem } from "@/types/groupFinance";
 import { useAuth } from "@/hooks/useAuth";
 import { FinanceDialog } from "./FinanceDialog";
 interface Props {
   expenses: GroupExpenseRequest[];
+  funds?: GroupFundItem[];
   onApprove: (
     id: string,
     comment?: string,
@@ -28,6 +29,7 @@ const labels: Record<string, string> = {
 };
 export function PendingApprovalsInbox({
   expenses,
+  funds,
   onApprove,
   onReject,
   onCancel,
@@ -84,30 +86,40 @@ export function PendingApprovalsInbox({
         </p>
       )}
       {!items.length && <p>Không có đề nghị trong mục này.</p>}
-      {items.map((request) => (
-        <article
-          key={request.id}
-          className="bg-white border border-slate-200 rounded-xl p-4 space-y-3"
-        >
-          <h2 className="font-semibold">{request.title}</h2>
-          <p>{request.fundName}</p>
-          <p className="font-semibold break-all">
-            {formatEther(BigInt(request.amountWei))} AVAX
-          </p>
-          <p>{labels[request.status] || request.status}</p>
-          <p>{request.purpose}</p>
-          <p>
-            Người nhận: {request.recipientName}
-            <br />
-            <span className="break-all">{request.recipientAddress}</span>
-          </p>
-          <p>
-            {request.approvedCount}/{request.requiredApprovals} phiếu duyệt ứng
-            dụng · Hạn {request.deadline}
-          </p>
-          <p className="text-sm">
-            Phiếu duyệt không chuyển tiền và không tạo multisig on-chain.
-          </p>
+      {items.map((request) => {
+        const fund = funds?.find((f) => f.id === request.fundId);
+        const isV2 = Boolean(
+          request.custodyType === "ONCHAIN_V2" ||
+          fund?.custodyType === "ONCHAIN_V2" ||
+          (typeof request.onchainExpenseId === "number" && request.onchainExpenseId > 0)
+        );
+
+        return (
+          <article
+            key={request.id}
+            className="bg-white border border-slate-200 rounded-xl p-4 space-y-3"
+          >
+            <h2 className="font-semibold">{request.title}</h2>
+            <p>{request.fundName}</p>
+            <p className="font-semibold break-all">
+              {formatEther(BigInt(request.amountWei))} AVAX
+            </p>
+            <p>{labels[request.status] || request.status}</p>
+            <p>{request.purpose}</p>
+            <p>
+              Người nhận: {request.recipientName}
+              <br />
+              <span className="break-all">{request.recipientAddress}</span>
+            </p>
+            <p>
+              {request.approvedCount}/{request.requiredApprovals}{" "}
+              {isV2 ? "chữ ký on-chain" : "phiếu duyệt ứng dụng"} · Hạn {request.deadlineFormatted || request.deadline}
+            </p>
+            <p className="text-sm">
+              {isV2
+                ? "Phiếu duyệt được ghi nhận trực tiếp trên smart contract V2 (Multisig On-Chain)."
+                : "Phiếu duyệt không chuyển tiền và không tạo multisig on-chain."}
+            </p>
           {request.approvals.map((vote) => (
             <p className="text-sm" key={vote.id}>
               {vote.approverName} ·{" "}
@@ -177,7 +189,7 @@ export function PendingApprovalsInbox({
             </a>
           )}
         </article>
-      ))}
+      ); })}
       {reject && (
         <FinanceDialog
           title="Từ chối đề nghị chi"

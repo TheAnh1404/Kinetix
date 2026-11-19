@@ -1,12 +1,13 @@
 "use client";
 import React, { useState } from "react";
 import { formatEther } from "viem";
-import { GroupExpenseRequest } from "@/types/groupFinance";
+import { GroupExpenseRequest, GroupFundItem } from "@/types/groupFinance";
 import { FinanceDialog } from "./FinanceDialog";
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   request: GroupExpenseRequest | null;
+  fund?: GroupFundItem;
   onExecutePayment: (
     id: string,
   ) => Promise<{ success: boolean; error?: string; txHash?: string }>;
@@ -19,11 +20,18 @@ export function PaymentExecutionModal(props: Props) {
 function PaymentForm({
   onClose,
   request,
+  fund,
   onExecutePayment,
 }: Props & { request: GroupExpenseRequest }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [hash, setHash] = useState("");
+
+  const isV2 = Boolean(
+    fund?.custodyType === "ONCHAIN_V2" ||
+    request?.custodyType === "ONCHAIN_V2" ||
+    (typeof request?.onchainExpenseId === "number" && request.onchainExpenseId > 0)
+  );
   return (
     <FinanceDialog title="Thanh toán khoản chi" busy={busy} onClose={onClose}>
       <div className="finance-stack">
@@ -63,9 +71,9 @@ function PaymentForm({
               <dd>Avalanche Fuji · Phí mạng trả thêm bằng AVAX</dd>
             </dl>
             <p className="finance-notice">
-              Đủ duyệt · Chưa thanh toán. Chỉ ví giữ tiền của quỹ được ký. Sau
-              khi mở lệnh, khoản giữ chỗ được giữ đến khi đối soát để tránh chi
-              trùng.
+              {isV2
+                ? "Đủ duyệt · Sẵn sàng thực thi. Hợp đồng thông minh V2 sẽ giải ngân trực tiếp cho người nhận khi giao dịch thực thi được xác nhận trên mạng Fuji C-Chain."
+                : "Đủ duyệt · Chưa thanh toán. Chỉ ví giữ tiền của quỹ được ký. Sau khi mở lệnh, khoản giữ chỗ được giữ đến khi đối soát để tránh chi trùng."}
             </p>
             <button
               className="finance-primary"
@@ -83,7 +91,7 @@ function PaymentForm({
                 }
               }}
             >
-              {busy ? "Đang ký / đối soát…" : "Mở ví để thanh toán"}
+              {busy ? "Đang ký / đối soát…" : isV2 ? "Thực thi giải ngân on-chain" : "Mở ví để thanh toán"}
             </button>
           </>
         )}
