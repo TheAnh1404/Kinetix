@@ -1,0 +1,69 @@
+{
+  "commit": "2230fbd",
+  "environment": "Node mock adapters; no real wallet or database",
+  "results": [
+    {
+      "name": "Initial linked-wallet mismatch",
+      "observed": "Rejected before broadcast"
+    },
+    {
+      "name": "Reverted receipt",
+      "observed": "Rejected by real client"
+    },
+    {
+      "name": "UI-disconnected/null workspace scope",
+      "observed": "Broadcast accepted"
+    },
+    {
+      "name": "Workspace changes during simulation",
+      "observed": "Broadcast accepted after scope changed"
+    },
+    {
+      "name": "Retry same deposit after receipt timeout",
+      "observed": {
+        "broadcastCalls": 2,
+        "journalRecords": 5
+      }
+    },
+    {
+      "name": "Emergency governance API DTO to UI to client",
+      "observed": {
+        "apiOnchainId": 7,
+        "uiId": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+        "numericId": "NaN",
+        "result": "Approval rejected before signing"
+      }
+    },
+    {
+      "name": "PolicyApplied indexing",
+      "observed": {
+        "policyVersion": 2,
+        "signers": []
+      }
+    },
+    {
+      "name": "Indexer getLogs failure",
+      "observed": {
+        "errors": 1,
+        "nextBlock": "101",
+        "result": "Failed log range skipped"
+      }
+    },
+    {
+      "name": "V2 expense sync after mocked access check",
+      "observed": {
+        "txHashProvided": false,
+        "chainReadAvailable": false,
+        "persistedOnchainId": 777,
+        "persistedAmountWei": "1"
+      }
+    },
+    {
+      "name": "V2 inline receipt attachment",
+      "observed": {
+        "dataUrlLength": 622,
+        "result": "Rejected by 500-character text validation before DB write"
+      }
+    }
+  ]
+}
